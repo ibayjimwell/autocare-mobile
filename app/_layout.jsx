@@ -3,7 +3,8 @@ import { ThemeProvider, useTheme } from "../context/ThemeContext";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { View, ActivityIndicator, TouchableOpacity, Text } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons"; // --- Vector Icons for Navigation ---
+import { Ionicons } from "@expo/vector-icons";
+import * as Linking from 'expo-linking';
 import "../global.css";
 
 /**
@@ -15,6 +16,17 @@ function CustomStackHeader({ title, canGoBack }) {
   const { theme } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const url = Linking.useURL();
+
+  useEffect(() => {
+    if (url) {
+      // Parse and navigate – Expo Router already does this, but you can manually trigger
+      const { path, queryParams } = Linking.parse(url);
+      if (path === 'payment-success') {
+        router.replace({ pathname: '/payment-success', params: queryParams });
+      }
+    }
+  }, [url]);
 
   return (
     <View 
@@ -152,6 +164,32 @@ function RootLayoutNav() {
             options={{ 
               headerShown: true,
               title: "Settlement Invoice",
+              header: ({ options, navigation }) => (
+                <CustomStackHeader 
+                  title={options.title} 
+                  canGoBack={navigation.canGoBack()} 
+                />
+              ),
+            }} 
+          />
+          <Stack.Screen 
+            name="billing" 
+            options={{ 
+              headerShown: true,
+              title: "Billing & Payments",
+              header: ({ options, navigation }) => (
+                <CustomStackHeader 
+                  title={options.title} 
+                  canGoBack={navigation.canGoBack()} 
+                />
+              ),
+            }} 
+          />
+          <Stack.Screen 
+            name="payment-success" 
+            options={{ 
+              headerShown: true,
+              title: "Payment Successful",
               header: ({ options, navigation }) => (
                 <CustomStackHeader 
                   title={options.title} 

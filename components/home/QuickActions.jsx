@@ -8,7 +8,7 @@ export default function QuickActions() {
       <View className="flex-row justify-between">
         <ActionItem icon="calendar" label="Booking" color="#C1272D" path="/booking" />
         <ActionItem icon="location" label="Tracking" color="#6366f1" path="/tracking?appointmentId=dummy" />
-        <ActionItem icon="receipt" label="Payment" color="#10b981" path="/invoice" />
+        <ActionItem icon="receipt" label="Payment" color="#10b981" path="/billing" />
       </View>
     </View>
   );

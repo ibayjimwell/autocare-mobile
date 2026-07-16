@@ -142,14 +142,20 @@ export default function TrackingScreen() {
         )}
 
         {/* Final bill for IN_PROGRESS (if available) */}
-        {isInProgress && finalBill && (
-          <View className="p-8 rounded-[32px] mb-10 border border-border bg-card">
+       {isInProgress && finalBill && (
+          <TouchableOpacity
+            onPress={() => router.push(`/invoice/${finalBill.id}`)}
+            className="p-8 rounded-[32px] mb-10 border border-border bg-card"
+          >
             <Text className="text-xl font-heading font-black mb-6 text-foreground">Final Bill</Text>
             <View className="flex-row justify-between mb-4">
               <Text className="text-sm font-medium text-foreground/60">Total</Text>
               <Text className="text-sm font-black text-foreground">₱{finalBillGrandTotal.toFixed(2)}</Text>
             </View>
-          </View>
+            <View className="mt-2 flex-row justify-end">
+              <Text className="text-xs font-bold text-primary">View Invoice →</Text>
+            </View>
+          </TouchableOpacity>
         )}
 
         {isCancelled && <CancellationNote notes={appointment.notes} />}

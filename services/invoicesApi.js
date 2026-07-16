@@ -1,8 +1,13 @@
+// services/finalBillsApi.js
 import api from './api';
 
-const invoicesApi = {
+const finalBillsApi = {
   getByAppointment: (appointmentId) =>
-    api.request(`/invoices/appointment/${appointmentId}`, 'GET', null, true),
+    api.request(`/payments/final-bills?appointmentId=${appointmentId}`, 'GET', null, true),
+  
+  // New: fetch a single final bill with all details
+  getById: (billId) =>
+    api.request(`/payments/final-bills/${billId}`, 'GET', null, true),
 };
 
-export default invoicesApi;
+export default finalBillsApi;

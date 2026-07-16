@@ -12,6 +12,10 @@ const estimateApi = {
   // Decline an estimate with reason
   decline: (estimateId, reason) =>
     api.request(`/payments/estimates/${estimateId}/decline`, 'PATCH', { reason }, true),
+
+  listByCustomer: (customerId) =>
+    api.request(`/payments/estimates?customerId=${customerId}`, 'GET', null, true),
+
 };
 
 export default estimateApi;

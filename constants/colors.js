@@ -1,0 +1,28 @@
+export const Colors = {
+  light: {
+    primary: "#B22222",
+    secondary: "#757575",
+    accent: "#FFD700",
+    background: "#FFFFFF",
+    surface: "#F5F5F5",
+    text: "#212121",
+    textSecondary: "#757575",
+    border: "#E0E0E0",
+    error: "#B22222",
+    success: "#4CAF50",
+    warning: "#FF9800",
+  },
+  dark: {
+    primary: "#D32F2F",
+    secondary: "#9E9E9E",
+    accent: "#FFC107",
+    background: "#121212",
+    surface: "#1E1E1E",
+    text: "#FFFFFF",
+    textSecondary: "#B0B0B0",
+    border: "#333333",
+    error: "#D32F2F",
+    success: "#66BB6A",
+    warning: "#FFB74D",
+  },
+};

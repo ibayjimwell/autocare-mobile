@@ -1,0 +1,17 @@
+export const theme = {
+  background: "#F5F5F5",
+  foreground: "#1A1A1A",
+  card: "#FFFFFF",
+  primary: "#C1272D",
+  "primary-foreground": "#FFFFFF",
+  secondary: "#FBBF24",
+  "secondary-foreground": "#1A1A1A",
+  muted: "#EBEBEB",
+  "muted-foreground": "#666666",
+  accent: "#2B2B2B",
+  "accent-foreground": "#FAFAFA",
+  destructive: "#EF4444",
+  border: "#D9D9D9",
+  input: "#D9D9D9",
+  ring: "#C1272D",
+};

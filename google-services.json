@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "979406644724",
+    "project_id": "autocare-e71b2",
+    "storage_bucket": "autocare-e71b2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:979406644724:android:50752f07abacb857d545a1",
+        "android_client_info": {
+          "package_name": "com.ibayjimwell.autoprotechmobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyChvaPtS7_O8wYAIXDA2FBZsRtntPypdeM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

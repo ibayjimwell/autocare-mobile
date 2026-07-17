@@ -1,6 +1,8 @@
 import { ScrollView, View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useHomeData } from '../../hooks/useHomeData';
 import GreetingHeader from '../../components/home/GreetingHeader';
 import HeroCard from '../../components/home/HeroCard';
@@ -13,13 +15,33 @@ import { formatDuration, formatPrice } from '../../utils/format';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const {
     upcomingAppointment,
     underInspectionAppointments,
     inProgressAppointments,
     trendingServices,
-    loading,
+    loading: homeLoading,
   } = useHomeData();
+
+  // Redirect to login if no user is present (after auth check finishes)
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/login');
+    }
+  }, [authLoading, user, router]);
+
+  // Show loading spinner while auth is being determined
+  if (authLoading) {
+    return (
+      <View className="flex-1 justify-center items-center bg-background">
+        <ActivityIndicator size="large" color="#C1272D" />
+      </View>
+    );
+  }
+
+  // If no user after loading, the redirect will trigger, but we can also return null
+  if (!user) return null;
 
   return (
     <ScrollView className="flex-1 bg-background" showsVerticalScrollIndicator={false}>
@@ -35,7 +57,7 @@ export default function HomeScreen() {
             <Text className="text-xs font-bold uppercase tracking-wider text-primary">View All</Text>
           </Link>
         </View>
-        {loading ? (
+        {homeLoading ? (
           <View className="h-32 rounded-3xl items-center justify-center border border-dashed border-border bg-card">
             <ActivityIndicator color="#C1272D" />
           </View>
@@ -45,7 +67,7 @@ export default function HomeScreen() {
       </View>
 
       {/* Under Inspection */}
-      {!loading && (
+      {!homeLoading && (
         <AppointmentSection
           title="Under Inspection"
           appointments={underInspectionAppointments}
@@ -54,7 +76,7 @@ export default function HomeScreen() {
       )}
 
       {/* In Progress */}
-      {!loading && (
+      {!homeLoading && (
         <AppointmentSection
           title="In Progress"
           appointments={inProgressAppointments}

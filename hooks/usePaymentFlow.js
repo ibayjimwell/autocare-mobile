@@ -1,73 +1,48 @@
 // hooks/usePaymentFlow.js
-import { useState, useCallback } from 'react';
-import { Linking, Alert, Platform } from 'react-native';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { Linking, Alert } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Buffer } from 'buffer';
 import paymentsApi from '../services/paymentsApi';
 
-// ===================== DEBUG LOGGING =====================
 const PAYMONGO_PUBLIC_KEY = process.env.EXPO_PUBLIC_PAYMONGO_PUBLIC_KEY;
-console.log('[PayMongo Init] Public key present:', !!PAYMONGO_PUBLIC_KEY);
-if (PAYMONGO_PUBLIC_KEY) {
-  console.log('[PayMongo Init] Key prefix:', PAYMONGO_PUBLIC_KEY.substring(0, 8) + '...');
-  console.log('[PayMongo Init] Encoded prefix:',
-    Buffer.from(`${PAYMONGO_PUBLIC_KEY}:`).toString('base64').substring(0, 12) + '...');
-} else {
-  console.warn('[PayMongo Init] WARNING: EXPO_PUBLIC_PAYMONGO_PUBLIC_KEY is empty!');
+if (!PAYMONGO_PUBLIC_KEY) {
+  console.warn('[PayMongo] EXPO_PUBLIC_PAYMONGO_PUBLIC_KEY is not set!');
 }
 
 async function createPaymentLinkClient(amountInCentavos, description, remarks) {
   if (!PAYMONGO_PUBLIC_KEY) {
-    throw new Error('Payment service not configured. Please contact support.');
+    throw new Error('Payment service not configured.');
   }
-
   const encodedKey = Buffer.from(`${PAYMONGO_PUBLIC_KEY}:`).toString('base64');
-  console.log('[PayMongo] Starting request...');
-  console.log('[PayMongo] URL:', 'https://api.paymongo.com/v1/links');
-  console.log('[PayMongo] Authorization prefix:', encodedKey.substring(0, 12) + '...');
 
-  const body = JSON.stringify({
-    data: {
-      attributes: {
-        amount: amountInCentavos,
-        description,
-        remarks,
-      },
+  const response = await fetch('https://api.paymongo.com/v1/links', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Basic ${encodedKey}`,
     },
-  });
-  console.log('[PayMongo] Body:', body);
-
-  let response;
-  try {
-    response = await fetch('https://api.paymongo.com/v1/links', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Basic ${encodedKey}`,
+    body: JSON.stringify({
+      data: {
+        attributes: {
+          amount: amountInCentavos,
+          description,
+          remarks,
+        },
       },
-      body,
-    });
-  } catch (networkError) {
-    console.error('[PayMongo] Network error:', networkError);
-    throw new Error('Network error: ' + (networkError.message || 'Could not connect to payment gateway.'));
-  }
-
-  console.log('[PayMongo] Response status:', response.status, response.statusText);
+    }),
+  });
 
   const text = await response.text();
-  console.log('[PayMongo] Raw response (first 300 chars):', text.substring(0, 300));
-
   let json;
   try {
     json = JSON.parse(text);
   } catch {
-    console.error('[PayMongo] JSON parse failed. Full response:', text);
-    throw new Error('Payment gateway returned an unexpected response. Please try again later.');
+    throw new Error('Payment gateway returned an unexpected response.');
   }
 
   if (!response.ok) {
-    const detail = json?.errors?.[0]?.detail || json?.error || 'Payment link creation failed';
-    console.error('[PayMongo] API error:', JSON.stringify(json));
+    const detail = json?.errors?.[0]?.detail || 'Payment link creation failed';
     throw new Error(detail);
   }
 
@@ -87,6 +62,56 @@ export function usePaymentFlow(billId, grandTotal) {
     verifying: false,
   });
 
+  const pollingInterval = useRef(null);
+  const attemptsRef = useRef(0);
+  const MAX_POLL_ATTEMPTS = 10;    // 10 attempts × 2 seconds = 20 seconds
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+    };
+  }, []);
+
+  const verifyPayment = useCallback(async (linkId) => {
+    if (!billId || !linkId) return false;
+    try {
+      const res = await paymentsApi.verifyPayment(billId, linkId);
+      return res.data?.paid === true;
+    } catch (err) {
+      console.error('Verification error:', err);
+      return false;
+    }
+  }, [billId]);
+
+  const startPolling = useCallback((linkId) => {
+    // Clear any existing poll
+    if (pollingInterval.current) clearInterval(pollingInterval.current);
+
+    attemptsRef.current = 0;
+    setState(prev => ({ ...prev, verifying: true }));
+
+    pollingInterval.current = setInterval(async () => {
+      attemptsRef.current += 1;
+      const paid = await verifyPayment(linkId);
+
+      if (paid) {
+        clearInterval(pollingInterval.current);
+        pollingInterval.current = null;
+        setState(prev => ({ ...prev, verifiedPaid: true, verifying: false }));
+        return;
+      }
+
+      if (attemptsRef.current >= MAX_POLL_ATTEMPTS) {
+        clearInterval(pollingInterval.current);
+        pollingInterval.current = null;
+        setState(prev => ({ ...prev, verifying: false }));
+      }
+    }, 2000);
+  }, [verifyPayment]);
+
   const startPayment = async () => {
     if (!billId || !grandTotal) return;
     setState(prev => ({ ...prev, paying: true }));
@@ -103,6 +128,10 @@ export function usePaymentFlow(billId, grandTotal) {
 
       setState(prev => ({ ...prev, paymongoLinkId }));
       await Linking.openURL(checkoutUrl);
+
+      // Start polling after the browser is opened – it will continue
+      // even if the user hasn't returned yet.
+      startPolling(paymongoLinkId);
     } catch (err) {
       Alert.alert('Payment Error', err.message || 'Could not initiate payment.');
     } finally {
@@ -110,26 +139,16 @@ export function usePaymentFlow(billId, grandTotal) {
     }
   };
 
-  const verify = useCallback(async () => {
-    if (!billId || !state.paymongoLinkId) return;
-    setState(prev => ({ ...prev, verifying: true }));
-    try {
-      const res = await paymentsApi.verifyPayment(billId, state.paymongoLinkId);
-      setState(prev => ({
-        ...prev,
-        verifiedPaid: res.data?.paid === true,
-      }));
-    } catch (err) {
-      console.error('Verification error:', err);
-    } finally {
-      setState(prev => ({ ...prev, verifying: false }));
-    }
-  }, [billId, state.paymongoLinkId]);
-
+  // Also retry verification on every screen focus (fallback for deep link / later return)
   useFocusEffect(
     useCallback(() => {
-      verify();
-    }, [verify])
+      if (state.paymongoLinkId && !state.verifiedPaid) {
+        // If polling is not already active, start it again
+        if (!pollingInterval.current) {
+          startPolling(state.paymongoLinkId);
+        }
+      }
+    }, [state.paymongoLinkId, state.verifiedPaid, startPolling])
   );
 
   return {

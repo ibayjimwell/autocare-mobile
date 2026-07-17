@@ -22,7 +22,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.ibayjimwell.autoprotechmobile"
+      "package": "com.ibayjimwell.autoprotechmobile",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -33,7 +34,8 @@
       [
         "expo-notifications",
         {
-          "color": "#b22222",
+          "icon": "./assets/icon.png",
+          "color": "#C1272D",
           "sounds": [
             "./assets/notification_sound.wav"
           ]

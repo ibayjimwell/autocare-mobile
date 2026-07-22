@@ -1,3 +1,4 @@
+// hooks/useTrackingData.js
 import { useState, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
@@ -5,6 +6,7 @@ import appointmentsApi from '../services/appointmentsApi';
 import tasksApi from '../services/tasksApi';
 import estimateApi from '../services/estimateApi';
 import finalBillsApi from '../services/finalBillsApi';
+import { useRealtimeTable } from '../connections/useRealtimeTable';
 
 export function useTrackingData(appointmentId) {
   const { user } = useAuth();
@@ -51,7 +53,6 @@ export function useTrackingData(appointmentId) {
     if (!appointmentId) return;
     try {
       const res = await estimateApi.getByAppointment(appointmentId);
-      // The endpoint returns an array of estimates, take the first one (usually only one)
       const estimates = res.data || [];
       setEstimate(estimates.length > 0 ? estimates[0] : null);
     } catch (err) { console.error(err); }
@@ -84,6 +85,27 @@ export function useTrackingData(appointmentId) {
     setRefreshing(false);
   }, [refreshAll]);
 
+  // 🔥 Real‑time: Appointment changes
+  useRealtimeTable(
+    'appointments',
+    `id=eq.${appointmentId}`,
+    refreshAll
+  );
+
+  // 🔥 Real‑time: Inspection tasks changes
+  useRealtimeTable(
+    'inspection_tasks',
+    `appointment_id=eq.${appointmentId}`,
+    refreshAll
+  );
+
+  // 🔥 Real‑time: Work tasks changes
+  useRealtimeTable(
+    'work_tasks',
+    `appointment_id=eq.${appointmentId}`,
+    refreshAll
+  );
+
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
@@ -94,8 +116,8 @@ export function useTrackingData(appointmentId) {
   return {
     appointment,
     tasks,
-    estimate,            // { id, status, serviceSubtotal, findingsSubtotal, feesTotal, discountTotal, grandTotal }
-    finalBill,           // { id, status, grandTotal, ... }
+    estimate,
+    finalBill,
     loading,
     refreshing,
     onRefresh,

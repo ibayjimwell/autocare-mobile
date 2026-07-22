@@ -10,7 +10,7 @@ export default function TrackingHeader({ appointment }) {
           Tracking No.
         </Text>
         <Text className="text-3xl font-heading font-black text-foreground">
-          #{appointment?.id?.slice(0, 8).toUpperCase() || 'N/A'}
+          {appointment?.trackingNumber || 'N/A'}
         </Text>
       </View>
       <View className="items-end">

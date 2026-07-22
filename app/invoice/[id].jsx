@@ -11,15 +11,12 @@ export default function InvoiceScreen() {
   const router = useRouter();
   const { theme } = useTheme();
 
-  // Always call hooks in the same order
   const { invoice, loading, error } = useInvoice(billId);
-  // Pass grandTotal from invoice – may be undefined during loading, but hook guards against it
   const { startPayment, paying, verifiedPaid, verifying } = usePaymentFlow(
     billId,
     invoice?.grandTotal
   );
 
-  // Early returns after all hooks
   if (loading) {
     return (
       <View className="flex-1 justify-center items-center" style={{ backgroundColor: theme.background }}>
@@ -62,7 +59,7 @@ export default function InvoiceScreen() {
     ...(findings?.map(f => ({ name: f.description, price: parseFloat(f.partsSubtotal || 0), description: 'Finding/Repair', icon: 'car-wrench' })) || []),
   ];
 
-  // Success screen
+  // ---------- Success / Already Paid Screen ----------
   if (isPaid) {
     return (
       <View className="flex-1 justify-center items-center px-8" style={{ backgroundColor: theme.surface }}>
@@ -75,13 +72,17 @@ export default function InvoiceScreen() {
         <Text className="text-sm text-center opacity-60 mb-8 leading-5" style={{ color: theme.textSecondary }}>
           Your payment has been processed.{'\n'}A receipt has been generated.
         </Text>
+
+        {/* View Receipt button (opens the receipt screen) */}
         <TouchableOpacity
-          onPress={() => router.replace(`/invoice/${billId}`)}
+          onPress={() => router.push(`/receipt/${billId}`)}
           className="py-4 px-8 rounded-2xl mb-3"
           style={{ backgroundColor: theme.primary }}
         >
-          <Text className="text-base font-bold text-white">View Invoice</Text>
+          <Text className="text-base font-bold text-white">View Receipt</Text>
         </TouchableOpacity>
+
+        {/* Optional: Go back to billing list */}
         <TouchableOpacity
           onPress={() => router.replace('/billing')}
           className="py-2 px-4"
@@ -94,7 +95,7 @@ export default function InvoiceScreen() {
     );
   }
 
-  // Normal invoice view
+  // ---------- Normal (Unpaid) Invoice View ----------
   return (
     <ScrollView
       className="flex-1"
@@ -241,19 +242,19 @@ export default function InvoiceScreen() {
         </Text>
 
         <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => router.push(`/cash-qr/${billId}`)}
-            className="p-5 rounded-3xl mb-4 flex-row items-center border"
-            style={{ backgroundColor: theme.background, borderColor: theme.border }}
-            >
-            <View className="w-12 h-12 rounded-2xl bg-emerald-500/10 justify-center items-center mr-4">
-                <FontAwesome5 name="money-bill-wave" size={20} color="#10b981" />
-            </View>
-            <View className="flex-1">
-                <Text className="text-base font-black" style={{ color: theme.text }}>Cash Payment</Text>
-                <Text className="text-xs opacity-50" style={{ color: theme.textSecondary }}>Pay at the front desk</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={theme.border} />
+          activeOpacity={0.8}
+          onPress={() => router.push(`/cash-qr/${billId}`)}
+          className="p-5 rounded-3xl mb-4 flex-row items-center border"
+          style={{ backgroundColor: theme.background, borderColor: theme.border }}
+        >
+          <View className="w-12 h-12 rounded-2xl bg-emerald-500/10 justify-center items-center mr-4">
+            <FontAwesome5 name="money-bill-wave" size={20} color="#10b981" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-base font-black" style={{ color: theme.text }}>Cash Payment</Text>
+            <Text className="text-xs opacity-50" style={{ color: theme.textSecondary }}>Pay at the front desk</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={theme.border} />
         </TouchableOpacity>
 
         <TouchableOpacity

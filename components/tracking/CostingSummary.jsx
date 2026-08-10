@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import EstimateBreakdown from './EstimateBreakdown';
 
 export default function CostingSummary({
   servicePrice,
@@ -11,7 +12,43 @@ export default function CostingSummary({
   actionLoading,
   onApprove,
   onReject,
+  estimate, // full estimate object
 }) {
+  // If we have the full estimate, render breakdown
+  if (estimate && estimate.findings) {
+    return (
+      <View className="mb-10">
+        <EstimateBreakdown estimate={estimate} />
+        {isWaitingForApproval && (
+          <View className="flex-row gap-4 mt-6">
+            <TouchableOpacity
+              onPress={onReject}
+              disabled={actionLoading}
+              className="flex-1 h-16 rounded-[24px] items-center justify-center border-2 border-destructive"
+            >
+              <Text className="text-sm font-black uppercase text-destructive">Reject</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onApprove}
+              disabled={actionLoading}
+              className="flex-[2] h-16 rounded-[24px] items-center justify-center bg-green-500 shadow-lg shadow-green-500/30"
+            >
+              {actionLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <View className="flex-row items-center">
+                  <Text className="text-white font-black uppercase mr-2">Approve</Text>
+                  <Ionicons name="arrow-forward" size={18} color="#fff" />
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  // Fallback: simple summary (original)
   return (
     <View className="p-8 rounded-[32px] mb-10 border border-border bg-card">
       <Text className="text-xl font-heading font-black mb-6 text-foreground">

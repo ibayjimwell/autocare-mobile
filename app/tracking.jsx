@@ -47,7 +47,7 @@ export default function TrackingScreen() {
   const isInProgress = appointment?.status === 'IN_PROGRESS';
   const isCancelled = appointment?.status === 'CANCELLED';
 
-  // Compute costing from tasks and estimate
+  // Compute costing from tasks and estimate (fallback)
   const servicePrice = parseFloat(estimate?.serviceSubtotal) || 0;
   const partsTotal = tasks
     .filter(t => t.status === 'DONE' && t.findings)
@@ -157,6 +157,7 @@ export default function TrackingScreen() {
             actionLoading={actionLoading}
             onApprove={() => setApproveModalVisible(true)}
             onReject={() => setRejectModalVisible(true)}
+            estimate={estimate} // 👈 pass full estimate
           />
         )}
 

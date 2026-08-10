@@ -1,4 +1,3 @@
-// hooks/useTrackingData.js
 import { useState, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
@@ -52,10 +51,21 @@ export function useTrackingData(appointmentId) {
   const fetchEstimate = useCallback(async () => {
     if (!appointmentId) return;
     try {
+      // First, get the list to find estimate ID
       const res = await estimateApi.getByAppointment(appointmentId);
       const estimates = res.data || [];
-      setEstimate(estimates.length > 0 ? estimates[0] : null);
-    } catch (err) { console.error(err); }
+      if (estimates.length > 0) {
+        const estimateId = estimates[0].id;
+        // Now fetch full details
+        const detailRes = await estimateApi.get(estimateId);
+        setEstimate(detailRes.data || null);
+      } else {
+        setEstimate(null);
+      }
+    } catch (err) {
+      console.error(err);
+      setEstimate(null);
+    }
   }, [appointmentId]);
 
   const fetchFinalBill = useCallback(async () => {
@@ -85,21 +95,19 @@ export function useTrackingData(appointmentId) {
     setRefreshing(false);
   }, [refreshAll]);
 
-  // 🔥 Real‑time: Appointment changes
+  // Realtime subscriptions
   useRealtimeTable(
     'appointments',
     `id=eq.${appointmentId}`,
     refreshAll
   );
 
-  // 🔥 Real‑time: Inspection tasks changes
   useRealtimeTable(
     'inspection_tasks',
     `appointment_id=eq.${appointmentId}`,
     refreshAll
   );
 
-  // 🔥 Real‑time: Work tasks changes
   useRealtimeTable(
     'work_tasks',
     `appointment_id=eq.${appointmentId}`,

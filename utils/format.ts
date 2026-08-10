@@ -36,3 +36,17 @@ export function dateToTimeString(date: Date) {
   return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:00`;
 }
 
+/**
+ * Get a comma‑separated list of service names from an appointment.
+ * @param {Object} appointment - The appointment object containing `services` array.
+ * @returns {string} - e.g. "Checkup of vehicle, Testing"
+ */
+export function getServiceNames(appointment) {
+  if (!appointment?.services || !Array.isArray(appointment.services)) {
+    return 'Service';
+  }
+  const names = appointment.services
+    .map(s => s?.name || '')
+    .filter(Boolean);
+  return names.length > 0 ? names.join(', ') : 'Service';
+}

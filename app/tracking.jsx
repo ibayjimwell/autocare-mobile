@@ -146,7 +146,7 @@ export default function TrackingScreen() {
         )}
 
         {/* Estimate costing – only for UNDER_INSPECTION / WAITING_FOR_APPROVAL */}
-        {['UNDER_INSPECTION', 'WAITING_FOR_APPROVAL'].includes(appointment.status) && (
+        {['WAITING_FOR_APPROVAL'].includes(appointment.status) && (
           <CostingSummary
             servicePrice={servicePrice}
             partsTotal={partsTotal}

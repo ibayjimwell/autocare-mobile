@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { formatDate, formatTime } from '../../utils/format';
+import { formatDate, formatTime, getServiceNames } from '../../utils/format';
 import { getStatusConfig } from '../../utils/appointments';
 
 export default function AppointmentCard({ appointment }) {
@@ -27,7 +27,7 @@ export default function AppointmentCard({ appointment }) {
           </View>
           <View className="flex-1 mr-2">
             <Text className="text-lg font-heading font-black text-foreground" numberOfLines={1}>
-              {appointment.serviceType?.name || 'Service'}
+              {getServiceNames(appointment)}
             </Text>
             <Text className="text-xs font-bold text-foreground/50">
               {appointment.vehicle?.make} {appointment.vehicle?.model}

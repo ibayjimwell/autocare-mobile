@@ -1,6 +1,6 @@
 import { View, Text } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { formatDate, formatTime12h } from '../../utils/format';
+import { formatDate, formatTime12h, getServiceNames } from '../../utils/format';
 
 export default function VehicleInfoCard({ appointment }) {
   return (
@@ -10,7 +10,9 @@ export default function VehicleInfoCard({ appointment }) {
           <MaterialCommunityIcons name="car-cog" size={24} color="#C1272D" />
         </View>
         <View className="flex-1">
-          <Text className="text-lg font-black text-foreground">{appointment?.serviceType?.name || 'Maintenance Service'}</Text>
+          <Text className="text-lg font-black text-foreground">
+            {getServiceNames(appointment)}
+          </Text>
           <Text className="text-xs font-bold text-muted-foreground">
             {appointment?.vehicle?.make} {appointment?.vehicle?.model} • {appointment?.vehicle?.plateNumber}
           </Text>

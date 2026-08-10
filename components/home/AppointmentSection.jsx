@@ -2,7 +2,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, Link } from 'expo-router';
 import { STATUS_CONFIG } from '../../utils/constants';
-import { formatDate, formatTime } from '../../utils/format';
+import { formatDate, formatTime, getServiceNames } from '../../utils/format';
 
 export default function AppointmentSection({ title, appointments, statusKey }) {
   const router = useRouter();
@@ -47,7 +47,9 @@ export default function AppointmentSection({ title, appointments, statusKey }) {
                 <MaterialCommunityIcons name={status.icon} size={26} color={color} />
               </View>
               <View className="flex-1 mr-2">
-                <Text className="text-lg font-black text-foreground" numberOfLines={1}>{appt.serviceType?.name || 'Service'}</Text>
+                <Text className="text-lg font-black text-foreground" numberOfLines={1}>
+                  {getServiceNames(appt)}
+                </Text>
                 <Text className="text-xs font-bold text-foreground/50">{appt.vehicle?.make} {appt.vehicle?.model}</Text>
               </View>
             </View>

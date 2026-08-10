@@ -1,6 +1,6 @@
 import { storage } from '../utils/storage';
 
-export const API_BASE_URL = 'http://192.168.1.9:3000/api';
+export const API_BASE_URL = 'https://autocare-system.vercel.app/api';
 
 const api = {
   async request(endpoint, method = 'GET', body = null, requiresAuth = false) {

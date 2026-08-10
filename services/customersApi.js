@@ -11,6 +11,9 @@ const customersApi = {
     getStats(customerId) {
         return api.request(`/customers/${customerId}/stats`, 'GET', null, true);
     },
+    getAppointmentHistory: (customerId) => {
+       return api.request(`/customers/${customerId}/appointments-history`, "GET", null, true);
+     },
     getMe() {
         return api.request('/auth/me', 'GET', null, true);
     },

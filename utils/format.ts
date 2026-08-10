@@ -35,3 +35,4 @@ export function formatTime12h(time24: string | undefined) {
 export function dateToTimeString(date: Date) {
   return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:00`;
 }
+

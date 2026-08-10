@@ -6,7 +6,7 @@ import {
   TouchableOpacity
  } from "react-native";
 import { useState } from "react";
-import { router } from "expo-router";
+import { router, Link } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
 import { useProfileData } from "../../hooks/useProfileData";
 import ProfileHeader from "../../components/profile/ProfileHeader";
@@ -67,7 +67,7 @@ export default function ProfileScreen() {
             </Text>
           </View>
           <TouchableOpacity onPress={() => router.push("/history")}>
-            <Text className="text-sm font-bold text-primary">View All</Text>
+            <Link className="text-sm font-bold text-primary" href='history' >View All</Link>
           </TouchableOpacity>
         </View>
         <RecentHistory appointments={stats.completedAppointments} />

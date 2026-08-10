@@ -1,9 +1,9 @@
-// app/tracking.jsx
-import { View, ScrollView, RefreshControl, Alert, ActivityIndicator, Text } from 'react-native';
+import { View, ScrollView, RefreshControl, Alert, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 import { useState } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTrackingData } from '../hooks/useTrackingData';
+import { useQueue } from '../hooks/useQueue';
 import { statusToStage } from '../utils/constants';
 import TrackingHeader from '../components/tracking/TrackingHeader';
 import VehicleInfoCard from '../components/tracking/VehicleInfoCard';
@@ -11,6 +11,7 @@ import TaskList from '../components/tracking/TaskList';
 import CostingSummary from '../components/tracking/CostingSummary';
 import ProgressTimeline from '../components/tracking/ProgressTimeline';
 import CancellationNote from '../components/tracking/CancellationNote';
+import QueueSection from '../components/tracking/QueueSection';
 import { ApproveModal, RejectModal } from '../components/tracking/EstimateModals';
 import estimateApi from '../services/estimateApi';
 
@@ -27,6 +28,14 @@ export default function TrackingScreen() {
     refreshAll,
   } = useTrackingData(appointmentId);
 
+  // Queue data – only fetch if appointment is CONFIRMED and has appointmentDate
+  const appointmentDate = appointment?.appointmentDate;
+  const isConfirmed = appointment?.status === 'CONFIRMED';
+  const { queue, loading: queueLoading, error: queueError } = useQueue(
+    isConfirmed ? appointmentDate : null,
+    appointmentId
+  );
+
   const [excludedFindingIds, setExcludedFindingIds] = useState([]);
   const [approveModalVisible, setApproveModalVisible] = useState(false);
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
@@ -38,7 +47,7 @@ export default function TrackingScreen() {
   const isInProgress = appointment?.status === 'IN_PROGRESS';
   const isCancelled = appointment?.status === 'CANCELLED';
 
-  // Compute costing from tasks and estimate (only relevant for UNDER_INSPECTION / WAITING_FOR_APPROVAL)
+  // Compute costing from tasks and estimate
   const servicePrice = parseFloat(estimate?.serviceSubtotal) || 0;
   const partsTotal = tasks
     .filter(t => t.status === 'DONE' && t.findings)
@@ -112,11 +121,21 @@ export default function TrackingScreen() {
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#C1272D']} />}
     >
-      <View className="px-6 pt-10 pb-20">
+      <View className="px-6 pt-10 pb-20 space-y-6">
         <TrackingHeader appointment={appointment} />
         <VehicleInfoCard appointment={appointment} />
 
-        {/* Tasks always visible */}
+        {/* Queue Section – only for CONFIRMED appointments */}
+        {isConfirmed && (
+          <QueueSection
+            queue={queue}
+            loading={queueLoading}
+            error={queueError}
+            appointmentId={appointmentId}
+          />
+        )}
+
+        {/* Tasks always visible for relevant statuses */}
         {['UNDER_INSPECTION', 'WAITING_FOR_APPROVAL', 'IN_PROGRESS', 'COMPLETED'].includes(appointment.status) && (
           <TaskList
             tasks={tasks}
@@ -141,11 +160,11 @@ export default function TrackingScreen() {
           />
         )}
 
-        {/* Final bill for IN_PROGRESS (if available) */}
-       {isInProgress && finalBill && (
+        {/* Final bill for IN_PROGRESS */}
+        {isInProgress && finalBill && (
           <TouchableOpacity
             onPress={() => router.push(`/invoice/${finalBill.id}`)}
-            className="p-8 rounded-[32px] mb-10 border border-border bg-card"
+            className="p-8 rounded-[32px] border border-border bg-card"
           >
             <Text className="text-xl font-heading font-black mb-6 text-foreground">Final Bill</Text>
             <View className="flex-row justify-between mb-4">

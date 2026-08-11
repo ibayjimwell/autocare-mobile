@@ -1,4 +1,5 @@
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Link } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSignUpForm } from "../../hooks/useSignUpForm";
@@ -24,7 +25,7 @@ export default function SignUpForm() {
   } = useSignUpForm();
 
   return (
-    <KeyboardAvoidingView
+    <SafeAreaView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       className="flex-1 bg-background"
     >
@@ -197,20 +198,20 @@ export default function SignUpForm() {
         <View className="mt-12 mb-10 items-center">
           <View className="flex-row items-center mb-6 w-full">
             <View className="h-[1px] flex-1 bg-muted" />
-            <Text className="mx-4 text-xs font-black uppercase tracking-widest text-muted-foreground">
+            <Text className="mx-4 text-xs font-bold uppercase tracking-widest text-muted-foreground">
               Registered
             </Text>
             <View className="h-[1px] flex-1 bg-muted" />
           </View>
 
           <Link href="/login" asChild>
-            <View className="flex-row items-center">
-              <Text className="text-sm font-medium text-muted-foreground mr-1">Have an account?</Text>
-              <Text className="text-sm font-black text-primary">Sign In</Text>
-            </View>
+            <TouchableOpacity className="flex-row items-center py-2">
+              <Text className="text-base font-medium text-muted-foreground mr-1">Have an account?</Text>
+              <Text className="text-base font-black text-primary">Sign In</Text>
+            </TouchableOpacity>
           </Link>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

@@ -1,15 +1,25 @@
-// app/billing.jsx
-import { View, Text, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useBillingData } from '../hooks/useBillingData';
-import { EstimateListItem, FinalBillListItem } from '../components/billing/BillingListItem';
+import EstimateCard from '../components/billing/EstimateCard';
+import FinalBillCard from '../components/billing/FinalBillCard';
 
 export default function BillingScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const { estimates, finalBills, loading, refreshing, onRefresh } = useBillingData();
+
+  // Filter: WAITING_FOR_APPROVAL only, sorted oldest first
+  const waitingEstimates = estimates
+    .filter(e => e.status === 'WAITING_FOR_APPROVAL')
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+  // Filter: PENDING final bills only, sorted oldest first
+  const pendingBills = finalBills
+    .filter(b => b.status === 'PENDING')
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
   if (loading) {
     return (
@@ -18,8 +28,6 @@ export default function BillingScreen() {
       </View>
     );
   }
-
-  const isEmpty = estimates.length === 0 && finalBills.length === 0;
 
   return (
     <ScrollView
@@ -44,70 +52,56 @@ export default function BillingScreen() {
           </Text>
         </View>
 
-        {isEmpty ? (
-          <View className="items-center mt-12">
-            <Ionicons name="document-text-outline" size={48} color={theme.textSecondary} />
-            <Text className="mt-3 text-base font-bold" style={{ color: theme.textSecondary }}>
-              No estimates or bills yet.
+        {/* Estimates Section */}
+        <View className="mb-8">
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-lg font-black" style={{ color: theme.text }}>
+              Estimates Awaiting Approval
             </Text>
+            <TouchableOpacity onPress={() => router.push('/estimates')}>
+              <Text className="text-xs font-bold uppercase tracking-wider text-primary">View All</Text>
+            </TouchableOpacity>
           </View>
-        ) : (
-          <>
-            {/* Estimates Section */}
-            {estimates.length > 0 && (
-              <View className="mb-8">
-                <View className="flex-row justify-between items-center mb-4">
-                  <Text className="text-lg font-black" style={{ color: theme.text }}>
-                    Estimates
-                  </Text>
-                  <View
-                    className="px-3 py-0.5 rounded-full"
-                    style={{ backgroundColor: theme.primary + '15' }}
-                  >
-                    <Text className="text-xs font-black" style={{ color: theme.primary }}>
-                      {estimates.length}
-                    </Text>
-                  </View>
-                </View>
-                {estimates.map((item) => (
-                  <EstimateListItem
-                    key={item.id}
-                    item={item}
-                    onPress={() => router.push(`/tracking?appointmentId=${item.appointmentId}`)}
-                  />
-                ))}
-              </View>
-            )}
+          {waitingEstimates.length === 0 ? (
+            <View className="p-6 rounded-2xl items-center border border-dashed border-border" style={{ borderColor: theme.border }}>
+              <Text className="text-sm font-bold" style={{ color: theme.textSecondary }}>No estimates waiting for approval.</Text>
+            </View>
+          ) : (
+            waitingEstimates.slice(0, 3).map(item => (
+              <EstimateCard
+                key={item.id}
+                item={item}
+                onPress={() => router.push(`/tracking?appointmentId=${item.appointmentId}`)}
+              />
+            ))
+          )}
+        </View>
 
-            {/* Final Bills Section */}
-            {finalBills.length > 0 && (
-              <View>
-                <View className="flex-row justify-between items-center mb-4">
-                  <Text className="text-lg font-black" style={{ color: theme.text }}>
-                    Final Bills
-                  </Text>
-                  <View
-                    className="px-3 py-0.5 rounded-full"
-                    style={{ backgroundColor: theme.primary + '15' }}
-                  >
-                    <Text className="text-xs font-black" style={{ color: theme.primary }}>
-                      {finalBills.length}
-                    </Text>
-                  </View>
-                </View>
-                {finalBills.map((item) => (
-                  <FinalBillListItem
-                    key={item.id}
-                    item={item}
-                    onPress={() => router.push(`/invoice/${item.id}`)}
-                  />
-                ))}
-              </View>
-            )}
-          </>
-        )}
+        {/* Final Bills Section */}
+        <View>
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-lg font-black" style={{ color: theme.text }}>
+              Pending Final Bills
+            </Text>
+            <TouchableOpacity onPress={() => router.push('/final-bills')}>
+              <Text className="text-xs font-bold uppercase tracking-wider text-primary">View All</Text>
+            </TouchableOpacity>
+          </View>
+          {pendingBills.length === 0 ? (
+            <View className="p-6 rounded-2xl items-center border border-dashed border-border" style={{ borderColor: theme.border }}>
+              <Text className="text-sm font-bold" style={{ color: theme.textSecondary }}>No pending final bills.</Text>
+            </View>
+          ) : (
+            pendingBills.slice(0, 3).map(item => (
+              <FinalBillCard
+                key={item.id}
+                item={item}
+                onPress={() => router.push(`/invoice/${item.id}`)}
+              />
+            ))
+          )}
+        </View>
 
-        {/* Footer */}
         <Text className="text-[10px] text-center font-medium opacity-30 mt-12 leading-4" style={{ color: theme.text }}>
           All transactions are securely processed.{'\n'}
           Powered by AutoCare System.

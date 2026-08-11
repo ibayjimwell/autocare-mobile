@@ -4,7 +4,7 @@ import {
   ActivityIndicator, 
   Text,
   TouchableOpacity
- } from "react-native";
+} from "react-native";
 import { useState } from "react";
 import { router, Link } from "expo-router";
 import { useAuth } from "../../context/AuthContext";

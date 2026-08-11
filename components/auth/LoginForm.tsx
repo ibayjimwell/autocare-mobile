@@ -1,4 +1,5 @@
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Link } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLoginForm } from "../../hooks/useLoginForm";
@@ -17,7 +18,7 @@ export default function LoginForm() {
   } = useLoginForm();
 
   return (
-    <KeyboardAvoidingView
+    <SafeAreaView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       className="flex-1 bg-background"
     >
@@ -141,6 +142,6 @@ export default function LoginForm() {
           </View>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

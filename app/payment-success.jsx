@@ -1,5 +1,6 @@
 // app/payment-success.jsx
 import { View, Text, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -18,7 +19,7 @@ export default function PaymentSuccessScreen() {
   };
 
   return (
-    <View className="flex-1 justify-center items-center px-8" style={{ backgroundColor: theme.background }}>
+    <SafeAreaView className="flex-1 justify-center items-center px-8" style={{ backgroundColor: theme.background }}>
       {/* Success Icon */}
       <View className="w-24 h-24 rounded-full items-center justify-center mb-6" style={{ backgroundColor: '#10b98120' }}>
         <Ionicons name="checkmark-circle" size={64} color="#10b981" />
@@ -49,6 +50,6 @@ export default function PaymentSuccessScreen() {
           Go to Billing List
         </Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }

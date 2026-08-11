@@ -1,5 +1,6 @@
 // app/cash-qr/[billId].jsx
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
@@ -15,7 +16,7 @@ export default function CashQRScreen() {
   // When payment is confirmed, navigate to success
   if (isPaid) {
     return (
-      <View className="flex-1 justify-center items-center px-8" style={{ backgroundColor: theme.background }}>
+      <SafeAreaView className="flex-1 justify-center items-center px-8" style={{ backgroundColor: theme.background }}>
         <View className="w-24 h-24 rounded-full items-center justify-center mb-6" style={{ backgroundColor: '#10b98120' }}>
           <Ionicons name="checkmark-circle" size={64} color="#10b981" />
         </View>
@@ -40,13 +41,13 @@ export default function CashQRScreen() {
             Go to Billing List
           </Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   // Show QR and waiting state
   return (
-    <View className="flex-1 justify-center items-center px-8" style={{ backgroundColor: theme.background }}>
+    <SafeAreaView className="flex-1 justify-center items-center px-8" style={{ backgroundColor: theme.background }}>
       <View className="w-24 h-24 rounded-full items-center justify-center mb-6" style={{ backgroundColor: theme.primary + '10' }}>
         <MaterialCommunityIcons name="qrcode-scan" size={48} color={theme.primary} />
       </View>
@@ -86,6 +87,6 @@ export default function CashQRScreen() {
           Cancel
         </Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }

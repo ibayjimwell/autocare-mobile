@@ -172,7 +172,20 @@ function RootLayoutNav() {
                 />
               ),
             }} 
-          />
+            />
+            <Stack.Screen 
+              name="history" 
+              options={{ 
+                headerShown: true,
+                title: "Appointments History",
+                header: ({ options, navigation }) => (
+                  <CustomStackHeader 
+                    title={options.title} 
+                    canGoBack={navigation.canGoBack()} 
+                  />
+                ),
+              }} 
+              />
           <Stack.Screen 
             name="payment-success" 
             options={{ 
@@ -185,7 +198,33 @@ function RootLayoutNav() {
                 />
               ),
             }} 
-          />
+            />
+            <Stack.Screen 
+              name="estimates" 
+              options={{ 
+                headerShown: true,
+                title: "All Estimates",
+                header: ({ options, navigation }) => (
+                  <CustomStackHeader 
+                    title={options.title} 
+                    canGoBack={navigation.canGoBack()} 
+                  />
+                ),
+              }} 
+            />
+            <Stack.Screen 
+              name="final-bills" 
+              options={{ 
+                headerShown: true,
+                title: "All Final Bills",
+                header: ({ options, navigation }) => (
+                  <CustomStackHeader 
+                    title={options.title} 
+                    canGoBack={navigation.canGoBack()} 
+                  />
+                ),
+              }} 
+            />
         </>
       )}
     </Stack>

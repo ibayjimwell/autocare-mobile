@@ -17,21 +17,18 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const {
-    upcomingAppointment,
-    underInspectionAppointments,
-    inProgressAppointments,
+    upcomingConfirmed,
+    groupedAppointments,
     trendingServices,
     loading: homeLoading,
   } = useHomeData();
 
-  // Redirect to login if no user is present (after auth check finishes)
   useEffect(() => {
     if (!authLoading && !user) {
       router.replace('/login');
     }
   }, [authLoading, user, router]);
 
-  // Show loading spinner while auth is being determined
   if (authLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-background">
@@ -40,7 +37,6 @@ export default function HomeScreen() {
     );
   }
 
-  // If no user after loading, the redirect will trigger, but we can also return null
   if (!user) return null;
 
   return (
@@ -49,7 +45,7 @@ export default function HomeScreen() {
       <HeroCard />
       <QuickActions />
 
-      {/* Upcoming Appointment */}
+      {/* Upcoming Appointment (only CONFIRMED) */}
       <View className="px-6 mt-8">
         <View className="flex-row justify-between items-end mb-4 px-1">
           <Text className="text-lg font-heading font-black text-foreground">Schedule</Text>
@@ -62,29 +58,77 @@ export default function HomeScreen() {
             <ActivityIndicator color="#C1272D" />
           </View>
         ) : (
-          <UpcomingAppointment appointment={upcomingAppointment} />
+          <UpcomingAppointment appointment={upcomingConfirmed} />
         )}
       </View>
 
-      {/* Under Inspection */}
+      {/* Waiting for Approval – all appointments horizontally */}
+      {!homeLoading && (
+        <AppointmentSection
+          title="Waiting for Approval"
+          appointments={groupedAppointments.waitingForApproval}
+          statusKey="WAITING_FOR_APPROVAL"
+          horizontal={true}
+          limit={null} // all
+        />
+      )}
+
+      {/* Under Inspection – 4 latest horizontal */}
       {!homeLoading && (
         <AppointmentSection
           title="Under Inspection"
-          appointments={underInspectionAppointments}
+          appointments={groupedAppointments.underInspection}
           statusKey="UNDER_INSPECTION"
+          horizontal={true}
+          limit={4}
         />
       )}
 
-      {/* In Progress */}
+      {/* In Progress – 4 latest horizontal */}
       {!homeLoading && (
         <AppointmentSection
           title="In Progress"
-          appointments={inProgressAppointments}
+          appointments={groupedAppointments.inProgress}
           statusKey="IN_PROGRESS"
+          horizontal={true}
+          limit={4}
         />
       )}
 
-      {/* My Vehicles */}
+      {/* Pending – 4 latest horizontal */}
+      {!homeLoading && (
+        <AppointmentSection
+          title="Pending"
+          appointments={groupedAppointments.pending}
+          statusKey="PENDING"
+          horizontal={true}
+          limit={4}
+        />
+      )}
+
+      {/* Completed – 4 latest horizontal */}
+      {!homeLoading && (
+        <AppointmentSection
+          title="Completed"
+          appointments={groupedAppointments.completed}
+          statusKey="COMPLETED"
+          horizontal={true}
+          limit={4}
+        />
+      )}
+
+      {/* Cancelled – 4 latest horizontal */}
+      {!homeLoading && (
+        <AppointmentSection
+          title="Cancelled"
+          appointments={groupedAppointments.cancelled}
+          statusKey="CANCELLED"
+          horizontal={true}
+          limit={4}
+        />
+      )}
+
+      {/* My Vehicles (unchanged) */}
       <View className="mt-8">
         <View className="flex-row justify-between items-center mb-4 px-7">
           <Text className="text-lg font-heading font-black text-foreground">Garage</Text>
@@ -105,7 +149,7 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      {/* Trending Services */}
+      {/* Trending Services (unchanged) */}
       <View className="px-6 mt-8 mb-12">
         <Text className="text-lg font-heading font-black mb-4 px-1 text-foreground">Trending Services</Text>
         {trendingServices.length === 0 ? (

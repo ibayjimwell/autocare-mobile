@@ -1,77 +1,140 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, Link } from 'expo-router';
 import { STATUS_CONFIG } from '../../utils/constants';
 import { formatDate, formatTime, getServiceNames } from '../../utils/format';
 
-export default function AppointmentSection({ title, appointments, statusKey }) {
+export default function AppointmentSection({ title, appointments, statusKey, horizontal = false, limit = 4, showViewAll = true }) {
   const router = useRouter();
   const status = STATUS_CONFIG[statusKey] || STATUS_CONFIG.PENDING;
   const color = status.color;
 
+  // If no appointments, show empty state
   if (appointments.length === 0) {
     return (
-      <View className="px-6 mt-2">
-        <View className="flex-row justify-between items-end mb-4 px-1">
+      <View className="px-6 mt-4">
+        <View className="flex-row justify-between items-end mb-3 px-1">
           <Text className="text-lg font-heading font-black text-foreground">{title}</Text>
-          <Link href="/appointments">
-            <Text className="text-xs font-bold uppercase tracking-wider text-primary">View All</Text>
-          </Link>
+          {showViewAll && (
+            <Link href="/appointments">
+              <Text className="text-xs font-bold uppercase tracking-wider text-primary">View All</Text>
+            </Link>
+          )}
         </View>
         <View className="p-6 rounded-[28px] items-center border border-dashed border-border bg-card mb-3">
           <Ionicons name="checkmark-circle-outline" size={24} color="#666" />
-          <Text className="text-center font-bold text-sm text-muted-foreground mt-2">No vehicles {title.toLowerCase()}.</Text>
+          <Text className="text-center font-bold text-sm text-muted-foreground mt-2">No {title.toLowerCase()} appointments.</Text>
         </View>
       </View>
     );
   }
 
+  // Determine which appointments to display
+  const displayAppointments = limit ? appointments.slice(0, limit) : appointments;
+
   return (
-    <View className="px-6 mt-2">
-      <View className="flex-row justify-between items-end mb-4 px-1">
+    <View className="px-6 mt-4">
+      <View className="flex-row justify-between items-end mb-3 px-1">
         <Text className="text-lg font-heading font-black text-foreground">{title}</Text>
-        <Link href="/appointments">
-          <Text className="text-xs font-bold uppercase tracking-wider text-primary">View All</Text>
-        </Link>
+        {showViewAll && (
+          <Link href="/appointments">
+            <Text className="text-xs font-bold uppercase tracking-wider text-primary">View All</Text>
+          </Link>
+        )}
       </View>
-      {appointments.map(appt => (
-        <TouchableOpacity
-          key={appt.id}
-          activeOpacity={0.8}
-          onPress={() => router.push(`/tracking?appointmentId=${appt.id}`)}
-          className="p-5 rounded-[28px] border border-border bg-card mb-3"
+
+      {horizontal ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingRight: 16 }}
+          className="-mx-1"
         >
-          <View className="flex-row justify-between items-start mb-4">
-            <View className="flex-row items-center flex-1">
-              <View className="w-12 h-12 rounded-2xl items-center justify-center mr-4" style={{ backgroundColor: color + '20' }}>
-                <MaterialCommunityIcons name={status.icon} size={26} color={color} />
+          {displayAppointments.map((appt) => (
+            <TouchableOpacity
+              key={appt.id}
+              activeOpacity={0.8}
+              onPress={() => router.push(`/tracking?appointmentId=${appt.id}`)}
+              className="w-64 p-4 mr-3 rounded-[28px] border border-border bg-card"
+            >
+              <View className="flex-row justify-between items-start mb-3">
+                <View className="flex-row items-center flex-1">
+                  <View className="w-10 h-10 rounded-2xl items-center justify-center mr-3" style={{ backgroundColor: color + '20' }}>
+                    <MaterialCommunityIcons name={status.icon} size={20} color={color} />
+                  </View>
+                  <View className="flex-1 mr-2">
+                    <Text className="text-sm font-black text-foreground" numberOfLines={1}>
+                      {getServiceNames(appt)}
+                    </Text>
+                    <Text className="text-[10px] font-bold text-foreground/50">
+                      {appt.vehicle?.make} {appt.vehicle?.model}
+                    </Text>
+                  </View>
+                </View>
+                <View className="px-2 py-0.5 rounded-lg" style={{ backgroundColor: color + '20' }}>
+                  <Text className="text-[8px] font-black" style={{ color }}>{status.label}</Text>
+                </View>
               </View>
-              <View className="flex-1 mr-2">
-                <Text className="text-lg font-black text-foreground" numberOfLines={1}>
-                  {getServiceNames(appt)}
-                </Text>
-                <Text className="text-xs font-bold text-foreground/50">{appt.vehicle?.make} {appt.vehicle?.model}</Text>
+              <View className="flex-row items-center justify-between pt-2 border-t border-border">
+                <View className="flex-row">
+                  <View className="flex-row items-center mr-3">
+                    <Ionicons name="calendar-clear" size={12} color={color} />
+                    <Text className="text-[11px] ml-1 font-bold text-muted-foreground">{formatDate(appt.appointmentDate)}</Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    <Ionicons name="time" size={12} color={color} />
+                    <Text className="text-[11px] ml-1 font-bold text-muted-foreground">{formatTime(appt.appointmentTime)}</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={14} color="#666" />
               </View>
-            </View>
-            <View className="px-3 py-1 rounded-lg" style={{ backgroundColor: color + '20' }}>
-              <Text className="text-[10px] font-black" style={{ color }}>{status.label}</Text>
-            </View>
-          </View>
-          <View className="flex-row items-center justify-between pt-4 border-t border-border">
-            <View className="flex-row">
-              <View className="flex-row items-center mr-4">
-                <Ionicons name="calendar-clear" size={14} color={color} />
-                <Text className="text-[13px] ml-1.5 font-bold text-muted-foreground">{formatDate(appt.appointmentDate)}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ) : (
+        // Vertical list
+        <View className="space-y-3">
+          {displayAppointments.map((appt) => (
+            <TouchableOpacity
+              key={appt.id}
+              activeOpacity={0.8}
+              onPress={() => router.push(`/tracking?appointmentId=${appt.id}`)}
+              className="p-5 rounded-[28px] border border-border bg-card"
+            >
+              {/* Same card layout as before */}
+              <View className="flex-row justify-between items-start mb-4">
+                <View className="flex-row items-center flex-1">
+                  <View className="w-12 h-12 rounded-2xl items-center justify-center mr-4" style={{ backgroundColor: color + '20' }}>
+                    <MaterialCommunityIcons name={status.icon} size={26} color={color} />
+                  </View>
+                  <View className="flex-1 mr-2">
+                    <Text className="text-lg font-black text-foreground" numberOfLines={1}>
+                      {getServiceNames(appt)}
+                    </Text>
+                    <Text className="text-xs font-bold text-foreground/50">{appt.vehicle?.make} {appt.vehicle?.model}</Text>
+                  </View>
+                </View>
+                <View className="px-3 py-1 rounded-lg" style={{ backgroundColor: color + '20' }}>
+                  <Text className="text-[10px] font-black" style={{ color }}>{status.label}</Text>
+                </View>
               </View>
-              <View className="flex-row items-center">
-                <Ionicons name="time" size={14} color={color} />
-                <Text className="text-[13px] ml-1.5 font-bold text-muted-foreground">{formatTime(appt.appointmentTime)}</Text>
+              <View className="flex-row items-center justify-between pt-4 border-t border-border">
+                <View className="flex-row">
+                  <View className="flex-row items-center mr-4">
+                    <Ionicons name="calendar-clear" size={14} color={color} />
+                    <Text className="text-[13px] ml-1.5 font-bold text-muted-foreground">{formatDate(appt.appointmentDate)}</Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    <Ionicons name="time" size={14} color={color} />
+                    <Text className="text-[13px] ml-1.5 font-bold text-muted-foreground">{formatTime(appt.appointmentTime)}</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#666" />
               </View>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#666" />
-          </View>
-        </TouchableOpacity>
-      ))}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
     </View>
   );
 }

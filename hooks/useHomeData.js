@@ -6,9 +6,17 @@ import serviceTypesApi from '../services/serviceTypesApi';
 
 export function useHomeData() {
   const { user } = useAuth();
-  const [upcomingAppointment, setUpcomingAppointment] = useState(null);
-  const [underInspectionAppointments, setUnderInspectionAppointments] = useState([]);
-  const [inProgressAppointments, setInProgressAppointments] = useState([]);
+  const [allAppointments, setAllAppointments] = useState([]);
+  const [groupedAppointments, setGroupedAppointments] = useState({
+    confirmed: [],
+    waitingForApproval: [],
+    underInspection: [],
+    inProgress: [],
+    pending: [],
+    completed: [],
+    cancelled: [],
+  });
+  const [upcomingConfirmed, setUpcomingConfirmed] = useState(null);
   const [trendingServices, setTrendingServices] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,15 +37,43 @@ export function useHomeData() {
     try {
       const res = await appointmentsApi.list({ customerId: user.id, _t: Date.now() });
       const all = res.data || [];
+
+      // Group by status
+      const groups = {
+        confirmed: [],
+        waitingForApproval: [],
+        underInspection: [],
+        inProgress: [],
+        pending: [],
+        completed: [],
+        cancelled: [],
+      };
+
       const now = new Date();
       const todayStr = now.toISOString().split('T')[0];
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-      const upcoming = all
+      for (const apt of all) {
+        const status = apt.status;
+        if (status === 'CONFIRMED') groups.confirmed.push(apt);
+        else if (status === 'WAITING_FOR_APPROVAL') groups.waitingForApproval.push(apt);
+        else if (status === 'UNDER_INSPECTION') groups.underInspection.push(apt);
+        else if (status === 'IN_PROGRESS') groups.inProgress.push(apt);
+        else if (status === 'PENDING') groups.pending.push(apt);
+        else if (status === 'COMPLETED') groups.completed.push(apt);
+        else if (status === 'CANCELLED') groups.cancelled.push(apt);
+      }
+
+      // Sort waitingForApproval by oldest first (ascending date)
+      groups.waitingForApproval.sort((a, b) => 
+        new Date(a.appointmentDate) - new Date(b.appointmentDate) ||
+        (a.appointmentTime || '').localeCompare(b.appointmentTime || '')
+      );
+
+      // Find the nearest upcoming CONFIRMED appointment (today or future, not past)
+      const upcoming = groups.confirmed
         .filter(apt => {
-          if (apt.status !== 'CONFIRMED') return false;
           const aptDate = normalizeDateStr(apt.appointmentDate);
-          if (!aptDate) return false;
           if (aptDate < todayStr) return false;
           if (aptDate === todayStr && apt.appointmentTime) {
             const [h, m] = apt.appointmentTime.split(':').map(Number);
@@ -51,9 +87,17 @@ export function useHomeData() {
           return dA.localeCompare(dB) || (a.appointmentTime || '').localeCompare(b.appointmentTime || '');
         });
 
-      setUpcomingAppointment(upcoming[0] || null);
-      setUnderInspectionAppointments(all.filter(a => a.status === 'UNDER_INSPECTION'));
-      setInProgressAppointments(all.filter(a => a.status === 'IN_PROGRESS'));
+      setUpcomingConfirmed(upcoming[0] || null);
+
+      // Keep only the required limits for each group (except waitingForApproval – all)
+      groups.underInspection = groups.underInspection.slice(0, 4);
+      groups.inProgress = groups.inProgress.slice(0, 4);
+      groups.pending = groups.pending.slice(0, 4);
+      groups.completed = groups.completed.slice(0, 4);
+      groups.cancelled = groups.cancelled.slice(0, 4);
+
+      setGroupedAppointments(groups);
+      setAllAppointments(all);
     } catch (err) {
       console.error('Appointments load error:', err);
     } finally {
@@ -69,9 +113,9 @@ export function useHomeData() {
   );
 
   return {
-    upcomingAppointment,
-    underInspectionAppointments,
-    inProgressAppointments,
+    allAppointments,
+    groupedAppointments,
+    upcomingConfirmed,
     trendingServices,
     loading,
   };

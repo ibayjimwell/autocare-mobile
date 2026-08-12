@@ -1,4 +1,3 @@
-// hooks/useInvoice.js
 import { useState, useEffect } from 'react';
 import finalBillsApi from '../services/finalBillsApi';
 

@@ -1,10 +1,10 @@
-// app/invoice/[id].jsx
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useInvoice } from '../../hooks/useInvoice';
 import { usePaymentFlow } from '../../hooks/usePaymentFlow';
+import FinalBillBreakdown from '../../components/billing/FinalBillBreakdown';
 
 export default function InvoiceScreen() {
   const { id: billId } = useLocalSearchParams();
@@ -37,27 +37,22 @@ export default function InvoiceScreen() {
   }
 
   const {
-    serviceSubtotal,
-    findingsSubtotal,
-    workTasksSubtotal,
-    feesTotal,
-    discountTotal,
-    grandTotal,
-    fees,
-    discounts,
-    workTasks,
-    findings,
+    id,
     status,
+    createdAt,
+    grandTotal,
+    estimateId,
+    estimate,
+    appointment,
   } = invoice;
 
   const displayTotal = parseFloat(grandTotal) || 0;
   const isPaid = status === 'PAID' || verifiedPaid;
 
-  const lineItems = [
-    ...(fees?.map(f => ({ name: f.title, price: parseFloat(f.amount), description: 'Additional fee', icon: 'cash-plus' })) || []),
-    ...(workTasks?.map(t => ({ name: t.title, price: 0, description: 'Work task', icon: 'wrench' })) || []),
-    ...(findings?.map(f => ({ name: f.description, price: parseFloat(f.partsSubtotal || 0), description: 'Finding/Repair', icon: 'car-wrench' })) || []),
-  ];
+  const formatCurrency = (value) => {
+    const num = parseFloat(value) || 0;
+    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
 
   // ---------- Success / Already Paid Screen ----------
   if (isPaid) {
@@ -73,7 +68,6 @@ export default function InvoiceScreen() {
           Your payment has been processed.{'\n'}A receipt has been generated.
         </Text>
 
-        {/* View Receipt button (opens the receipt screen) */}
         <TouchableOpacity
           onPress={() => router.push(`/receipt/${billId}`)}
           className="py-4 px-8 rounded-2xl mb-3"
@@ -82,7 +76,6 @@ export default function InvoiceScreen() {
           <Text className="text-base font-bold text-white">View Receipt</Text>
         </TouchableOpacity>
 
-        {/* Optional: Go back to billing list */}
         <TouchableOpacity
           onPress={() => router.replace('/billing')}
           className="py-2 px-4"
@@ -138,7 +131,7 @@ export default function InvoiceScreen() {
                 Invoice ID
               </Text>
               <Text className="text-base font-bold" style={{ color: theme.text }}>
-                {invoice.id?.slice(0, 8).toUpperCase()}
+                {id?.slice(0, 8).toUpperCase()}
               </Text>
             </View>
             <View className="items-end">
@@ -146,7 +139,7 @@ export default function InvoiceScreen() {
                 Date Issued
               </Text>
               <Text className="text-base font-bold" style={{ color: theme.text }}>
-                {new Date(invoice.createdAt).toLocaleDateString('en-PH', {
+                {new Date(createdAt).toLocaleDateString('en-PH', {
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',
@@ -155,7 +148,7 @@ export default function InvoiceScreen() {
             </View>
           </View>
 
-          <View className="flex-row items-center mt-6">
+          <View className="flex-row items-center mt-4">
             <View className="w-10 h-10 rounded-xl items-center justify-center mr-4" style={{ backgroundColor: theme.primary + '10' }}>
               <MaterialCommunityIcons name="clipboard-text-outline" size={20} color={theme.primary} />
             </View>
@@ -168,71 +161,67 @@ export default function InvoiceScreen() {
               </Text>
             </View>
           </View>
-        </View>
 
-        {/* Breakdown */}
-        <View className="mb-6 flex-row justify-between items-center">
-          <Text className="text-xl font-black" style={{ color: theme.text }}>Breakdown</Text>
-          <Text className="text-xs font-bold opacity-40" style={{ color: theme.text }}>
-            {lineItems.length} ITEMS
-          </Text>
-        </View>
-
-        {lineItems.map((item, index) => (
-          <View key={index} className="flex-row items-start mb-6">
-            <View className="w-8 h-8 rounded-lg items-center justify-center mt-1" style={{ backgroundColor: theme.background }}>
-              <MaterialCommunityIcons name={item.icon} size={18} color={theme.textSecondary} />
-            </View>
-            <View className="flex-1 mx-4">
-              <Text className="text-sm font-black mb-1" style={{ color: theme.text }}>{item.name}</Text>
-              <Text className="text-xs leading-4 opacity-50" style={{ color: theme.textSecondary }}>{item.description}</Text>
-            </View>
-            <Text className="text-sm font-black" style={{ color: theme.text }}>
-              ₱{item.price.toLocaleString()}
-            </Text>
-          </View>
-        ))}
-
-        {/* Subtotals */}
-        <View
-          className="p-8 rounded-[40px] mt-4 mb-10 overflow-hidden"
-          style={{ backgroundColor: theme.background, borderWidth: 1, borderColor: theme.border }}
-        >
-          <View className="absolute -top-10 -right-10 w-32 h-32 rounded-full" style={{ backgroundColor: theme.primary + '05' }} />
-
-          <View className="flex-row justify-between mb-4">
-            <Text className="text-sm font-medium opacity-50" style={{ color: theme.text }}>Service Subtotal</Text>
-            <Text className="text-sm font-bold" style={{ color: theme.text }}>₱{parseFloat(serviceSubtotal || 0).toLocaleString()}</Text>
-          </View>
-          <View className="flex-row justify-between mb-4">
-            <Text className="text-sm font-medium opacity-50" style={{ color: theme.text }}>Findings Subtotal</Text>
-            <Text className="text-sm font-bold" style={{ color: theme.text }}>₱{parseFloat(findingsSubtotal || 0).toLocaleString()}</Text>
-          </View>
-          <View className="flex-row justify-between mb-4">
-            <Text className="text-sm font-medium opacity-50" style={{ color: theme.text }}>Work Tasks</Text>
-            <Text className="text-sm font-bold" style={{ color: theme.text }}>₱{parseFloat(workTasksSubtotal || 0).toLocaleString()}</Text>
-          </View>
-          <View className="flex-row justify-between mb-4">
-            <Text className="text-sm font-medium opacity-50" style={{ color: theme.text }}>Fees</Text>
-            <Text className="text-sm font-bold" style={{ color: theme.text }}>₱{parseFloat(feesTotal || 0).toLocaleString()}</Text>
-          </View>
-          <View className="flex-row justify-between mb-6">
-            <Text className="text-sm font-medium opacity-50" style={{ color: theme.text }}>Discounts</Text>
-            <Text className="text-sm font-bold text-red-400">−₱{parseFloat(discountTotal || 0).toLocaleString()}</Text>
-          </View>
-
-          <View className="pt-6 border-t border-dashed" style={{ borderTopColor: theme.border }}>
-            <View className="flex-row justify-between items-end">
-              <View>
-                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: theme.primary }}>
-                  Total Amount
+          {estimateId && (
+            <View className="flex-row items-center mt-3 pt-3 border-t border-dashed" style={{ borderTopColor: theme.border }}>
+              <View className="w-10 h-10 rounded-xl items-center justify-center mr-4" style={{ backgroundColor: theme.background }}>
+                <Ionicons name="document-text-outline" size={18} color={theme.textSecondary} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[10px] font-black uppercase opacity-40" style={{ color: theme.text }}>
+                  Estimate ID
                 </Text>
-                <Text className="text-4xl font-black mt-1" style={{ color: theme.text }}>
-                  ₱{displayTotal.toLocaleString()}
+                <Text className="text-sm font-bold" style={{ color: theme.text }}>
+                  {estimateId.slice(0, 8).toUpperCase()}
+                  {estimate?.createdAt && (
+                    <Text className="text-xs font-medium opacity-50 ml-2" style={{ color: theme.textSecondary }}>
+                      ({new Date(estimate.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })})
+                    </Text>
+                  )}
                 </Text>
               </View>
-              <Ionicons name="shield-checkmark" size={24} color={theme.primary} />
             </View>
+          )}
+
+          {appointment?.trackingNumber && (
+            <View className="flex-row items-center mt-3 pt-3 border-t border-dashed" style={{ borderTopColor: theme.border }}>
+              <View className="w-10 h-10 rounded-xl items-center justify-center mr-4" style={{ backgroundColor: theme.background }}>
+                <MaterialCommunityIcons name="clipboard-text-clock" size={18} color={theme.textSecondary} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[10px] font-black uppercase opacity-40" style={{ color: theme.text }}>
+                  Appointment
+                </Text>
+                <Text className="text-sm font-bold" style={{ color: theme.text }}>
+                  #{appointment.trackingNumber}
+                  {appointment.appointmentDate && (
+                    <Text className="text-xs font-medium opacity-50 ml-2" style={{ color: theme.textSecondary }}>
+                      {appointment.appointmentDate} at {appointment.appointmentTime}
+                    </Text>
+                  )}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Full Breakdown (uses the new component) */}
+        <FinalBillBreakdown finalBill={invoice} />
+
+        {/* Grand Total (redundant but kept for clarity) */}
+        <View
+          className="p-6 rounded-[32px] mt-6 mb-8 bg-primary/5 border border-primary/20"
+        >
+          <View className="flex-row justify-between items-end">
+            <View>
+              <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: theme.primary }}>
+                Total Amount Due
+              </Text>
+              <Text className="text-3xl font-black mt-1" style={{ color: theme.text }}>
+                ₱{formatCurrency(displayTotal)}
+              </Text>
+            </View>
+            <Ionicons name="shield-checkmark" size={24} color={theme.primary} />
           </View>
         </View>
 

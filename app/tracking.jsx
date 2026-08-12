@@ -47,7 +47,27 @@ export default function TrackingScreen() {
   const isInProgress = appointment?.status === 'IN_PROGRESS';
   const isCancelled = appointment?.status === 'CANCELLED';
 
-  // Compute costing from tasks and estimate (fallback)
+  // --- GRAND TOTAL: use estimate.grandTotal as source of truth ---
+  // Only fallback to computed if estimate is null or missing grandTotal
+  let grandTotal = 0;
+  if (estimate?.grandTotal !== undefined && estimate?.grandTotal !== null) {
+    grandTotal = parseFloat(estimate.grandTotal) || 0;
+  } else {
+    // Fallback: compute from components (tasks and estimate fields)
+    const servicePrice = parseFloat(estimate?.serviceSubtotal) || 0;
+    const partsTotal = tasks
+      .filter(t => t.status === 'DONE' && t.findings)
+      .reduce((sum, task) => {
+        return sum + (task.findings || []).reduce((s, f) => {
+          return s + (f.products || []).reduce((ps, p) => ps + (p.quantity || 1) * (parseFloat(p.priceAtTime) || 0), 0);
+        }, 0);
+      }, 0);
+    const laborTotal = parseFloat(estimate?.feesTotal) || 0;
+    const discountTotal = parseFloat(estimate?.discountTotal) || 0;
+    grandTotal = (servicePrice + partsTotal + laborTotal) - discountTotal;
+  }
+
+  // Keep these for display in CostingSummary fallback (if estimate missing)
   const servicePrice = parseFloat(estimate?.serviceSubtotal) || 0;
   const partsTotal = tasks
     .filter(t => t.status === 'DONE' && t.findings)
@@ -58,7 +78,6 @@ export default function TrackingScreen() {
     }, 0);
   const laborTotal = parseFloat(estimate?.feesTotal) || 0;
   const discountTotal = parseFloat(estimate?.discountTotal) || 0;
-  const grandTotal = (servicePrice + partsTotal + laborTotal) - discountTotal;
 
   const finalBillGrandTotal = finalBill ? parseFloat(finalBill.grandTotal) : null;
 

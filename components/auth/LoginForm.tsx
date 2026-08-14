@@ -1,6 +1,6 @@
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLoginForm } from "../../hooks/useLoginForm";
 
@@ -16,6 +16,8 @@ export default function LoginForm() {
     handleFieldChange,
     handleLogin,
   } = useLoginForm();
+
+  const router = useRouter();
 
   return (
     <SafeAreaView
@@ -100,7 +102,7 @@ export default function LoginForm() {
             )}
 
             {/* Forgot Password */}
-            <TouchableOpacity className="self-end py-1">
+            <TouchableOpacity className="self-end py-1" onPress={() => router.push('/forgot-password')}>
               <Text className="font-bold text-sm text-primary">Forgot Password?</Text>
             </TouchableOpacity>
 

@@ -30,6 +30,20 @@ const authApi = {
 
     return api.request(`/customers/${decoded.id}`, 'GET');
   },
-};
+
+  // Forgot password
+    requestOTP(phone) {
+      return api.request('/customers/forgot-password', 'POST', { phone });
+    },
+  
+    verifyOTP(phone, otp) {
+      return api.request('/customers/verify-otp', 'POST', { phone, otp });
+    },
+  
+    resetPassword(resetToken, newPassword) {
+      return api.request('/customers/reset-password', 'POST', { resetToken, newPassword });
+  },
+    
+  };
 
 export default authApi;

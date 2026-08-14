@@ -16,9 +16,14 @@ export default function BillingScreen() {
     .filter(e => e.status === 'WAITING_FOR_APPROVAL')
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
-  // Filter: PENDING final bills only, sorted oldest first
-  const pendingBills = finalBills
-    .filter(b => b.status === 'PENDING')
+  // Filter: OFFICIAL final bills (ready to pay)
+  const officialBills = finalBills
+    .filter(b => b.status === 'OFFICIAL')
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+  // Filter: PAID final bills (history)
+  const paidBills = finalBills
+    .filter(b => b.status === 'PAID')
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
   if (loading) {
@@ -77,22 +82,47 @@ export default function BillingScreen() {
           )}
         </View>
 
-        {/* Final Bills Section */}
-        <View>
+        {/* Official Final Bills Section */}
+        <View className="mb-8">
           <View className="flex-row justify-between items-center mb-4">
             <Text className="text-lg font-black" style={{ color: theme.text }}>
-              Pending Final Bills
+              Ready for Payment
             </Text>
             <TouchableOpacity onPress={() => router.push('/final-bills')}>
               <Text className="text-xs font-bold uppercase tracking-wider text-primary">View All</Text>
             </TouchableOpacity>
           </View>
-          {pendingBills.length === 0 ? (
+          {officialBills.length === 0 ? (
             <View className="p-6 rounded-2xl items-center border border-dashed border-border" style={{ borderColor: theme.border }}>
-              <Text className="text-sm font-bold" style={{ color: theme.textSecondary }}>No pending final bills.</Text>
+              <Text className="text-sm font-bold" style={{ color: theme.textSecondary }}>No official bills ready for payment.</Text>
             </View>
           ) : (
-            pendingBills.slice(0, 3).map(item => (
+            officialBills.slice(0, 3).map(item => (
+              <FinalBillCard
+                key={item.id}
+                item={item}
+                onPress={() => router.push(`/invoice/${item.id}`)}
+              />
+            ))
+          )}
+        </View>
+
+        {/* Paid Final Bills Section */}
+        <View>
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-lg font-black" style={{ color: theme.text }}>
+              Payment History
+            </Text>
+            <TouchableOpacity onPress={() => router.push('/final-bills')}>
+              <Text className="text-xs font-bold uppercase tracking-wider text-primary">View All</Text>
+            </TouchableOpacity>
+          </View>
+          {paidBills.length === 0 ? (
+            <View className="p-6 rounded-2xl items-center border border-dashed border-border" style={{ borderColor: theme.border }}>
+              <Text className="text-sm font-bold" style={{ color: theme.textSecondary }}>No paid bills yet.</Text>
+            </View>
+          ) : (
+            paidBills.slice(0, 3).map(item => (
               <FinalBillCard
                 key={item.id}
                 item={item}

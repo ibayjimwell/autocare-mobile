@@ -48,6 +48,7 @@ export default function InvoiceScreen() {
 
   const displayTotal = parseFloat(grandTotal) || 0;
   const isPaid = status === 'PAID' || verifiedPaid;
+  const isOfficial = status === 'OFFICIAL';
 
   const formatCurrency = (value) => {
     const num = parseFloat(value) || 0;
@@ -88,7 +89,29 @@ export default function InvoiceScreen() {
     );
   }
 
-  // ---------- Normal (Unpaid) Invoice View ----------
+  // ---------- Not Official: show message ----------
+  if (!isOfficial) {
+    return (
+      <View className="flex-1 justify-center items-center px-8" style={{ backgroundColor: theme.surface }}>
+        <Ionicons name="lock-closed" size={60} color={theme.textSecondary} />
+        <Text className="text-xl font-black mt-6 mb-2" style={{ color: theme.text }}>
+          Bill Not Ready
+        </Text>
+        <Text className="text-sm text-center opacity-60 mb-8 leading-5" style={{ color: theme.textSecondary }}>
+          This bill is currently <Text className="font-bold">{status}</Text>.{'\n'}
+          Payment will be available once the bill is marked as Official.
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          className="py-3 px-6 rounded-xl bg-primary"
+        >
+          <Text className="text-white font-bold">Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // ---------- Normal (Unpaid, Official) Invoice View ----------
   return (
     <ScrollView
       className="flex-1"
@@ -102,10 +125,10 @@ export default function InvoiceScreen() {
             <View className="flex-row items-center mb-1">
               <View
                 className="w-2 h-2 rounded-full mr-2"
-                style={{ backgroundColor: theme.error }}
+                style={{ backgroundColor: theme.primary }}
               />
-              <Text className="text-[10px] font-black uppercase tracking-[2px]" style={{ color: theme.error }}>
-                Payment Due
+              <Text className="text-[10px] font-black uppercase tracking-[2px]" style={{ color: theme.primary }}>
+                Ready for Payment
               </Text>
             </View>
             <Text className="text-3xl font-black" style={{ color: theme.text }}>
@@ -205,10 +228,10 @@ export default function InvoiceScreen() {
           )}
         </View>
 
-        {/* Full Breakdown (uses the new component) */}
+        {/* Full Breakdown */}
         <FinalBillBreakdown finalBill={invoice} />
 
-        {/* Grand Total (redundant but kept for clarity) */}
+        {/* Grand Total */}
         <View
           className="p-6 rounded-[32px] mt-6 mb-8 bg-primary/5 border border-primary/20"
         >

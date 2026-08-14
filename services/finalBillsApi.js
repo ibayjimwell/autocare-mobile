@@ -12,6 +12,9 @@ const finalBillsApi = {
 
   getStatus: (billId) =>
     api.request(`/payments/final-bills/${billId}/status`, 'GET', null, true),
+
+  updateStatus: (billId, status) =>
+    api.request(`/payments/final-bills/${billId}/status`, 'PATCH', { status }, true),
 };
 
 export default finalBillsApi;

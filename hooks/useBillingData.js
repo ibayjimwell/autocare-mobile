@@ -1,9 +1,9 @@
-// hooks/useBillingData.js
 import { useState, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import estimatesApi from '../services/estimateApi';
 import finalBillsApi from '../services/finalBillsApi';
+import { useRealtimeTable } from '../connections/useRealtimeTable';
 
 export function useBillingData() {
   const { user } = useAuth();
@@ -31,6 +31,16 @@ export function useBillingData() {
     await fetchData();
     setRefreshing(false);
   }, [fetchData]);
+
+  // Real-time subscription for final_bills changes
+  useRealtimeTable(
+    'final_bills',
+    undefined, // no filter, we'll filter client-side by customer
+    useCallback(() => {
+      console.log('🔄 Final bills changed, refreshing billing data...');
+      fetchData();
+    }, [fetchData])
+  );
 
   useFocusEffect(
     useCallback(() => {

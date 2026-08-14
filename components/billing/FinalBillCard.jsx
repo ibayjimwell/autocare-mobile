@@ -19,13 +19,21 @@ export default function FinalBillCard({ item, onPress }) {
       })
     : 'N/A';
 
-  const statusColor = {
+  const statusColors = {
     PENDING: '#f59e0b',
+    HOLD: '#8b5cf6',
+    OFFICIAL: '#3b82f6',
     PAID: '#10b981',
-    CANCELLED: '#ef4444',
-  }[item.status] || '#6b7280';
+  };
+  const statusLabels = {
+    PENDING: 'Pending',
+    HOLD: 'On Hold',
+    OFFICIAL: 'Official',
+    PAID: 'Paid',
+  };
 
-  const statusLabel = item.status || 'Pending';
+  const statusColor = statusColors[item.status] || '#6b7280';
+  const statusLabel = statusLabels[item.status] || item.status;
 
   return (
     <TouchableOpacity

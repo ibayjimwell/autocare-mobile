@@ -7,11 +7,13 @@ import { useTheme } from '../context/ThemeContext';
 import { useBillingData } from '../hooks/useBillingData';
 import FinalBillCard from '../components/billing/FinalBillCard';
 
-const statusTabs = ['ALL', 'PENDING', 'PAID'];
+const statusTabs = ['ALL', 'OFFICIAL', 'PAID', 'PENDING', 'HOLD'];
 const statusLabels = {
   ALL: 'All',
-  PENDING: 'Pending',
+  OFFICIAL: 'Official',
   PAID: 'Paid',
+  PENDING: 'Pending',
+  HOLD: 'On Hold',
 };
 
 export default function AllFinalBillsScreen() {
@@ -77,7 +79,7 @@ export default function AllFinalBillsScreen() {
         </View>
       </View>
 
-      {/* Tabs - fixed height wrapper with background */}
+      {/* Tabs */}
       <View style={{ backgroundColor: theme.surface, height: 48 }} className="px-6">
         <ScrollView
           horizontal

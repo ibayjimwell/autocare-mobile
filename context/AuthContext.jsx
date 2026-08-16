@@ -89,6 +89,17 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await authApi.login({ email, password });
       if (res.error) return { success: false, message: res.message || 'Login failed' };
+  
+      if (res.data?.requiresVerification) {
+        return {
+          success: false,
+          requiresVerification: true,
+          customerId: res.data.customerId,
+          phone: res.data.phone,
+          message: 'Phone verification required.',
+        };
+      }
+  
       const { customer, token } = res.data;
       storage.setItem('auth_token', token);
       storage.setItem('auth_user', JSON.stringify(customer));
@@ -111,11 +122,36 @@ export const AuthProvider = ({ children }) => {
       storage.setItem('auth_user', JSON.stringify(customer));
       setToken(token);
       setUser(customer);
-      return { success: true };
+      return { success: true, user: customer };
     } catch (err) {
       return { success: false, message: err.message };
     }
   };
+
+  const refreshUser = async () => {
+    try {
+      const res = await authApi.getMe();
+      if (res.error) {
+        console.error('Failed to refresh user:', res.errorMessage);
+        return null;
+      }
+      const customer = res.data;
+      storage.setItem('auth_user', JSON.stringify(customer));
+      setUser(customer);
+      return customer;
+    } catch (err) {
+      console.error('Failed to refresh user:', err);
+      return null;
+    }
+  };
+
+  const setSession = (customer, token) => {
+    storage.setItem('auth_token', token);
+    storage.setItem('auth_user', JSON.stringify(customer));
+    setToken(token);
+    setUser(customer);
+  };
+
 
   const logout = async () => {
     storage.removeItem('auth_token');
@@ -125,7 +161,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, token }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, token, setSession }}>
       {children}
     </AuthContext.Provider>
   );

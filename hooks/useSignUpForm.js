@@ -54,7 +54,8 @@ export function useSignUpForm() {
     const result = await register(fullName, email, phone, password);
     setLoading(false);
     if (result.success) {
-      router.replace("/(tabs)");
+      // Navigate to verification screen
+      router.push(`/verify-phone?customerId=${result.customerId}&phone=${phone}`);
     } else {
       setSignupError(result.message || "Signup failed");
     }

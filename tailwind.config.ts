@@ -9,46 +9,55 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        background: "#F5F5F5",   // HSL(0,0%,96%)
-        foreground: "#1A1A1A",   // HSL(0,0%,10%)
+        background: "#F2F2F7",
+        foreground: "#000000",
         card: "#FFFFFF",
-        "card-foreground": "#1A1A1A",
+        "card-foreground": "#000000",
         primary: {
-          DEFAULT: "#C1272D",     // HSL(0,72%,42%)
+          DEFAULT: "#C1272D",
           foreground: "#FFFFFF",
         },
         secondary: {
-          DEFAULT: "#FBBF24",     // HSL(43,96%,56%)
-          foreground: "#1A1A1A",
+          DEFAULT: "#E5E5EA",
+          foreground: "#000000",
         },
         muted: {
-          DEFAULT: "#EBEBEB",     // HSL(0,0%,92%)
-          foreground: "#666666",  // HSL(0,0%,40%)
+          DEFAULT: "#F2F2F7",
+          foreground: "#8E8E93",
         },
         accent: {
-          DEFAULT: "#2B2B2B",     // HSL(0,0%,17%)
-          foreground: "#FAFAFA",
+          DEFAULT: "#1C1C1E",
+          foreground: "#FFFFFF",
         },
         destructive: {
-          DEFAULT: "#EF4444",
-          foreground: "#FAFAFA",
+          DEFAULT: "#FF3B30",
+          foreground: "#FFFFFF",
         },
-        border: "#D9D9D9",        // HSL(0,0%,85%)
-        input: "#D9D9D9",
+        border: "#C6C6C8",
+        input: "#E5E5EA",
         ring: "#C1272D",
       },
       fontFamily: {
-        sans: ["Inter", "sans-serif"],
-        heading: ["Oswald", "sans-serif"],
+        // Apple HIG relies entirely on the system font for cleanliness and native feel.
+        // This stack ensures iOS uses SF Pro, and Android falls back to Roboto cleanly.
+        sans: [
+          "System",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica Neue",
+          "sans-serif",
+        ],
       },
       borderRadius: {
-        sm: "5px",
+        sm: "6px",
         md: "8px",
-        lg: "10px",
-        xl: "14px",
-        "2xl": "18px",
-        "3xl": "22px",
-        "4xl": "26px",
+        lg: "10px",    // Standard iOS text field radius
+        xl: "14px",    // Standard iOS grouped card & primary button radius
+        "2xl": "20px", // Standard iOS modal/alert radius
+        "3xl": "24px", // Bottom sheet radius
+        "4xl": "32px",
       },
     },
   },

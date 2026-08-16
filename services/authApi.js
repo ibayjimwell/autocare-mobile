@@ -43,6 +43,15 @@ const authApi = {
     resetPassword(resetToken, newPassword) {
       return api.request('/customers/reset-password', 'POST', { resetToken, newPassword });
   },
+
+  // Add these methods:
+  sendPhoneVerificationOTP(customerId, newPhone) {
+    return api.request('/customers/verify-phone/send-otp', 'POST', { customerId, newPhone });
+  },
+  
+  verifyPhoneOTP: (customerId, otp, newPhone) => {
+    return api.request('/customers/verify-phone', 'POST', { customerId, otp, newPhone });
+  }
     
   };
 

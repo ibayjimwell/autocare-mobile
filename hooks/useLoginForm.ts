@@ -35,14 +35,18 @@ export function useLoginForm() {
       return;
     }
 
-    setLoading(true);
-    const result = await login(emailOrPhone, password);
-    setLoading(false);
-    if (result.success) {
-      router.replace("/(tabs)");
-    } else {
-      setLoginError(result.message || "Login failed. Please try again.");
-    }
+      setLoading(true);
+     const result = await login(emailOrPhone, password);
+     setLoading(false);
+
+     if (result.success) {
+       router.replace('/(tabs)');
+     } else if (result.requiresVerification) {
+       // Navigate to phone verification
+       router.push(`/verify-phone?customerId=${result.customerId}&phone=${result.phone}`);
+     } else {
+       setLoginError(result.message || "Login failed. Please try again.");
+     }
   };
 
   return {

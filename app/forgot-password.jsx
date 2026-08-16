@@ -1,7 +1,7 @@
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { ArrowLeft, Phone } from 'lucide-react-native';
 import { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import authApi from '../services/authApi';
@@ -24,7 +24,6 @@ export default function ForgotPasswordScreen() {
       if (res.error) {
         setError(res.errorMessage || 'Failed to send OTP.');
       } else {
-        // Navigate to OTP verification
         router.push(`/verify-otp?phone=${encodeURIComponent(phone.trim())}`);
       }
     } catch (err) {
@@ -37,52 +36,63 @@ export default function ForgotPasswordScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
-        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} showsVerticalScrollIndicator={false}>
-          <View className="px-8 py-10">
-            <TouchableOpacity onPress={() => router.back()} className="mb-6">
-              <Ionicons name="arrow-back" size={28} color={theme.text} />
-            </TouchableOpacity>
-            <Text className="text-3xl font-heading font-black mb-2 text-foreground">Forgot Password</Text>
-            <Text className="text-base text-muted-foreground mb-8">
+        
+        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+          {/* Header Navigation */}
+          <TouchableOpacity 
+            onPress={() => router.back()} 
+            className="px-4 mt-2 mb-4 min-h-[44px] justify-center items-start w-16"
+          >
+            <ArrowLeft size={28} color={theme?.foreground || "#000000"} />
+          </TouchableOpacity>
+
+          {/* Large Title Header */}
+          <View className="px-4 mb-6">
+            <Text className="text-3xl font-bold tracking-tight text-foreground mb-2">
+              Forgot Password
+            </Text>
+            <Text className="text-base font-normal text-muted-foreground leading-6">
               Enter your registered phone number. We'll send you a 6‑digit OTP to reset your password.
             </Text>
+          </View>
 
-            <View className="space-y-4">
-              <View>
-                <Text className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 ml-1">
-                  Phone Number
-                </Text>
-                <View className="flex-row items-center rounded-xl px-4 h-16 border border-input bg-card">
-                  <Ionicons name="call-outline" size={20} color="#666" style={{ marginRight: 12 }} />
-                  <TextInput
-                    className="flex-1 text-base font-medium text-foreground"
-                    placeholder="e.g., 09123456789"
-                    placeholderTextColor="#999"
-                    value={phone}
-                    onChangeText={setPhone}
-                    keyboardType="phone-pad"
-                    autoCapitalize="none"
-                  />
-                </View>
-                {error && <Text className="text-xs text-destructive mt-1 ml-2 font-medium">{error}</Text>}
-              </View>
-
-              <TouchableOpacity
-                activeOpacity={0.8}
-                className={`h-16 rounded-xl items-center justify-center shadow-lg shadow-primary/20 ${loading ? 'opacity-70' : ''}`}
-                style={{ backgroundColor: theme.primary }}
-                onPress={handleSendOTP}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <Text className="text-primary-foreground text-lg font-bold">Send OTP</Text>
-                )}
-              </TouchableOpacity>
+          {/* Grouped Form Card */}
+          <View className="bg-card rounded-xl mx-4 overflow-hidden mb-2 shadow-sm border border-border/40">
+            <View className="flex-row items-center px-4 py-3 min-h-[50px]">
+              <Phone size={20} color="#8E8E93" />
+              <TextInput
+                className="flex-1 ml-3 text-base font-normal text-foreground"
+                placeholder="Phone Number (e.g., 09123456789)"
+                placeholderTextColor="#8E8E93"
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                autoCapitalize="none"
+              />
             </View>
           </View>
+
+          {error ? (
+            <Text className="text-sm font-normal text-destructive mx-8 mt-1">{error}</Text>
+          ) : null}
         </ScrollView>
+
+        {/* Fixed Bottom Action Bar */}
+        <View className="px-4 pb-6 pt-4 bg-background">
+          <TouchableOpacity
+            activeOpacity={0.8}
+            className={`w-full bg-primary py-4 rounded-xl items-center justify-center flex-row min-h-[56px] ${loading ? 'opacity-70' : ''}`}
+            onPress={handleSendOTP}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text className="text-lg font-semibold text-primary-foreground text-white">Send OTP</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

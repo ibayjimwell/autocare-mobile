@@ -1,7 +1,7 @@
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { ArrowLeft, Lock, Eye, EyeOff } from 'lucide-react-native';
 import { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import authApi from '../services/authApi';
@@ -9,7 +9,7 @@ import authApi from '../services/authApi';
 export default function ResetPasswordScreen() {
   const { theme } = useTheme();
   const params = useLocalSearchParams();
-  const token = params.token || ''; // safely get token
+  const token = params.token || ''; 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -45,68 +45,92 @@ export default function ResetPasswordScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
-        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} showsVerticalScrollIndicator={false}>
-          <View className="px-8 py-10">
-            <TouchableOpacity onPress={() => router.back()} className="mb-6">
-              <Ionicons name="arrow-back" size={28} color={theme.text} />
-            </TouchableOpacity>
-            <Text className="text-3xl font-heading font-black mb-2 text-foreground">Set New Password</Text>
-            <Text className="text-base text-muted-foreground mb-8">
-              Enter your new password below.
+        
+        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+          {/* Header Navigation */}
+          <TouchableOpacity 
+            onPress={() => router.back()} 
+            className="px-4 mt-2 mb-4 min-h-[44px] justify-center items-start w-16"
+          >
+            <ArrowLeft size={28} color={theme?.foreground || "#000000"} />
+          </TouchableOpacity>
+          
+          {/* Large Title Header */}
+          <View className="px-4 mb-6">
+            <Text className="text-3xl font-bold tracking-tight text-foreground mb-2">
+              Set New Password
             </Text>
+            <Text className="text-base font-normal text-muted-foreground leading-6">
+              Enter your new password below. Ensure it is at least 6 characters long.
+            </Text>
+          </View>
 
-            <View className="space-y-4">
-              <View>
-                <Text className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 ml-1">
-                  New Password
-                </Text>
-                <View className="flex-row items-center rounded-xl px-4 h-16 border border-input bg-card">
-                  <Ionicons name="lock-closed-outline" size={20} color="#666" style={{ marginRight: 12 }} />
-                  <TextInput
-                    className="flex-1 text-base font-medium text-foreground"
-                    placeholder="Enter new password"
-                    placeholderTextColor="#999"
-                    secureTextEntry={!showPassword}
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                  />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} className="p-2">
-                    <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color="#666" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View>
-                <Text className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 ml-1">
-                  Confirm Password
-                </Text>
-                <View className="flex-row items-center rounded-xl px-4 h-16 border border-input bg-card">
-                  <Ionicons name="lock-closed-outline" size={20} color="#666" style={{ marginRight: 12 }} />
-                  <TextInput
-                    className="flex-1 text-base font-medium text-foreground"
-                    placeholder="Confirm new password"
-                    placeholderTextColor="#999"
-                    secureTextEntry={!showPassword}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                  />
-                </View>
-              </View>
-
-              {error && <Text className="text-xs text-destructive text-center font-medium">{error}</Text>}
-
-              <TouchableOpacity
-                activeOpacity={0.8}
-                className={`h-16 rounded-xl items-center justify-center shadow-lg shadow-primary/20 ${loading ? 'opacity-70' : ''}`}
-                style={{ backgroundColor: theme.primary }}
-                onPress={handleReset}
-                disabled={loading}
+          {/* Grouped Form Card */}
+          <View className="bg-card rounded-xl mx-4 mb-2 overflow-hidden shadow-sm border border-border/40">
+            
+            {/* New Password Row */}
+            <View className="flex-row items-center px-4 py-3 min-h-[50px]">
+              <Lock size={20} color="#8E8E93" />
+              <TextInput
+                className="flex-1 ml-3 text-base text-foreground py-2"
+                placeholder="New Password"
+                placeholderTextColor="#8E8E93"
+                secureTextEntry={!showPassword}
+                value={newPassword}
+                onChangeText={setNewPassword}
+              />
+              <TouchableOpacity 
+                onPress={() => setShowPassword(!showPassword)} 
+                className="p-2 min-h-[44px] items-center justify-center -mr-2"
               >
-                {loading ? <ActivityIndicator color="white" /> : <Text className="text-primary-foreground text-lg font-bold">Reset Password</Text>}
+                {showPassword ? (
+                  <EyeOff size={22} color="#8E8E93" />
+                ) : (
+                  <Eye size={22} color="#8E8E93" />
+                )}
               </TouchableOpacity>
             </View>
+
+            {/* Inset Divider */}
+            <View className="border-b border-border ml-12" />
+
+            {/* Confirm Password Row */}
+            <View className="flex-row items-center px-4 py-3 min-h-[50px]">
+              <Lock size={20} color="#8E8E93" />
+              <TextInput
+                className="flex-1 ml-3 text-base text-foreground py-2"
+                placeholder="Confirm Password"
+                placeholderTextColor="#8E8E93"
+                secureTextEntry={!showPassword}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+              />
+            </View>
+
           </View>
+
+          {error ? (
+            <Text className="text-sm font-normal text-destructive mx-8 mt-1">{error}</Text>
+          ) : null}
+
         </ScrollView>
+
+        {/* Fixed Bottom Action Bar */}
+        <View className="px-4 pb-6 pt-4 bg-background">
+          <TouchableOpacity
+            activeOpacity={0.8}
+            className={`w-full bg-primary py-4 rounded-xl items-center justify-center flex-row min-h-[56px] ${loading ? 'opacity-70' : ''}`}
+            onPress={handleReset}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text className="text-lg font-semibold text-primary-foreground text-white">Reset Password</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

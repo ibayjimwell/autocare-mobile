@@ -20,7 +20,7 @@ DO NOT just do a 1:1 translation of the old layout with new colors. You must com
    - You can completely change the `View`, `Text`, and styling structures, but the data bound to them and the functions they trigger must remain exactly the same.
 
 3. SAFE AREA VIEW MANDATE:
-   - Ensure every root screen component is wrapped in a `SafeAreaView` with `flex-1 bg-background`.
+    - Ensure every root screen component is wrapped in a `SafeAreaView` from `react-native-safe-area-context` with `flex-1 bg-background`.
    - Ensure proper padding/margins so content does not get hidden under the iOS notch or home indicator bar.
 
 4. ICONS:

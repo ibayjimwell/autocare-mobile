@@ -1,4 +1,6 @@
-import { View, ScrollView, ActivityIndicator } from "react-native";
+import { View, ScrollView, ActivityIndicator, Text } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Wrench } from "lucide-react-native";
 import { useServices } from "../../hooks/useServices";
 import ServicesHeader from "../../components/services/ServicesHeader";
 import ServiceCard from "../../components/services/ServiceCard";
@@ -8,28 +10,42 @@ export default function ServicesScreen() {
   const { services, loading } = useServices();
 
   return (
-    <ScrollView className="flex-1 pb-10 bg-background" showsVerticalScrollIndicator={false}>
-      <View className="px-6 pt-14 pb-10">
-        <ServicesHeader />
+    <SafeAreaView className="flex-1 bg-background">
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <View className="pt-4 pb-10">
+          <ServicesHeader />
 
-        {loading ? (
-          <View className="py-20 items-center">
-            <ActivityIndicator size="large" color="#C1272D" />
-          </View>
-        ) : services.length === 0 ? (
-          <View className="py-20 rounded-[40px] border border-dashed border-border items-center">
-            <Ionicons name="construct-outline" size={48} color="#666" />
-            <Text className="mt-4 font-bold text-lg text-foreground">No services available</Text>
-          </View>
-        ) : (
-          services.map((service, index) => (
-            <ServiceCard key={service.id} service={service} index={index} />
-          ))
-        )}
+          {loading ? (
+            <View className="py-20 items-center justify-center">
+              <ActivityIndicator size="large" color="#C1272D" />
+            </View>
+          ) : services.length === 0 ? (
+            <View className="items-center justify-center py-32 px-4">
+              <Wrench size={56} color="#8E8E93" />
+              <Text className="text-lg font-semibold text-foreground mt-4">
+                No Services Available
+              </Text>
+              <Text className="text-base font-normal text-muted-foreground mt-2 text-center">
+                Check back later for new maintenance packages.
+              </Text>
+            </View>
+          ) : (
+            <View className="bg-card rounded-xl mx-4 overflow-hidden mb-6">
+              {services.map((service, index) => (
+                <ServiceCard 
+                  key={service.id} 
+                  service={service} 
+                  index={index} 
+                  isLast={index === services.length - 1} 
+                />
+              ))}
+            </View>
+          )}
 
-        <ServicesFooter />
-        <View className="h-10" />
-      </View>
-    </ScrollView>
+          <ServicesFooter />
+          <View className="h-10" />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

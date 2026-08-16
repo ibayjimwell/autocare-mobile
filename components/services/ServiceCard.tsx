@@ -1,11 +1,24 @@
 import { View, Text, TouchableOpacity } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { formatDuration, formatPrice } from "../../utils/format";
+import { 
+  Wrench, 
+  Droplet, 
+  CircleDashed, 
+  Octagon, 
+  Sparkles, 
+  Cpu, 
+  Disc, 
+  Settings, 
+  Gauge, 
+  PenTool, 
+  Sliders, 
+  Clock 
+} from "lucide-react-native";
 
 const SERVICE_ICONS = [
-  "car-wrench", "oil", "tire", "brake-pads", "car-wash",
-  "engine", "disc", "car-cog", "speedometer", "wrench", "car-settings",
+  Wrench, Droplet, CircleDashed, Octagon, Sparkles,
+  Cpu, Disc, Settings, Gauge, PenTool, Sliders,
 ];
 
 const getServiceIcon = (index: number) => SERVICE_ICONS[index % SERVICE_ICONS.length];
@@ -13,61 +26,62 @@ const getServiceIcon = (index: number) => SERVICE_ICONS[index % SERVICE_ICONS.le
 interface ServiceCardProps {
   service: any;
   index: number;
+  isLast?: boolean;
 }
 
-export default function ServiceCard({ service, index }: ServiceCardProps) {
+export default function ServiceCard({ service, index, isLast }: ServiceCardProps) {
   const handleBook = () => router.push(`/booking?serviceId=${service.id}`);
+  
+  const IconComponent = getServiceIcon(index);
 
   return (
     <TouchableOpacity
-      activeOpacity={0.9}
+      activeOpacity={0.7}
       onPress={handleBook}
-      className="mb-5 p-6 rounded-[32px] border border-border bg-card shadow-sm"
+      className="bg-card"
     >
-      {/* Top Row: Icon & Duration */}
-      <View className="flex-row justify-between items-start mb-4">
-        <View className="w-14 h-14 rounded-2xl items-center justify-center bg-primary/10">
-          <MaterialCommunityIcons name={getServiceIcon(index)} size={30} color="#C1272D" />
-        </View>
-        <View className="px-3 py-1.5 rounded-full flex-row items-center bg-background">
-          <Ionicons name="time-outline" size={14} color="#666" />
-          <Text className="text-[11px] font-bold ml-1.5 uppercase text-muted-foreground">
-            {formatDuration(service.durationMinutes)}
-          </Text>
-        </View>
-      </View>
-
-      {/* Service Name & Description */}
-      <View className="mb-6">
-        <Text className="text-xl font-heading font-black mb-2 text-foreground">
-          {service.name}
-        </Text>
-        <Text className="text-sm leading-5 font-medium text-foreground/60">
-          {service.description}
-        </Text>
-      </View>
-
-      {/* Bottom Row: Price & Book Button */}
-      <View className="flex-row justify-between items-center pt-4 border-t border-border">
-        <View>
-          <Text className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">
-            Starting at
-          </Text>
-          <Text className="text-2xl font-heading font-black text-primary">
-            {formatPrice(service.basePrice)}
-          </Text>
+      <View className="flex-row items-start pl-4">
+        
+        {/* Left Icon */}
+        <View className="w-10 h-10 rounded-lg items-center justify-center bg-secondary mr-3 mt-4">
+          <IconComponent size={20} color="#000000" />
         </View>
 
-        <TouchableOpacity
-          onPress={handleBook}
-          activeOpacity={0.7}
-          className="flex-row items-center py-3 px-5 rounded-2xl bg-primary shadow-lg shadow-primary/20"
-        >
-          <Text className="text-primary-foreground font-bold uppercase tracking-widest text-xs mr-2">
-            Book
-          </Text>
-          <Ionicons name="chevron-forward" size={16} color="white" />
-        </TouchableOpacity>
+        {/* Content & Inset Divider */}
+        <View className={`flex-1 flex-row py-4 pr-4 min-h-[60px] ${!isLast ? "border-b border-border" : ""}`}>
+          
+          {/* Main Info */}
+          <View className="flex-1 pr-3 justify-center">
+            <Text className="text-base font-semibold text-foreground mb-1">
+              {service.name}
+            </Text>
+            <Text className="text-sm font-normal text-muted-foreground mb-2 leading-5" numberOfLines={2}>
+              {service.description}
+            </Text>
+            
+            <View className="flex-row items-center mt-1">
+              <Clock size={14} color="#8E8E93" />
+              <Text className="text-sm font-medium ml-1.5 text-muted-foreground">
+                {formatDuration(service.durationMinutes)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Right Action (Price & Book) */}
+          <View className="items-end justify-between">
+            <Text className="text-base font-semibold text-foreground">
+              {formatPrice(service.basePrice)}
+            </Text>
+            
+            {/* Visual CTA (Button logic is handled by the parent TouchableOpacity) */}
+            <View className="bg-primary/10 px-4 py-1.5 rounded-full mt-3 min-h-[32px] justify-center">
+              <Text className="text-sm font-bold text-primary tracking-wide">
+                Book
+              </Text>
+            </View>
+          </View>
+          
+        </View>
       </View>
     </TouchableOpacity>
   );

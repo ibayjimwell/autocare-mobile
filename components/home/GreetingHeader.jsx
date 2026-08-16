@@ -1,25 +1,21 @@
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Bell } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 
 export default function GreetingHeader() {
   const { user } = useAuth();
   return (
-    <View className="px-6 pt-14 pb-6 flex-row justify-between items-center">
+    <View className="px-4 pt-14 pb-4 flex-row justify-between items-end">
       <View>
-        <Text className="text-sm font-bold uppercase tracking-widest text-foreground/60">
-          Welcome back
-        </Text>
-        <Text className="text-3xl font-heading font-black text-foreground">
-          {user?.fullname?.split(' ')[0] || 'Customer'}
-          <Text className="text-primary">.</Text>
+        <Text className="text-3xl font-bold tracking-tight text-foreground">
+          {user?.fullname || 'Customer'}
         </Text>
       </View>
       <TouchableOpacity
-        className="w-12 h-12 rounded-2xl items-center justify-center border border-border bg-card"
+        className="w-10 h-10 rounded-full bg-secondary items-center justify-center min-h-[44px] min-w-[44px]"
         onPress={() => { /* navigate to notifications */ }}
       >
-        <Ionicons name="notifications-outline" size={22} color="#C1272D" />
+        <Bell size={20} color="#000000" />
       </TouchableOpacity>
     </View>
   );

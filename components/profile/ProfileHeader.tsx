@@ -1,11 +1,10 @@
 import { View, Text } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
 
 export default function ProfileHeader() {
   const { user } = useAuth();
   const initials = user?.fullName
-    ? user.fullName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
+    ? user.fullName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : "JD";
 
   const joinDate = user?.createdAt
@@ -13,25 +12,19 @@ export default function ProfileHeader() {
     : "Jan 2023";
 
   return (
-    <View className="items-center mb-10">
-      <View className="w-28 h-28 rounded-[40px] justify-center items-center mb-5 shadow-xl shadow-primary/30 bg-primary rotate-[-4deg]">
-        <View className="rotate-[4deg]">
-          <Text className="text-4xl font-heading font-black text-white italic tracking-tighter">
-            {initials}
-          </Text>
-        </View>
-        <View className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-secondary items-center justify-center border-4 border-background">
-          <Ionicons name="checkmark" size={14} color="#1A1A1A" />
-        </View>
+    <View className="bg-card mx-4 rounded-xl flex-row items-center p-4 mb-6">
+      {/* Settings-style Inline Avatar */}
+      <View className="w-16 h-16 rounded-full bg-primary justify-center items-center mr-4">
+        <Text className="text-xl font-bold text-white tracking-wider">
+          {initials}
+        </Text>
       </View>
 
-      <Text className="text-3xl font-heading font-black tracking-tight text-foreground">
-        {user?.fullname || "User"}
-      </Text>
-
-      <View className="flex-row items-center mt-1">
-        <Ionicons name="calendar-outline" size={12} color="#666" />
-        <Text className="text-xs font-bold ml-1 text-muted-foreground/50 uppercase tracking-widest">
+      <View className="flex-1 justify-center">
+        <Text className="text-xl font-semibold text-foreground mb-1">
+          {user?.fullname || "User"}
+        </Text>
+        <Text className="text-sm font-normal text-muted-foreground">
           Member since {joinDate}
         </Text>
       </View>

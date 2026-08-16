@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Clock, ChevronRight } from "lucide-react-native";
 import { router } from "expo-router";
 import { formatDate, formatPrice } from "../../utils/format";
 
@@ -13,46 +13,52 @@ interface AppointmentItem {
 export default function RecentHistory({ appointments }: { appointments: AppointmentItem[] }) {
   if (appointments.length === 0) {
     return (
-      <View className="p-8 mb-10 rounded-[28px] border border-dashed border-border bg-card items-center">
-        <Ionicons name="time-outline" size={32} color="#666" />
-        <Text className="mt-3 text-sm font-bold text-muted-foreground/60">No completed services yet</Text>
+      <View className="bg-card mx-4 rounded-xl p-6 items-center justify-center mb-6 min-h-[100px]">
+        <Clock size={32} color="#8E8E93" />
+        <Text className="mt-3 text-sm font-normal text-muted-foreground">
+          No completed services yet
+        </Text>
       </View>
     );
   }
 
   return (
-    <>
-      {appointments.map((apt) => (
+    <View className="bg-card mx-4 rounded-xl overflow-hidden mb-6">
+      {appointments.map((apt, index) => (
         <TouchableOpacity
           key={apt.id}
-          activeOpacity={0.8}
+          activeOpacity={0.7}
           onPress={() => router.push(`/tracking?appointmentId=${apt.id}`)}
-          className="p-5 mb-3 rounded-[28px] border border-border bg-card shadow-sm"
+          className="pl-4 bg-card"
         >
-          <View className="flex-row justify-between items-start">
-            <View className="flex-1 mr-4">
-              <View className="px-2 py-0.5 rounded-md bg-green-500/15 self-start mb-2">
-                <Text className="text-[9px] font-black uppercase tracking-tight text-green-500">COMPLETED</Text>
-              </View>
-              <Text className="text-base font-bold text-foreground mb-1">
+          {/* Apply bottom border to all except the last item */}
+          <View className={`flex-row justify-between items-center py-3 pr-4 min-h-[60px] ${index !== appointments.length - 1 ? "border-b border-border" : ""}`}>
+            
+            {/* Title & Meta Info */}
+            <View className="flex-1 justify-center pr-3">
+              <Text className="text-base font-semibold text-foreground mb-1">
                 {apt.serviceType?.name || 'Service'}
               </Text>
-              <View className="flex-row items-center">
-                <Ionicons name="calendar-outline" size={12} color="#666" />
-                <Text className="text-xs font-medium ml-1 text-muted-foreground/60">
-                  {formatDate(apt.appointmentDate)}
-                </Text>
-              </View>
-              <Text className="text-[10px] font-bold mt-1 uppercase text-foreground/40">
-                {apt.vehicle?.make} {apt.vehicle?.model}
+              <Text className="text-sm font-normal text-muted-foreground" numberOfLines={1}>
+                {formatDate(apt.appointmentDate)} • {apt.vehicle?.make} {apt.vehicle?.model}
               </Text>
             </View>
-            <Text className="text-lg font-black text-primary">
-              {formatPrice(apt.serviceType?.basePrice)}
-            </Text>
+
+            {/* Price & Status */}
+            <View className="items-end justify-center ml-2">
+              <Text className="text-base font-semibold text-foreground mb-1">
+                {formatPrice(apt.serviceType?.basePrice)}
+              </Text>
+              <Text className="text-xs font-medium text-[#34C759]">
+                Completed
+              </Text>
+            </View>
+
+            {/* Navigation Chevron */}
+            <ChevronRight size={20} color="#C7C7CC" className="ml-2" />
           </View>
         </TouchableOpacity>
       ))}
-    </>
+    </View>
   );
 }

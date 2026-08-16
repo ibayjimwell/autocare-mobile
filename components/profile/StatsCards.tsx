@@ -1,23 +1,28 @@
 import { View, Text } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Car, CalendarCheck } from "lucide-react-native";
 
-interface StatsCardsProps {
-  vehicles: number;
-  visits: number;
-}
-
-export default function StatsCards({ vehicles, visits }: StatsCardsProps) {
+export default function StatsCards({ vehicles, visits }) {
   return (
-    <View className="flex-row gap-4 mb-10">
-      <View className="flex-1 p-6 rounded-[32px] items-center border border-border bg-card">
-        <MaterialCommunityIcons name="car-multiple" size={24} color="#C1272D" />
-        <Text className="text-3xl font-black mt-2 text-foreground">{vehicles}</Text>
-        <Text className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">Vehicles</Text>
+    <View className="flex-row mx-4 gap-4 mb-6">
+      {/* Widget-style Stacked Cards */}
+      <View className="flex-1 bg-card rounded-xl p-4 items-start shadow-sm">
+        <Car size={24} color="#C1272D" className="mb-2" />
+        <Text className="text-2xl font-bold tracking-tight text-foreground">
+          {vehicles}
+        </Text>
+        <Text className="text-sm font-normal text-muted-foreground mt-0.5">
+          Vehicles
+        </Text>
       </View>
-      <View className="flex-1 p-6 rounded-[32px] items-center border border-border bg-card">
-        <MaterialCommunityIcons name="calendar-check-outline" size={24} color="#C1272D" />
-        <Text className="text-3xl font-black mt-2 text-foreground">{visits}</Text>
-        <Text className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">Service Visits</Text>
+
+      <View className="flex-1 bg-card rounded-xl p-4 items-start shadow-sm">
+        <CalendarCheck size={24} color="#C1272D" className="mb-2" />
+        <Text className="text-2xl font-bold tracking-tight text-foreground">
+          {visits}
+        </Text>
+        <Text className="text-sm font-normal text-muted-foreground mt-0.5">
+          Service Visits
+        </Text>
       </View>
     </View>
   );

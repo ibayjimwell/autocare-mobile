@@ -5,6 +5,7 @@ import {
   Text,
   TouchableOpacity
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useState } from "react";
 import { router, Link } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
@@ -40,53 +41,58 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 justify-center items-center bg-background">
+      <SafeAreaView className="flex-1 justify-center items-center bg-background">
         <ActivityIndicator size="large" color="#C1272D" />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView
-      className="flex-1 pb-10 bg-background"
-      showsVerticalScrollIndicator={false}
-    >
-      <View className="px-6 pt-16 pb-12">
+    <SafeAreaView className="flex-1 bg-background">
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* iOS Large Title */}
+        <View className="px-4 pt-4 mb-4">
+          <Text className="text-3xl font-bold tracking-tight text-foreground">
+            Profile
+          </Text>
+        </View>
+
         <ProfileHeader />
         <ContactCards />
         <StatsCards vehicles={stats.vehicles} visits={stats.visits} />
 
-        {/* Recent History */}
-        <View className="flex-row justify-between items-end mb-5 px-1">
-          <View>
-            <Text className="text-[10px] font-bold uppercase tracking-[2px] text-foreground/40 mb-1">
-              Activity
-            </Text>
-            <Text className="text-xl font-heading font-black text-foreground">
-              Recent History
-            </Text>
-          </View>
+        {/* Recent History Section Header */}
+        <View className="flex-row justify-between items-end px-8 mb-2 mt-4">
+          <Text className="text-sm font-normal uppercase tracking-wider text-muted-foreground">
+            Activity
+          </Text>
           <TouchableOpacity onPress={() => router.push("/history")}>
-            <Link className="text-sm font-bold text-primary" href='history' >View All</Link>
+            <Link className="text-sm font-semibold text-primary" href="history">
+              View All
+            </Link>
           </TouchableOpacity>
         </View>
         <RecentHistory appointments={stats.completedAppointments} />
 
+        {/* Assuming SettingsList is pre-styled as an iOS Grouped List inside */}
         <SettingsList
           loggingOut={loggingOut}
           onLogoutPress={() => setShowLogoutModal(true)}
         />
 
-        <Text className="text-center mt-10 text-[10px] font-bold text-foreground/20 uppercase tracking-widest">
+        <Text className="text-center mt-6 mb-10 text-xs font-normal text-muted-foreground">
           AutoCare v2.0 • 2026
         </Text>
-      </View>
+      </ScrollView>
 
       <LogoutModal
         visible={showLogoutModal}
         onClose={() => setShowLogoutModal(false)}
         onConfirm={handleLogout}
       />
-    </ScrollView>
+    </SafeAreaView>
   );
 }

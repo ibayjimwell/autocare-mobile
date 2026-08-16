@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useState } from "react";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Plus, Car } from "lucide-react-native";
 import { useVehicles } from "../../hooks/useVehicles";
 import VehicleCard from "../../components/vehicles/VehicleCard";
 import VehicleFormModal from "../../components/vehicles/VehicleFormModal";
@@ -8,7 +9,7 @@ import VehicleFormModal from "../../components/vehicles/VehicleFormModal";
 export default function VehiclesScreen() {
   const { vehicles, loading, addVehicle, updateVehicle, deleteVehicle } = useVehicles();
   const [modalVisible, setModalVisible] = useState(false);
-  const [editingVehicle, setEditingVehicle] = useState(null);   // ← removed <any>
+  const [editingVehicle, setEditingVehicle] = useState(null);
 
   const openAddModal = () => {
     setEditingVehicle(null);
@@ -29,53 +30,58 @@ export default function VehiclesScreen() {
   };
 
   return (
-    <View className="flex-1 bg-background">
-      {/* Header */}
-      <View className="px-6 pt-14 pb-4 flex-row justify-between items-end">
-        <View>
-          <Text className="text-sm font-bold uppercase tracking-[2px] text-foreground/50">
-            Garage
-          </Text>
-          <Text className="text-3xl font-heading font-black text-foreground">
-            Vehicles<Text className="text-primary">.</Text>
-          </Text>
-        </View>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          className="w-12 h-12 rounded-2xl justify-center items-center bg-primary shadow-lg shadow-primary/20"
-          onPress={openAddModal}
-        >
-          <Ionicons name="add" size={28} color="white" />
-        </TouchableOpacity>
+    <SafeAreaView className="flex-1 bg-background">
+      {/* Large Header */}
+      <View className="px-4 pt-4 mb-4">
+        <Text className="text-3xl font-bold tracking-tight text-foreground">
+          Vehicles
+        </Text>
       </View>
 
-      <ScrollView className="flex-1 px-6 pt-4" showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {loading ? (
           <View className="py-20 items-center">
             <ActivityIndicator size="large" color="#C1272D" />
           </View>
         ) : vehicles.length === 0 ? (
-          <View className="items-center justify-center py-24 opacity-50">
-            <View className="w-24 h-24 rounded-full bg-muted items-center justify-center mb-6">
-              <MaterialCommunityIcons name="car-off" size={48} color="#666" />
-            </View>
-            <Text className="text-lg font-bold text-foreground">No vehicles found</Text>
-            <Text className="text-sm font-medium text-muted-foreground mt-2">
-              Start your journey by adding{"\n"}your first car.
+          <View className="items-center justify-center py-32 px-4">
+            <Car size={56} color="#8E8E93" />
+            <Text className="text-lg font-semibold text-foreground mt-4">
+              No Vehicles Found
+            </Text>
+            <Text className="text-base font-normal text-muted-foreground mt-2 text-center">
+              Start your journey by adding your first car.
             </Text>
           </View>
         ) : (
-          vehicles.map((vehicle) => (
-            <VehicleCard
-              key={vehicle.id}
-              vehicle={vehicle}
-              onEdit={() => openEditModal(vehicle)}
-              onDelete={() => deleteVehicle(vehicle)}
-            />
-          ))
+          <View className="bg-card rounded-xl mx-4 overflow-hidden mb-6">
+            {vehicles.map((vehicle, index) => (
+              <VehicleCard
+                key={vehicle.id}
+                vehicle={vehicle}
+                onEdit={() => openEditModal(vehicle)}
+                onDelete={() => deleteVehicle(vehicle)}
+                isLast={index === vehicles.length - 1}
+              />
+            ))}
+          </View>
         )}
         <View className="h-10" />
       </ScrollView>
+
+      {/* Fixed Bottom Action Bar */}
+      <View className="px-4 py-4 bg-background">
+        <TouchableOpacity
+          activeOpacity={0.8}
+          className="bg-primary rounded-xl flex-row justify-center items-center min-h-[44px] py-4"
+          onPress={openAddModal}
+        >
+          <Plus color="#FFFFFF" size={20} className="mr-2" />
+          <Text className="text-white font-semibold text-base">
+            Add Vehicle
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Add/Edit Modal */}
       <VehicleFormModal
@@ -84,6 +90,6 @@ export default function VehiclesScreen() {
         editingVehicle={editingVehicle}
         onSave={handleSave}
       />
-    </View>
+    </SafeAreaView>
   );
 }

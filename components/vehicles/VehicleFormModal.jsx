@@ -9,8 +9,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  SafeAreaView
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { X } from "lucide-react-native";
 
 export default function VehicleFormModal({
   visible,
@@ -58,81 +59,82 @@ export default function VehicleFormModal({
   return (
     <Modal
       animationType="slide"
-      transparent={true}
+      presentationStyle="pageSheet"
       visible={visible}
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
+        className="flex-1 bg-background"
       >
-        <View className="flex-1 justify-end bg-black/60">
-          <View className="p-8 rounded-t-[40px] bg-card shadow-2xl">
-            {/* Handle */}
-            <View className="w-12 h-1.5 rounded-full self-center mb-6 bg-foreground/10" />
+        <SafeAreaView className="flex-1">
+          {/* Header */}
+          <View className="flex-row justify-between items-center px-4 pt-6 pb-4">
+            <Text className="text-3xl font-bold tracking-tight text-foreground">
+              {editingVehicle ? "Update Car" : "New Vehicle"}
+            </Text>
+            <TouchableOpacity
+              onPress={onClose}
+              className="bg-secondary rounded-full w-8 h-8 items-center justify-center ml-4"
+            >
+              <X size={18} color="#000000" />
+            </TouchableOpacity>
+          </View>
 
-            {/* Header */}
-            <View className="flex-row justify-between items-center mb-8">
-              <Text className="text-2xl font-heading font-black text-foreground">
-                {editingVehicle ? "Update Car" : "New Vehicle"}
-              </Text>
-              <TouchableOpacity
-                onPress={onClose}
-                className="w-10 h-10 rounded-full items-center justify-center bg-muted"
-              >
-                <Ionicons name="close" size={20} color="#1A1A1A" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Form Fields */}
-            <View className="space-y-4">
-              <View>
-                <Text className="text-[10px] font-bold uppercase tracking-widest ml-1 mb-2 text-foreground/50">
-                  Brand / Make
-                </Text>
-                <TextInput
-                  className="p-4 rounded-2xl text-base font-bold border border-border bg-background text-foreground"
-                  placeholder="e.g., Toyota"
-                  placeholderTextColor="#999"
-                  value={form.make}
-                  onChangeText={(text) => setForm({ ...form, make: text })}
-                />
-              </View>
-
-              <View>
-                <Text className="text-[10px] font-bold uppercase tracking-widest ml-1 mb-2 text-foreground/50">
-                  Model Name
-                </Text>
-                <TextInput
-                  className="p-4 rounded-2xl text-base font-bold border border-border bg-background text-foreground"
-                  placeholder="e.g., Vios"
-                  placeholderTextColor="#999"
-                  value={form.model}
-                  onChangeText={(text) => setForm({ ...form, model: text })}
-                />
-              </View>
-
-              <View className="flex-row space-x-4">
-                <View className="flex-1">
-                  <Text className="text-[10px] font-bold uppercase tracking-widest ml-1 mb-2 text-foreground/50">
-                    Plate Number
-                  </Text>
+          {/* Form Area - Apple HIG Grouped Form */}
+          <View className="flex-1 pt-2">
+            <View className="bg-card rounded-xl mx-4 overflow-hidden mb-6">
+              
+              {/* Make Input Row */}
+              <View className="pl-4">
+                <View className="flex-row items-center border-b border-border pr-4 min-h-[44px]">
+                  <Text className="text-base font-normal text-foreground w-[100px]">Make</Text>
                   <TextInput
-                    className="p-4 rounded-2xl text-base font-bold border border-border bg-background text-foreground uppercase"
+                    className="flex-1 text-base text-foreground py-3"
+                    placeholder="e.g., Toyota"
+                    placeholderTextColor="#8E8E93"
+                    value={form.make}
+                    onChangeText={(text) => setForm({ ...form, make: text })}
+                  />
+                </View>
+              </View>
+
+              {/* Model Input Row */}
+              <View className="pl-4">
+                <View className="flex-row items-center border-b border-border pr-4 min-h-[44px]">
+                  <Text className="text-base font-normal text-foreground w-[100px]">Model</Text>
+                  <TextInput
+                    className="flex-1 text-base text-foreground py-3"
+                    placeholder="e.g., Vios"
+                    placeholderTextColor="#8E8E93"
+                    value={form.model}
+                    onChangeText={(text) => setForm({ ...form, model: text })}
+                  />
+                </View>
+              </View>
+
+              {/* Plate Input Row */}
+              <View className="pl-4">
+                <View className="flex-row items-center border-b border-border pr-4 min-h-[44px]">
+                  <Text className="text-base font-normal text-foreground w-[100px]">Plate</Text>
+                  <TextInput
+                    className="flex-1 text-base text-foreground py-3 uppercase"
                     placeholder="ABC 123"
-                    placeholderTextColor="#999"
+                    placeholderTextColor="#8E8E93"
                     value={form.plateNumber}
                     onChangeText={(text) => setForm({ ...form, plateNumber: text })}
                   />
                 </View>
-                <View className="w-[100px]">
-                  <Text className="text-[10px] font-bold uppercase tracking-widest ml-1 mb-2 text-foreground/50">
-                    Year
-                  </Text>
+              </View>
+
+              {/* Year Input Row - No Bottom Border */}
+              <View className="pl-4">
+                <View className="flex-row items-center pr-4 min-h-[44px]">
+                  <Text className="text-base font-normal text-foreground w-[100px]">Year</Text>
                   <TextInput
-                    className="p-4 rounded-2xl text-base font-bold border border-border bg-background text-foreground"
+                    className="flex-1 text-base text-foreground py-3"
                     placeholder="2024"
-                    placeholderTextColor="#999"
+                    placeholderTextColor="#8E8E93"
                     value={form.year}
                     onChangeText={(text) => setForm({ ...form, year: text })}
                     keyboardType="numeric"
@@ -140,26 +142,28 @@ export default function VehicleFormModal({
                   />
                 </View>
               </View>
+              
             </View>
+          </View>
 
-            {/* Save Button */}
+          {/* Fixed Bottom Action Bar */}
+          <View className="px-4 py-4 bg-background">
             <TouchableOpacity
-              activeOpacity={0.9}
-              className={`mt-10 py-5 rounded-2xl bg-primary shadow-lg shadow-primary/20 ${submitting ? "opacity-70" : ""}`}
+              activeOpacity={0.8}
+              className={`bg-primary rounded-xl flex-row justify-center items-center min-h-[44px] py-4 ${submitting ? "opacity-70" : ""}`}
               onPress={handleSave}
               disabled={submitting}
             >
               {submitting ? (
-                <ActivityIndicator color="white" />
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text className="text-primary-foreground text-center font-bold text-base uppercase tracking-widest">
+                <Text className="text-white font-semibold text-base">
                   {editingVehicle ? "Confirm Changes" : "Save to Garage"}
                 </Text>
               )}
             </TouchableOpacity>
-            <View className="h-4" />
           </View>
-        </View>
+        </SafeAreaView>
       </KeyboardAvoidingView>
     </Modal>
   );

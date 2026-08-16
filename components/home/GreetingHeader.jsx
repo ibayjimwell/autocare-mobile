@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 export default function GreetingHeader() {
   const { user } = useAuth();
   return (
-    <View className="px-4 pt-14 pb-4 flex-row justify-between items-end">
+    <View className="px-4 pb-4 flex-row justify-between items-end">
       <View>
         <Text className="text-3xl font-bold tracking-tight text-foreground">
           {user?.fullname || 'Customer'}

@@ -1,4 +1,5 @@
-import { SafeAreaView, ScrollView, View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { ScrollView, View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, useRouter } from 'expo-router';
 import { PlusCircle } from 'lucide-react-native';
 import { useEffect } from 'react';

@@ -16,14 +16,14 @@ export default function HeroCard() {
           className="absolute w-full h-full"
           resizeMode="cover"
         />
-        <View className="absolute w-full h-full bg-black/40" />
+        <View className="absolute w-full h-full bg-black/60" />
         
         <View className="flex-1 p-6 justify-end">
           <View className="bg-white/20 self-start px-2 py-1 rounded mb-2">
             <Text className="text-white text-xs font-semibold">SHOP OPEN</Text>
           </View>
-          <Text className="text-white text-2xl font-bold tracking-tight mb-1">
-            AutoCare PMS & Checkup
+          <Text className="text-white text-2xl font-bold mb-1">
+            <Text className='text-primary'>AUTO</Text> PRO TECH
           </Text>
           <View className="flex-row items-center mt-2 justify-end">
             <Text className="text-white text-sm font-medium mr-2">Book Now</Text>

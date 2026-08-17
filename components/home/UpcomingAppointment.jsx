@@ -1,12 +1,12 @@
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Calendar, ChevronRight, CheckCircle, Clock } from 'lucide-react-native';
+import { Calendar, Clock, CheckCircle, ArrowRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { STATUS_CONFIG } from '../../utils/constants';
 import { formatDate, formatTime, getServiceNames } from '../../utils/format';
 
 export default function UpcomingAppointment({ appointment }) {
   const router = useRouter();
-  
+
   if (!appointment) {
     return (
       <View className="bg-card rounded-xl mx-4 p-6 items-center">
@@ -25,46 +25,50 @@ export default function UpcomingAppointment({ appointment }) {
   }
 
   const status = STATUS_CONFIG[appointment.status] || STATUS_CONFIG.PENDING;
-  
+
   return (
     <TouchableOpacity
       activeOpacity={0.7}
       onPress={() => router.push(`/tracking?appointmentId=${appointment.id}`)}
-      className="bg-card rounded-xl mx-4 p-4 shadow-sm"
+      className="bg-card rounded-xl mx-4 p-3 flex-row items-center border border-border"
     >
-      <View className="flex-row justify-between items-start mb-4">
-        <View className="flex-1 mr-4">
-          <Text className="text-sm font-medium text-muted-foreground mb-1 uppercase tracking-wider" style={{ color: status.color }}>
-            {status.label}
+      {/* Left thumbnail — takes the place of the map thumbnail in the inspiration */}
+      <View
+        className="w-16 h-16 rounded-lg items-center justify-center mr-3"
+        style={{ backgroundColor: status.color + '15' }}
+      >
+        <CheckCircle size={28} color={status.color} />
+      </View>
+
+      {/* Middle text block */}
+      <View className="flex-1 mr-3">
+        <Text
+          className="text-xs font-semibold uppercase tracking-wider mb-0.5"
+          style={{ color: status.color }}
+        >
+          {status.label}
+        </Text>
+        <Text className="text-base font-semibold text-foreground" numberOfLines={1}>
+          {getServiceNames(appointment)}
+        </Text>
+        <Text className="text-sm font-normal text-muted-foreground mt-0.5" numberOfLines={1}>
+          {appointment.vehicle?.make} {appointment.vehicle?.model}
+        </Text>
+        <View className="flex-row items-center mt-1.5">
+          <Calendar size={12} color="#8E8E93" />
+          <Text className="text-sm font-normal text-muted-foreground ml-1 mr-2.5">
+            {formatDate(appointment.appointmentDate)}
           </Text>
-          <Text className="text-xl font-semibold text-foreground" numberOfLines={1}>
-            {getServiceNames(appointment)}
+          <Clock size={12} color="#8E8E93" />
+          <Text className="text-sm font-normal text-muted-foreground ml-1">
+            {formatTime(appointment.appointmentTime)}
           </Text>
-          <Text className="text-base font-normal text-muted-foreground mt-1">
-            {appointment.vehicle?.make} {appointment.vehicle?.model}
-          </Text>
-        </View>
-        <View className="w-12 h-12 rounded-full items-center justify-center bg-secondary">
-          <CheckCircle size={24} color={status.color} />
         </View>
       </View>
-      
-      <View className="flex-row items-center justify-between pt-4 border-t border-border">
-        <View className="flex-row items-center">
-          <View className="flex-row items-center mr-4">
-            <Calendar size={16} color="#8E8E93" />
-            <Text className="text-sm ml-2 font-medium text-foreground">
-              {formatDate(appointment.appointmentDate)}
-            </Text>
-          </View>
-          <View className="flex-row items-center">
-            <Clock size={16} color="#8E8E93" />
-            <Text className="text-sm ml-2 font-medium text-foreground">
-              {formatTime(appointment.appointmentTime)}
-            </Text>
-          </View>
-        </View>
-        <ChevronRight size={20} color="#C5C5C7" />
+
+      {/* Circular primary CTA — mirrors the round arrow button */}
+      <View className="w-11 h-11 rounded-full bg-primary items-center justify-center min-h-[44px] min-w-[44px]">
+        <ArrowRight size={20} color="#FFFFFF" />
       </View>
     </TouchableOpacity>
   );

@@ -1,6 +1,7 @@
-import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { View, TouchableOpacity, Platform } from 'react-native';
+import { Fragment } from 'react';
+import { Tabs, useRouter } from 'expo-router';
+import { Home, Car, Wrench, User, Calendar, HelpCircle, Plus } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import Animated, {
@@ -9,22 +10,68 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-const TAB_BAR_HEIGHT = 60; 
+const TAB_BAR_HEIGHT = 64;
+
+const ICON_MAP = {
+  index: Home,
+  vehicles: Car,
+  services: Wrench,
+  profile: User,
+  booking: Calendar,
+};
+
+const LABEL_MAP = {
+  index: 'Home',
+  vehicles: 'Vehicles',
+  services: 'Services',
+  profile: 'Profile',
+  booking: 'Booking',
+};
+
+function CenterActionButton() {
+  const router = useRouter();
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={() => router.push('/booking')}
+      className="items-center justify-center"
+      style={{ width: 64, height: '100%' }}
+    >
+      <View
+        className="w-14 h-14 rounded-full bg-primary items-center justify-center"
+        style={{
+          transform: [{ translateY: -14 }],
+          borderWidth: 4,
+          borderColor: '#F2F2F7',
+          ...Platform.select({
+            ios: {
+              shadowColor: '#C1272D',
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.35,
+              shadowRadius: 10,
+            },
+            android: { elevation: 8 },
+          }),
+        }}
+      >
+        <Plus size={26} color="#FFFFFF" />
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 function CustomTabBar({ state, descriptors, navigation, theme, bottomInset }) {
-  const totalHeight = TAB_BAR_HEIGHT + bottomInset;
-
   return (
     <View
-      className="absolute self-center flex-row items-center justify-around rounded-[32px] px-3"
+      className="absolute self-center flex-row items-center justify-around rounded-full px-2"
       style={{
         backgroundColor: theme.surface + 'B3',
-        width: '90%',
+        width: '92%',
         height: TAB_BAR_HEIGHT, // keep the glass bar itself normal height
-        bottom: bottomInset + 8, // 8‑point margin from the safe area
-        left: '5%',
-        borderWidth: 1.5,
-        borderColor: 'rgba(255,255,255,0.2)',
+        bottom: bottomInset + 8, // 8-point margin from the safe area
+        left: '4%',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
         ...Platform.select({
           ios: {
             shadowColor: '#000',
@@ -47,14 +94,8 @@ function CustomTabBar({ state, descriptors, navigation, theme, bottomInset }) {
           }
         };
 
-        const iconMap = {
-          index: isFocused ? 'grid' : 'grid-outline',
-          vehicles: isFocused ? 'car-sport' : 'car-sport-outline',
-          profile: isFocused ? 'person' : 'person-outline',
-          booking: isFocused ? 'calendar' : 'calendar-outline',
-          services: isFocused ? 'construct' : 'construct-outline',
-        };
-        const iconName = iconMap[route.name] || 'help-circle-outline';
+        const IconComponent = ICON_MAP[route.name] || HelpCircle;
+        const label = LABEL_MAP[route.name] || route.name;
 
         const pillStyle = useAnimatedStyle(() => ({
           backgroundColor: withTiming(isFocused ? theme.primary + '25' : 'transparent', { duration: 200 }),
@@ -70,26 +111,35 @@ function CustomTabBar({ state, descriptors, navigation, theme, bottomInset }) {
         }));
 
         return (
-          <TouchableOpacity
-            key={route.key}
-            onPress={onPress}
-            activeOpacity={0.6}
-            className="items-center justify-center flex-1 h-full"
-          >
-            <View className="items-center justify-center w-full h-full">
-              <Animated.View
-                className="absolute w-14 h-10 rounded-2xl"
-                style={[pillStyle, { shadowColor: theme.primary, shadowOpacity: 0.3, shadowRadius: 10 }]}
-              />
-              <Animated.View style={iconAnim}>
-                <Ionicons
-                  name={iconName}
-                  size={24}
-                  color={isFocused ? theme.primary : theme.textSecondary}
+          <Fragment key={route.key}>
+            {/* Elevated center "+" button, like the inspiration tab bar */}
+            {index === 2 && <CenterActionButton />}
+
+            <TouchableOpacity
+              onPress={onPress}
+              activeOpacity={0.6}
+              className="items-center justify-center flex-1 h-full"
+            >
+              <View className="items-center justify-center w-full h-full">
+                <Animated.View
+                  className="absolute w-16 h-12 rounded-2xl"
+                  style={[pillStyle, { shadowColor: theme.primary, shadowOpacity: 0.3, shadowRadius: 10 }]}
                 />
-              </Animated.View>
-            </View>
-          </TouchableOpacity>
+                <Animated.View style={iconAnim} className="items-center">
+                  <IconComponent
+                    size={22}
+                    color={isFocused ? theme.primary : theme.textSecondary}
+                  />
+                  <Text
+                    className="text-[10px] font-medium mt-0.5"
+                    style={{ color: isFocused ? theme.primary : theme.textSecondary }}
+                  >
+                    {label}
+                  </Text>
+                </Animated.View>
+              </View>
+            </TouchableOpacity>
+          </Fragment>
         );
       })}
     </View>
@@ -100,7 +150,8 @@ export default function TabLayout() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const tabBarVisualHeight = TAB_BAR_HEIGHT + insets.bottom + 8; 
+  // Extra clearance so the raised center button never overlaps content
+  const tabBarVisualHeight = TAB_BAR_HEIGHT + insets.bottom + 22;
 
   return (
     <Tabs

@@ -15,7 +15,7 @@ export function useSignUpForm() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const [signupError, setSignupError] = useState("");   // new
+  const [signupError, setSignupError] = useState("");
 
   const handleFieldChange = (field, value) => {
     switch (field) {
@@ -54,8 +54,14 @@ export function useSignUpForm() {
     const result = await register(fullName, email, phone, password);
     setLoading(false);
     if (result.success) {
-      // Navigate to verification screen
-      router.push(`/verify-phone?customerId=${result.customerId}&phone=${phone}`);
+      // ✅ Use the customerId from the result
+      const customerId = result.customerId || result.user?.id;
+      if (customerId) {
+        router.push(`/verify-phone?customerId=${customerId}&phone=${phone}`);
+      } else {
+        // Fallback: navigate to tabs if no customerId (should not happen)
+        router.replace('/(tabs)');
+      }
     } else {
       setSignupError(result.message || "Signup failed");
     }

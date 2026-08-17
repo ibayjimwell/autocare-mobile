@@ -9,27 +9,37 @@ export default function HeroCard() {
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={() => router.push('/booking')}
-        className="mx-4 relative rounded-xl overflow-hidden"
+        className="mx-4 rounded-xl overflow-hidden bg-primary flex-row min-h-[168px]"
       >
-        <Image
-          source={{ uri: 'https://images.pexels.com/photos/3806249/pexels-photo-3806249.jpeg?auto=compress&cs=tinysrgb&w=600' }}
-          className="absolute w-full h-full"
-          resizeMode="cover"
-        />
-        <View className="absolute w-full h-full bg-black/60" />
-        
-        <View className="flex-1 p-6 justify-end">
-          <View className="bg-white/20 self-start px-2 py-1 rounded mb-2">
-            <Text className="text-white text-xs font-semibold">SHOP OPEN</Text>
+        {/* Decorative background circles */}
+        <View className="absolute -top-16 -right-10 w-44 h-44 rounded-full bg-white/10" />
+        <View className="absolute -bottom-20 right-24 w-36 h-36 rounded-full bg-black/10" />
+
+        {/* Copy + CTA */}
+        <View className="flex-1 p-5 justify-between">
+          <View>
+            {/* Floating badge — glassmorphism permitted here */}
+            <View className="bg-white/20 border border-white/30 self-start px-2.5 py-1 rounded-full mb-3">
+              <Text className="text-white text-xs font-semibold tracking-wide">SHOP OPEN</Text>
+            </View>
+            <Text className="text-white text-xl font-bold">AUTO PRO TECH</Text>
+            <Text className="text-white/80 text-sm font-normal mt-1">
+              Top-rated care for your vehicle
+            </Text>
           </View>
-          <Text className="text-white text-2xl font-bold mb-1">
-            <Text className='text-primary'>AUTO</Text> PRO TECH
-          </Text>
-          <View className="flex-row items-center mt-2 justify-end">
-            <Text className="text-white text-sm font-medium mr-2">Book Now</Text>
-            <ArrowRight size={16} color="#FFFFFF" />
+
+          <View className="bg-white self-start flex-row items-center px-4 py-2 rounded-full mt-4">
+            <Text className="text-primary text-sm font-semibold mr-1.5">Book Now</Text>
+            <ArrowRight size={14} color="#C1272D" />
           </View>
         </View>
+
+        {/* Car visual on the right, like the inspiration banner */}
+        <Image
+          source={{ uri: 'https://images.pexels.com/photos/3806249/pexels-photo-3806249.jpeg?auto=compress&cs=tinysrgb&w=600' }}
+          style={{ width: 140 }}
+          resizeMode="cover"
+        />
       </TouchableOpacity>
     </View>
   );

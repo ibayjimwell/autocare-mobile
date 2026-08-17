@@ -10,7 +10,7 @@ export default function SettingsList({ loggingOut, onLogoutPress }) {
           Preferences
         </Text>
       </View>
-
+ 
       {/* Main Settings Grouped List */}
       <View className="bg-card mx-4 rounded-xl overflow-hidden mb-6">
         {/* Notifications Item */}

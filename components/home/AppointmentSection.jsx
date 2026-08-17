@@ -63,7 +63,7 @@ export default function AppointmentSection({ title, appointments, statusKey, lim
       <View className="bg-card rounded-xl mx-4 overflow-hidden">
         {displayAppointments.map((appt, index) => {
           const isLast = index === displayAppointments.length - 1;
-          
+
           return (
             <TouchableOpacity
               key={appt.id}
@@ -72,12 +72,12 @@ export default function AppointmentSection({ title, appointments, statusKey, lim
               className="bg-card"
             >
               <View className={`flex-row items-center justify-between py-3 pr-4 ml-4 min-h-[60px] ${!isLast ? 'border-b border-border' : ''}`}>
-                
+
                 <View className="flex-row items-center flex-1 pr-2">
                   <View className="w-10 h-10 rounded-lg items-center justify-center mr-3" style={{ backgroundColor: color + '15' }}>
                     {getStatusIcon(statusKey, color)}
                   </View>
-                  
+
                   <View className="flex-1">
                     <Text className="text-base font-medium text-foreground" numberOfLines={1}>
                       {getServiceNames(appt)}

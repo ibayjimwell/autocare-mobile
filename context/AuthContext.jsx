@@ -1,4 +1,3 @@
-// context/AuthContext.js
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { storage } from '../utils/storage';
 import authApi from '../services/authApi';
@@ -25,7 +24,6 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        // 1. Check token structure and expiration
         const decoded = decodeToken(storedToken);
         if (!decoded || !decoded.exp) {
           console.warn('[Auth] Token invalid, clearing storage.');
@@ -38,7 +36,6 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        // 2. Check user object
         let parsedUser;
         try {
           parsedUser = JSON.parse(storedUser);
@@ -53,10 +50,9 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        // 3. *** CRITICAL: Verify token against the server ***
         console.log('[Auth] Verifying token with server...');
         try {
-          await authApi.getMe();          // uses the stored token
+          await authApi.getMe();
           console.log('[Auth] Server verification OK.');
         } catch (serverError) {
           console.warn('[Auth] Server verification failed:', serverError.message);
@@ -64,7 +60,6 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        // All checks passed
         console.log('[Auth] Session restored successfully.');
         setToken(storedToken);
         setUser(parsedUser);
@@ -89,7 +84,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await authApi.login({ email, password });
       if (res.error) return { success: false, message: res.message || 'Login failed' };
-  
+
       if (res.data?.requiresVerification) {
         return {
           success: false,
@@ -99,13 +94,13 @@ export const AuthProvider = ({ children }) => {
           message: 'Phone verification required.',
         };
       }
-  
+
       const { customer, token } = res.data;
       storage.setItem('auth_token', token);
       storage.setItem('auth_user', JSON.stringify(customer));
       setToken(token);
       setUser(customer);
-      return { success: true };
+      return { success: true, user: customer };
     } catch (err) {
       return { success: false, message: err.message };
     }
@@ -115,14 +110,21 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await authApi.register({ fullname: fullName, email, phone, password });
       if (res.error) return { success: false, message: res.message || 'Registration failed' };
+      
+      // ✅ Return the customer ID from the registration response
+      const customerId = res.data?.id;
+      
+      // Auto-login after registration
       const loginRes = await authApi.login({ email, password });
       if (loginRes.error) return { success: false, message: 'Account created but login failed' };
+      
       const { customer, token } = loginRes.data;
       storage.setItem('auth_token', token);
       storage.setItem('auth_user', JSON.stringify(customer));
       setToken(token);
       setUser(customer);
-      return { success: true, user: customer };
+      
+      return { success: true, user: customer, customerId: customerId || customer?.id };
     } catch (err) {
       return { success: false, message: err.message };
     }
@@ -152,7 +154,6 @@ export const AuthProvider = ({ children }) => {
     setUser(customer);
   };
 
-
   const logout = async () => {
     storage.removeItem('auth_token');
     storage.removeItem('auth_user');
@@ -161,7 +162,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, token, setSession }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, token, setSession, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

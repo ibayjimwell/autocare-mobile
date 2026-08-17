@@ -1,7 +1,7 @@
 import { ScrollView, View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, useRouter } from 'expo-router';
-import { PlusCircle } from 'lucide-react-native';
+import { PlusCircle, Search } from 'lucide-react-native';
 import { useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useHomeData } from '../../hooks/useHomeData';
@@ -44,14 +44,31 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView className="flex-1 bg-background" showsVerticalScrollIndicator={false}>
-        <GreetingHeader />
-        
+      {/* Placed OUTSIDE the ScrollView so it stays fixed at the top */}
+      <GreetingHeader />
+
+      <ScrollView 
+        className="flex-1 bg-background" 
+        showsVerticalScrollIndicator={false}
+        contentContainerClassName="pt-6" // Added pt-6 here to give breathing room under the header
+      >
+        {/* Search */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => router.push('/services')}
+          className="mx-4 mb-6 flex-row items-center bg-secondary rounded-lg px-4 min-h-[44px]"
+        >
+          <Search size={18} color="#8E8E93" />
+          <Text className="ml-2 text-base font-normal text-muted-foreground">
+            Search services...
+          </Text>
+        </TouchableOpacity>
+
         <HeroCard />
-        
+
         <QuickActions />
 
-        {/* Upcoming Appointment (only CONFIRMED) */}
+        {/* Upcoming Appointment */}
         <View className="mb-8">
           <View className="flex-row justify-between items-end mb-2 px-4">
             <Text className="text-lg font-semibold text-foreground">Schedule</Text>
@@ -140,25 +157,29 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </Link>
           </View>
-          
-          <View className="bg-card rounded-xl mx-4 overflow-hidden">
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerClassName="px-4"
+          >
             <VehicleCard name="Toyota Vios" plate="ABC 1234" year="2021" isLast={false} />
             <VehicleCard name="Honda Civic" plate="XYZ 5678" year="2022" isLast={false} />
             <TouchableOpacity
               activeOpacity={0.7}
-              className="flex-row items-center py-4 pr-4 ml-4 min-h-[44px]"
+              className="w-32 bg-card rounded-xl border border-dashed border-border items-center justify-center py-8 min-h-[44px]"
               onPress={() => router.push('/vehicles')}
             >
-              <PlusCircle size={20} color="#C1272D" />
-              <Text className="ml-3 text-base font-normal text-primary">Add Vehicle</Text>
+              <PlusCircle size={24} color="#C1272D" />
+              <Text className="mt-2 text-sm font-medium text-primary">Add Vehicle</Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
 
         {/* Trending Services */}
         <View className="pb-14">
           <Text className="text-lg font-semibold px-4 mb-2 text-foreground">Trending Services</Text>
-          
+
           <View className="bg-card rounded-xl mx-4 overflow-hidden">
             {trendingServices.length === 0 ? (
               <View className="p-6 items-center">

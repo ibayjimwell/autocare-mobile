@@ -1,53 +1,57 @@
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { CarFront, Check, Circle } from 'lucide-react-native';
 
 export default function VehicleSelector({ vehicles, selectedVehicle, onSelect }) {
   return (
-    <View className="mb-8">
-      <View className="flex-row items-center mb-4">
-        <View className="w-8 h-8 rounded-full bg-primary items-center justify-center mr-3">
-          <Text className="text-white font-black text-xs">2</Text>
+    <View className="mb-6">
+      <View className="flex-row items-center px-1 mb-3">
+        <View className="w-7 h-7 rounded-full bg-primary/10 items-center justify-center mr-2">
+          <CarFront size={14} color="#C1272D" />
         </View>
-        <Text className="text-lg font-heading font-black text-foreground">Select Vehicle</Text>
+        <Text className="text-lg font-semibold text-foreground">Select Vehicle</Text>
       </View>
+
       {vehicles.length === 0 ? (
-        <View className="p-6 rounded-[28px] border border-dashed border-border items-center">
-          <Text className="text-sm font-bold text-foreground/50">No vehicles in your garage</Text>
+        <View className="p-6 rounded-xl border border-dashed border-border items-center">
+          <Text className="text-sm font-normal text-muted-foreground">
+            No vehicles in your garage
+          </Text>
         </View>
       ) : (
-        <View className="space-y-3">
-          {vehicles.map((vehicle) => {
+        <View className="bg-card rounded-xl overflow-hidden">
+          {vehicles.map((vehicle, index) => {
             const isSelected = selectedVehicle?.id === vehicle.id;
+            const isLast = index === vehicles.length - 1;
             return (
-              <TouchableOpacity
-                key={vehicle.id}
-                activeOpacity={0.8}
-                className={`p-5 rounded-[28px] border-2 flex-row items-center ${
-                  isSelected ? 'bg-primary/10 border-primary' : 'bg-card border-border'
-                }`}
-                onPress={() => onSelect(vehicle)}
-              >
-                <View className="w-10 h-10 rounded-2xl bg-background items-center justify-center mr-4 shadow-sm">
-                  <MaterialCommunityIcons
-                    name="car-side"
-                    size={24}
-                    color={isSelected ? '#C1272D' : '#666'}
-                  />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-base font-black text-foreground">
-                    {vehicle.make} {vehicle.model}
-                  </Text>
-                  <Text className="text-[10px] font-black uppercase tracking-widest text-foreground/40">
-                    {vehicle.plateNumber}
-                  </Text>
-                </View>
-                <Ionicons
-                  name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={24}
-                  color={isSelected ? '#C1272D' : '#D9D9D9'}
-                />
-              </TouchableOpacity>
+              <View key={vehicle.id}>
+                <TouchableOpacity
+                  activeOpacity={0.6}
+                  className={`flex-row items-center px-4 py-3.5 min-h-[44px] ${
+                    isSelected ? 'bg-primary/5' : ''
+                  }`}
+                  onPress={() => onSelect(vehicle)}
+                >
+                  <View className="w-10 h-10 rounded-xl bg-background items-center justify-center mr-3">
+                    <CarFront size={22} color={isSelected ? '#C1272D' : '#8E8E93'} />
+                  </View>
+                  <View className="flex-1 mr-3">
+                    <Text className="text-base font-normal text-foreground">
+                      {vehicle.make} {vehicle.model}
+                    </Text>
+                    <Text className="text-sm font-normal text-muted-foreground">
+                      {vehicle.plateNumber}
+                    </Text>
+                  </View>
+                  {isSelected ? (
+                    <View className="w-6 h-6 rounded-full bg-primary items-center justify-center">
+                      <Check size={14} color="#FFFFFF" strokeWidth={3} />
+                    </View>
+                  ) : (
+                    <Circle size={24} color="#D1D1D6" />
+                  )}
+                </TouchableOpacity>
+                {!isLast && <View className="h-px bg-border ml-4" />}
+              </View>
             );
           })}
         </View>

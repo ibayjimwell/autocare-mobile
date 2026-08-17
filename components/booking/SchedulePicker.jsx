@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Calendar, CalendarClock, ChevronRight, Clock } from 'lucide-react-native';
 import { formatTime12h } from '../../utils/format';
 
 export default function SchedulePicker({
@@ -13,91 +13,97 @@ export default function SchedulePicker({
   onCustomTimePress,
 }) {
   return (
-    <View className="mb-8">
-      <View className="flex-row items-center mb-4">
-        <View className="w-8 h-8 rounded-full bg-primary items-center justify-center mr-3">
-          <Text className="text-white font-black text-xs">3</Text>
+    <View className="mb-6">
+      <View className="flex-row items-center px-1 mb-3">
+        <View className="w-7 h-7 rounded-full bg-primary/10 items-center justify-center mr-2">
+          <CalendarClock size={14} color="#C1272D" />
         </View>
-        <Text className="text-lg font-heading font-black text-foreground">Choose Schedule</Text>
+        <Text className="text-lg font-semibold text-foreground">Choose Schedule</Text>
       </View>
 
-      {/* Date picker button */}
-      <TouchableOpacity
-        className="p-5 rounded-[28px] flex-row justify-between items-center mb-4 border border-border bg-card"
-        onPress={onSelectDate}
-      >
-        <View className="flex-row items-center">
-          <Ionicons name="calendar" size={20} color="#C1272D" />
-          <Text className={`ml-3 font-bold ${selectedDate ? 'text-foreground' : 'text-muted-foreground'}`}>
+      <View className="bg-card rounded-xl overflow-hidden">
+        {/* Date picker row — iOS settings style */}
+        <TouchableOpacity
+          activeOpacity={0.6}
+          className="flex-row items-center px-4 py-3.5 min-h-[44px]"
+          onPress={onSelectDate}
+        >
+          <View className="w-8 h-8 rounded-lg bg-primary/10 items-center justify-center mr-3">
+            <Calendar size={16} color="#C1272D" />
+          </View>
+          <Text className="flex-1 text-base font-normal text-foreground">Date</Text>
+          <Text className="text-base font-normal text-muted-foreground mr-1">
             {selectedDate ? selectedDate.toDateString() : 'Choose Date'}
           </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color="#666" />
-      </TouchableOpacity>
+          <ChevronRight size={18} color="#C7C7CC" />
+        </TouchableOpacity>
 
-      {/* Time slots */}
-      {!selectedDate || !selectedService ? (
-        <View className="p-8 items-center bg-muted/50 rounded-[28px]">
-          <Text className="text-xs font-black uppercase tracking-widest text-foreground/30 text-center">
-            Complete steps 1 & 2 to view slots
-          </Text>
-        </View>
-      ) : (
-        <>
-          {availableSlots.length === 0 ? (
-            <Text className="text-center w-full py-4 font-bold text-destructive">
-              No slots available today
+        <View className="h-px bg-border ml-4" />
+
+        {/* Time slots */}
+        {!selectedDate || !selectedService ? (
+          <View className="px-4 py-6 items-center">
+            <Text className="text-sm font-normal text-muted-foreground text-center">
+              Select a service and date to view available time slots
             </Text>
-          ) : (
-            <View className="flex-row flex-wrap justify-between">
-              {availableSlots.map((slot) => (
-                <TouchableOpacity
-                  key={slot.time}
-                  activeOpacity={0.7}
-                  className={`w-[23%] py-4 mb-3 rounded-2xl items-center border border-border ${
-                    !slot.available && 'opacity-30'
-                  } ${
-                    selectedTime === slot.time && !customTime
-                      ? 'bg-primary'
-                      : 'bg-card'
-                  }`}
-                  onPress={() => {
-                    if (slot.available) {
-                      onSelectTime(slot.time);
-                    }
-                  }}
-                  disabled={!slot.available}
-                >
-                  <Text
-                    className={`text-[10px] font-black ${
+          </View>
+        ) : (
+          <View className="px-4 py-4">
+            {availableSlots.length === 0 ? (
+              <Text className="text-center w-full py-4 text-base font-medium text-destructive">
+                No slots available today
+              </Text>
+            ) : (
+              <View className="flex-row flex-wrap justify-between">
+                {availableSlots.map((slot) => (
+                  <TouchableOpacity
+                    key={slot.time}
+                    activeOpacity={0.7}
+                    className={`w-[23%] min-h-[44px] mb-2.5 rounded-lg items-center justify-center border ${
+                      !slot.available ? 'opacity-30' : ''
+                    } ${
                       selectedTime === slot.time && !customTime
-                        ? 'text-primary-foreground'
-                        : 'text-foreground'
+                        ? 'bg-primary border-primary'
+                        : 'bg-background border-border'
                     }`}
+                    onPress={() => {
+                      if (slot.available) {
+                        onSelectTime(slot.time);
+                      }
+                    }}
+                    disabled={!slot.available}
                   >
-                    {formatTime12h(slot.time)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+                    <Text
+                      className={`text-xs font-semibold ${
+                        selectedTime === slot.time && !customTime
+                          ? 'text-primary-foreground'
+                          : 'text-foreground'
+                      }`}
+                    >
+                      {formatTime12h(slot.time)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
-          {/* Custom time */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            className={`flex-row items-center justify-center p-4 rounded-2xl border-2 border-dashed mt-2 ${
-              customTime ? 'bg-primary/10' : 'bg-transparent'
-            }`}
-            style={{ borderColor: '#C1272D40' }}
-            onPress={onCustomTimePress}
-          >
-            <Ionicons name="time" size={18} color="#C1272D" />
-            <Text className="ml-2 font-black text-xs uppercase tracking-widest text-primary">
-              {customTime ? `Custom: ${formatTime12h(customTime)}` : 'Pick Custom Time'}
-            </Text>
-          </TouchableOpacity>
-        </>
-      )}
+            {/* Custom time */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              className={`flex-row items-center justify-center min-h-[44px] py-3 rounded-lg border border-dashed mt-1.5 ${
+                customTime ? 'bg-primary/10' : 'bg-transparent'
+              }`}
+              style={{ borderColor: '#C1272D66' }}
+              onPress={onCustomTimePress}
+            >
+              <Clock size={16} color="#C1272D" />
+              <Text className="ml-2 text-sm font-semibold text-primary">
+                {customTime ? `Custom: ${formatTime12h(customTime)}` : 'Pick Custom Time'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     </View>
   );
 }

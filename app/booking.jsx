@@ -1,6 +1,7 @@
-import { View, ScrollView, ActivityIndicator } from 'react-native';
+import { View, ScrollView, ActivityIndicator, Alert, Platform } from 'react-native';
 import { useState, useCallback, useEffect } from 'react';
 import { useLocalSearchParams } from 'expo-router';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBookingData } from '../hooks/useBookingData';
 import { useBookingForm } from '../hooks/useBookingForm';
 import BookingHeader from '../components/booking/BookingHeader';
@@ -19,6 +20,7 @@ import appointmentsApi from '../services/appointmentsApi';
 export default function BookingScreen() {
   const { serviceId } = useLocalSearchParams();
   const { services, vehicles, appointments, loading } = useBookingData(serviceId);
+  const insets = useSafeAreaInsets();
 
   const [selectedService, setSelectedService] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -102,44 +104,56 @@ export default function BookingScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 justify-center items-center bg-background">
+      <SafeAreaView className="flex-1 bg-background justify-center items-center">
         <ActivityIndicator size="large" color="#C1272D" />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView className="flex-1 bg-background" showsVerticalScrollIndicator={false}>
-      <View className="px-6 pt-12 pb-10">
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
+      >
         <BookingHeader />
 
-        <ActiveAppointments appointments={appointments} onCancel={handleCancelAppointment} />
+        <View className="px-4">
+          <ActiveAppointments appointments={appointments} onCancel={handleCancelAppointment} />
 
-        <ServiceSelector
-          services={services}
-          selectedService={selectedService}
-          onSelect={setSelectedService}
-        />
+          <ServiceSelector
+            services={services}
+            selectedService={selectedService}
+            onSelect={setSelectedService}
+          />
 
-        <VehicleSelector
-          vehicles={vehicles}
-          selectedVehicle={selectedVehicle}
-          onSelect={setSelectedVehicle}
-        />
+          <VehicleSelector
+            vehicles={vehicles}
+            selectedVehicle={selectedVehicle}
+            onSelect={setSelectedVehicle}
+          />
 
-        <NotesInput value={notes} onChange={setNotes} />
+          <NotesInput value={notes} onChange={setNotes} />
 
-        <SchedulePicker
-          selectedDate={selectedDate}
-          selectedService={selectedService}
-          selectedTime={selectedTime}
-          customTime={customTime}
-          availableSlots={availableSlots}
-          onSelectDate={() => setDatePickerVisible(true)}
-          onSelectTime={setSelectedTime}
-          onCustomTimePress={() => setShowCustomTimePicker(true)}
-        />
+          <SchedulePicker
+            selectedDate={selectedDate}
+            selectedService={selectedService}
+            selectedTime={selectedTime}
+            customTime={customTime}
+            availableSlots={availableSlots}
+            onSelectDate={() => setDatePickerVisible(true)}
+            onSelectTime={setSelectedTime}
+            onCustomTimePress={() => setShowCustomTimePicker(true)}
+          />
+        </View>
+      </ScrollView>
 
+      {/* Floating Bottom CTA Bar — translucent glass surface */}
+      <View
+        className="absolute bottom-0 left-0 right-0 px-4 pt-3 bg-white/85 border-t border-border/40 shadow-lg"
+        style={{ paddingBottom: insets.bottom + 12 }}
+      >
         <ConfirmButton
           onPress={handleBook}
           disabled={
@@ -180,6 +194,6 @@ export default function BookingScreen() {
         message={availabilityModal.message}
         onClose={() => setAvailabilityModal({ ...availabilityModal, visible: false })}
       />
-    </ScrollView>
+    </SafeAreaView>
   );
 }

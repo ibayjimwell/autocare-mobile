@@ -12,9 +12,9 @@ export default function ServicesScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
+      <ServicesHeader />
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="pt-6 pb-12">
-          <ServicesHeader />
 
           {loading ? (
             <View className="py-32 items-center justify-center">

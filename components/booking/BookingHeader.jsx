@@ -2,10 +2,7 @@ import { View, Text } from 'react-native';
 
 export default function BookingHeader() {
   return (
-    <View className="px-4 pt-2 mb-6">
-      <Text className="text-sm font-normal text-muted-foreground mb-1">
-        Service Center
-      </Text>
+    <View className="px-4 pt-2 mb-4">
       <Text className="text-3xl font-bold tracking-tight text-foreground">
         Book <Text className="text-primary">Appointment</Text>
       </Text>

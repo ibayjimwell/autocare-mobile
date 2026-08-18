@@ -112,13 +112,12 @@ export default function BookingScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <BookingHeader />
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
       >
-        <BookingHeader />
-
         <View className="px-4">
           <ActiveAppointments appointments={appointments} onCancel={handleCancelAppointment} />
 

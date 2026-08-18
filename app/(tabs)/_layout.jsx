@@ -36,9 +36,9 @@ function CenterActionButton() {
         style={{ width: 64, height: '100%' }}
       >
         <View
-          className="w-16 h-16 rounded-full bg-primary items-center justify-center"
+          className="w-20 h-20 rounded-full bg-primary items-center justify-center"
           style={{
-            transform: [{ translateY: -14 }],
+            transform: [{ translateY: -2 }],
             borderWidth: 4,
             borderColor: '#F2F2F7',
             ...Platform.select({

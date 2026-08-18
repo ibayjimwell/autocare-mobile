@@ -34,11 +34,11 @@ export default function VehiclesScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       {/* Large Header — mirrors the image's welcome header block */}
       <View className="px-4 pt-2 mb-4">
-        <Text className="text-sm font-normal text-muted-foreground mb-1">
-          AutoCare Garage
-        </Text>
         <Text className="text-3xl font-bold tracking-tight text-foreground">
-          Vehicles
+          Your <Text className="text-primary">Vehicles</Text>
+        </Text>
+        <Text className="text-sm font-normal text-muted-foreground mt-2">
+          Manage your vehicle for a service.
         </Text>
       </View>
 

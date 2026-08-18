@@ -95,7 +95,7 @@ export default function VehiclesScreen() {
       >
         <TouchableOpacity
           activeOpacity={0.85}
-          className="bg-primary rounded-xl flex-row justify-center items-center min-h-[44px] py-4 mb-16"
+          className="bg-primary rounded-xl flex-row justify-center items-center min-h-[44px] py-4 mb-20"
           onPress={openAddModal}
         >
           <Plus color="#FFFFFF" size={20} />

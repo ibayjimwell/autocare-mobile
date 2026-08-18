@@ -4,8 +4,10 @@ import { useAuth } from "../../context/AuthContext";
 
 export default function ContactCards() {
   const { user } = useAuth();
-  
+
   return (
+    // Occupies the image's "search bar" slot: first rounded white surface
+    // directly under the headline, built as a standard iOS grouped card.
     <View className="bg-card mx-4 rounded-xl overflow-hidden mb-6">
       {/* Email Row */}
       <View className="flex-row items-center pl-4">
@@ -17,7 +19,7 @@ export default function ContactCards() {
           </Text>
         </View>
       </View>
-      
+
       {/* Phone Row (No Bottom Border) */}
       <View className="flex-row items-center pl-4">
         <Phone size={20} color="#8E8E93" />

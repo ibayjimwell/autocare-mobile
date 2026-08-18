@@ -1,7 +1,10 @@
-import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import { ChevronRight, Bell, Shield, CircleHelp } from "lucide-react-native";
 
-export default function SettingsList({ loggingOut, onLogoutPress }) {
+export default function SettingsList() {
+  // The Sign Out row now lives in the screen's floating glass CTA bar,
+  // mirroring the prominent center action in the inspiration image's
+  // bottom bar. Handler and loading state are unchanged there.
   return (
     <View className="mt-4">
       {/* Settings Group Header */}
@@ -10,7 +13,7 @@ export default function SettingsList({ loggingOut, onLogoutPress }) {
           Preferences
         </Text>
       </View>
- 
+
       {/* Main Settings Grouped List */}
       <View className="bg-card mx-4 rounded-xl overflow-hidden mb-6">
         {/* Notifications Item */}
@@ -44,24 +47,6 @@ export default function SettingsList({ loggingOut, onLogoutPress }) {
             </Text>
             <ChevronRight size={20} color="#C7C7CC" />
           </View>
-        </TouchableOpacity>
-      </View>
-
-      {/* Destructive Action Group (Isolated Logout Button) */}
-      <View className="bg-card mx-4 rounded-xl overflow-hidden mb-2">
-        <TouchableOpacity 
-          activeOpacity={0.7}
-          onPress={onLogoutPress}
-          disabled={loggingOut}
-          className="items-center justify-center py-3 min-h-[50px]"
-        >
-          {loggingOut ? (
-            <ActivityIndicator size="small" color="#C1272D" />
-          ) : (
-            <Text className="text-lg font-normal text-primary"> {/* text-primary assumes your primary color is red #C1272D */}
-              Sign Out
-            </Text>
-          )}
         </TouchableOpacity>
       </View>
     </View>

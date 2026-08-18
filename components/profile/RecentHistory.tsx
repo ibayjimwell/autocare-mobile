@@ -23,6 +23,7 @@ export default function RecentHistory({ appointments }: { appointments: Appointm
   }
 
   return (
+    // "Available Near You" content slot, standardized as an iOS grouped list
     <View className="bg-card mx-4 rounded-xl overflow-hidden mb-6">
       {appointments.map((apt, index) => (
         <TouchableOpacity
@@ -33,7 +34,7 @@ export default function RecentHistory({ appointments }: { appointments: Appointm
         >
           {/* Apply bottom border to all except the last item */}
           <View className={`flex-row justify-between items-center py-3 pr-4 min-h-[60px] ${index !== appointments.length - 1 ? "border-b border-border" : ""}`}>
-            
+
             {/* Title & Meta Info */}
             <View className="flex-1 justify-center pr-3">
               <Text className="text-base font-semibold text-foreground mb-1">

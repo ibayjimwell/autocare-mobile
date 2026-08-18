@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs, Link } from 'expo-router';
 import { Home, Car, Wrench, User, Calendar, HelpCircle, Plus } from 'lucide-react-native';
 import { View, Text, TouchableOpacity, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,34 +29,35 @@ const LABEL_MAP = {
 };
 
 function CenterActionButton() {
-  const router = useRouter();
+  // ✅ Use Link instead of useRouter to avoid navigation context dependency
   return (
-    <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={() => router.push('/booking')}
-      className="items-center justify-center"
-      style={{ width: 64, height: '100%' }}
-    >
-      <View
-        className="w-14 h-14 rounded-full bg-primary items-center justify-center"
-        style={{
-          transform: [{ translateY: -14 }],
-          borderWidth: 4,
-          borderColor: '#F2F2F7',
-          ...Platform.select({
-            ios: {
-              shadowColor: '#C1272D',
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.35,
-              shadowRadius: 10,
-            },
-            android: { elevation: 8 },
-          }),
-        }}
+    <Link href="/booking" asChild>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        className="items-center justify-center"
+        style={{ width: 64, height: '100%' }}
       >
-        <Plus size={26} color="#FFFFFF" />
-      </View>
-    </TouchableOpacity>
+        <View
+          className="w-14 h-14 rounded-full bg-primary items-center justify-center"
+          style={{
+            transform: [{ translateY: -14 }],
+            borderWidth: 4,
+            borderColor: '#F2F2F7',
+            ...Platform.select({
+              ios: {
+                shadowColor: '#C1272D',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.35,
+                shadowRadius: 10,
+              },
+              android: { elevation: 8 },
+            }),
+          }}
+        >
+          <Plus size={26} color="#FFFFFF" />
+        </View>
+      </TouchableOpacity>
+    </Link>
   );
 }
 
@@ -67,8 +68,8 @@ function CustomTabBar({ state, descriptors, navigation, theme, bottomInset }) {
       style={{
         backgroundColor: theme.surface + 'B3',
         width: '92%',
-        height: TAB_BAR_HEIGHT, // keep the glass bar itself normal height
-        bottom: bottomInset + 8, // 8-point margin from the safe area
+        height: TAB_BAR_HEIGHT,
+        bottom: bottomInset + 8,
         left: '4%',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.3)',
@@ -112,9 +113,7 @@ function CustomTabBar({ state, descriptors, navigation, theme, bottomInset }) {
 
         return (
           <Fragment key={route.key}>
-            {/* Elevated center "+" button, like the inspiration tab bar */}
             {index === 2 && <CenterActionButton />}
-
             <TouchableOpacity
               onPress={onPress}
               activeOpacity={0.6}
@@ -150,7 +149,6 @@ export default function TabLayout() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
 
-  // Extra clearance so the raised center button never overlaps content
   const tabBarVisualHeight = TAB_BAR_HEIGHT + insets.bottom + 22;
 
   return (

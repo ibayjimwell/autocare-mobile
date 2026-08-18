@@ -6,7 +6,7 @@ import { View, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
-import { usePushNotifications } from '../hooks/usePushNotifications';
+// import { usePushNotifications } from '../hooks/usePushNotifications';
 import '../global.css';
 
 /**
@@ -65,7 +65,7 @@ function RootLayoutNav() {
   const router = useRouter();
 
   // ✅ Register push notifications (safe – hook internally guards for user)
-  usePushNotifications();
+  // usePushNotifications();
 
   // Handle deep links (e.g., payment-success)
   useEffect(() => {

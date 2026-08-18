@@ -2,7 +2,7 @@ import { View, Text, TouchableOpacity } from "react-native";
 import Modal from "react-native-modal";
 
 export default function LogoutModal({ visible, onClose, onConfirm }) {
-  // Completely re-architected to look like a native iOS Action Sheet
+  // Native iOS Action Sheet — confirm target for the floating bar's Sign Out
   return (
     <Modal
       isVisible={visible}
@@ -14,7 +14,7 @@ export default function LogoutModal({ visible, onClose, onConfirm }) {
       useNativeDriver
     >
       <View className="pb-8 px-4">
-        
+
         {/* Destructive Actions Group */}
         <View className="bg-card rounded-2xl mb-2 overflow-hidden">
           {/* Header Message */}
@@ -23,11 +23,11 @@ export default function LogoutModal({ visible, onClose, onConfirm }) {
               Are you sure you want to end your session? You'll need to sign back in to book services.
             </Text>
           </View>
-          
+
           {/* Logout Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             activeOpacity={0.7}
-            className="py-4 items-center min-h-[56px] justify-center" 
+            className="py-4 items-center min-h-[56px] justify-center"
             onPress={onConfirm}
           >
             <Text className="text-xl font-normal text-primary">
@@ -38,9 +38,9 @@ export default function LogoutModal({ visible, onClose, onConfirm }) {
 
         {/* Cancel Button */}
         <View className="bg-card rounded-2xl overflow-hidden">
-          <TouchableOpacity 
+          <TouchableOpacity
             activeOpacity={0.7}
-            className="py-4 items-center min-h-[56px] justify-center" 
+            className="py-4 items-center min-h-[56px] justify-center"
             onPress={onClose}
           >
             <Text className="text-xl font-semibold text-[#007AFF]">

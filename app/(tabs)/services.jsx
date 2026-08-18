@@ -1,3 +1,4 @@
+import React from "react";
 import { View, ScrollView, ActivityIndicator, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Wrench } from "lucide-react-native";
@@ -12,25 +13,28 @@ export default function ServicesScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="pt-4 pb-10">
+        <View className="pt-6 pb-12">
           <ServicesHeader />
 
           {loading ? (
-            <View className="py-20 items-center justify-center">
+            <View className="py-32 items-center justify-center">
               <ActivityIndicator size="large" color="#C1272D" />
             </View>
           ) : services.length === 0 ? (
             <View className="items-center justify-center py-32 px-4">
-              <Wrench size={56} color="#8E8E93" />
-              <Text className="text-lg font-semibold text-foreground mt-4">
+              <View className="w-20 h-20 bg-secondary rounded-full items-center justify-center mb-6 shadow-sm">
+                <Wrench size={36} color="#8E8E93" />
+              </View>
+              <Text className="text-xl font-bold tracking-tight text-foreground text-center">
                 No Services Available
               </Text>
-              <Text className="text-base font-normal text-muted-foreground mt-2 text-center">
-                Check back later for new maintenance packages.
+              <Text className="text-base font-normal text-muted-foreground mt-2 text-center leading-6 px-4">
+                Check back later for our new premium maintenance packages.
               </Text>
             </View>
           ) : (
-            <View className="bg-card rounded-xl mx-4 overflow-hidden mb-6">
+            /* 2-Column Grid Wrapper */
+            <View className="flex-row flex-wrap px-2 mt-2">
               {services.map((service, index) => (
                 <ServiceCard 
                   key={service.id} 
@@ -42,8 +46,7 @@ export default function ServicesScreen() {
             </View>
           )}
 
-          <ServicesFooter />
-          <View className="h-10" />
+          {!loading && services.length > 0 && <ServicesFooter />}
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import Animated, {
   useAnimatedStyle,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -29,7 +28,6 @@ const LABEL_MAP = {
 };
 
 function CenterActionButton() {
-  // ✅ Use Link instead of useRouter to avoid navigation context dependency
   return (
     <Link href="/booking" asChild>
       <TouchableOpacity
@@ -38,7 +36,7 @@ function CenterActionButton() {
         style={{ width: 64, height: '100%' }}
       >
         <View
-          className="w-14 h-14 rounded-full bg-primary items-center justify-center"
+          className="w-16 h-16 rounded-full bg-primary items-center justify-center"
           style={{
             transform: [{ translateY: -14 }],
             borderWidth: 4,
@@ -98,22 +96,16 @@ function CustomTabBar({ state, descriptors, navigation, theme, bottomInset }) {
         const IconComponent = ICON_MAP[route.name] || HelpCircle;
         const label = LABEL_MAP[route.name] || route.name;
 
-        const pillStyle = useAnimatedStyle(() => ({
-          backgroundColor: withTiming(isFocused ? theme.primary + '25' : 'transparent', { duration: 200 }),
-          transform: [{ scale: withSpring(isFocused ? 1.1 : 0.8, { damping: 15, stiffness: 150 }) }],
-          opacity: withTiming(isFocused ? 1 : 0, { duration: 150 }),
-        }));
-
+        // Icon: subtle lift, no scale
         const iconAnim = useAnimatedStyle(() => ({
-          transform: [
-            { scale: withSpring(isFocused ? 1.15 : 1, { damping: 12 }) },
-            { translateY: withTiming(isFocused ? -2 : 0, { duration: 200 }) },
-          ],
+          transform: [{ translateY: withTiming(isFocused ? -2 : 0, { duration: 200 }) }],
         }));
 
         return (
           <Fragment key={route.key}>
+            {/* Center action button (index 2 is the middle tab, but we replace it with the action button) */}
             {index === 2 && <CenterActionButton />}
+
             <TouchableOpacity
               onPress={onPress}
               activeOpacity={0.6}
@@ -122,7 +114,7 @@ function CustomTabBar({ state, descriptors, navigation, theme, bottomInset }) {
               <View className="items-center justify-center w-full h-full">
                 <Animated.View
                   className="absolute w-16 h-12 rounded-2xl"
-                  style={[pillStyle, { shadowColor: theme.primary, shadowOpacity: 0.3, shadowRadius: 10 }]}
+                  style={[{ shadowColor: theme.primary, shadowOpacity: 0.3, shadowRadius: 10 }]}
                 />
                 <Animated.View style={iconAnim} className="items-center">
                   <IconComponent

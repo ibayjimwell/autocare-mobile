@@ -1,3 +1,4 @@
+import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
 import { formatDuration, formatPrice } from "../../utils/format";
@@ -29,60 +30,76 @@ interface ServiceCardProps {
   isLast?: boolean;
 }
 
-export default function ServiceCard({ service, index, isLast }: ServiceCardProps) {
+export default function ServiceCard({ service, index }: ServiceCardProps) {
   const handleBook = () => router.push(`/booking?serviceId=${service.id}`);
   
   const IconComponent = getServiceIcon(index);
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.7}
-      onPress={handleBook}
-      className="bg-card"
-    >
-      <View className="flex-row items-start pl-4">
-        
-        {/* Left Icon */}
-        <View className="w-10 h-10 rounded-lg items-center justify-center bg-secondary mr-3 mt-4">
-          <IconComponent size={20} color="#000000" />
+    /* Half-width container for 2-column grid layout */
+    <View className="w-1/2 p-2">
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={handleBook}
+        className="bg-card rounded-xl overflow-hidden shadow-sm border border-border/40 flex-1 justify-between"
+      >
+        {/* Top Visual Hero Header */}
+        <View className="h-32 bg-secondary items-center justify-center relative overflow-hidden">
+          {/* Subtle background watermark */}
+          <View className="absolute -right-6 -bottom-6 opacity-5 transform rotate-12">
+            <IconComponent size={120} color="#000000" />
+          </View>
+          
+          {/* Centered Service Icon */}
+          <View className="w-11 h-11 rounded-full bg-white/15 border border-white/20 items-center justify-center min-h-[44px] min-w-[44px]">
+            <IconComponent size={24} color="#C1272D" />
+          </View>
         </View>
 
-        {/* Content & Inset Divider */}
-        <View className={`flex-1 flex-row py-4 pr-4 min-h-[60px] ${!isLast ? "border-b border-border" : ""}`}>
-          
-          {/* Main Info */}
-          <View className="flex-1 pr-3 justify-center">
-            <Text className="text-base font-semibold text-foreground mb-1">
+        {/* Content Section */}
+        <View className="p-3 flex-1 justify-between">
+          <View>
+            <Text 
+              className="text-base font-bold tracking-tight text-foreground mb-1" 
+              numberOfLines={1}
+            >
               {service.name}
             </Text>
-            <Text className="text-sm font-normal text-muted-foreground mb-2 leading-5" numberOfLines={2}>
-              {service.description}
-            </Text>
             
-            <View className="flex-row items-center mt-1">
-              <Clock size={14} color="#8E8E93" />
-              <Text className="text-sm font-medium ml-1.5 text-muted-foreground">
+            {/* Meta Row */}
+            <View className="flex-row items-center mb-2">
+              <Clock size={12} color="#8E8E93" />
+              <Text className="text-xs font-medium ml-1 text-muted-foreground">
                 {formatDuration(service.durationMinutes)}
               </Text>
             </View>
+
+            <Text 
+              className="text-xs font-normal text-muted-foreground leading-4 mb-3" 
+              numberOfLines={2}
+            >
+              {service.description}
+            </Text>
           </View>
 
-          {/* Right Action (Price & Book) */}
-          <View className="items-end justify-between">
-            <Text className="text-base font-semibold text-foreground">
+          {/* Price & Action Footer */}
+          <View className="pt-2 border-t border-secondary mt-1">
+            <Text className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">
+              Starting at
+            </Text>
+            <Text className="text-lg font-bold tracking-tight text-foreground mb-3">
               {formatPrice(service.basePrice)}
             </Text>
             
-            {/* Visual CTA (Button logic is handled by the parent TouchableOpacity) */}
-            <View className="bg-primary/10 px-4 py-1.5 rounded-full mt-3 min-h-[32px] justify-center">
-              <Text className="text-sm font-bold text-primary tracking-wide">
+            {/* CTA Button */}
+            <View className="bg-primary py-2.5 rounded-lg min-h-[38px] justify-center items-center w-full">
+              <Text className="text-xs font-bold text-[#FFFFFF] tracking-wide">
                 Book
               </Text>
             </View>
           </View>
-          
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </View>
   );
 }

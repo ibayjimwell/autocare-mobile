@@ -1,22 +1,32 @@
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import {
+  ChevronRight,
+  FileText,
+  CarFront,
+  CalendarDays,
+  Clock3,
+} from 'lucide-react-native';
+
 import { useTheme } from '../../context/ThemeContext';
 
 export default function EstimateCard({ item, onPress }) {
   const { theme } = useTheme();
+
   const vehicle = item.appointment?.vehicle;
+
   const date = new Date(item.createdAt).toLocaleDateString('en-PH', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
+
   const total = parseFloat(item.grandTotal || 0);
 
   const statusColor = {
-    WAITING_FOR_APPROVAL: '#f59e0b',
-    APPROVED: '#10b981',
-    DECLINED: '#ef4444',
-  }[item.status] || '#6b7280';
+    WAITING_FOR_APPROVAL: '#F59E0B',
+    APPROVED: '#34A853',
+    DECLINED: '#D64545',
+  }[item.status] || '#8E8E93';
 
   const statusLabel = {
     WAITING_FOR_APPROVAL: 'Waiting Approval',
@@ -27,47 +37,136 @@ export default function EstimateCard({ item, onPress }) {
   return (
     <TouchableOpacity
       onPress={onPress}
-      className="p-5 rounded-2xl mb-3 border"
-      style={{ backgroundColor: theme.background, borderColor: theme.border }}
-      activeOpacity={0.7}
+      className="bg-card rounded-xl mb-3 border border-border overflow-hidden"
+      activeOpacity={0.8}
     >
-      {/* Grand Total – big and bold */}
-      <View className="flex-row justify-between items-start mb-3">
-        <View>
-          <Text className="text-xs font-black uppercase tracking-wider" style={{ color: theme.primary }}>
-            Estimate
-          </Text>
-          <Text className="text-2xl font-black" style={{ color: theme.text }}>
-            ₱{total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </Text>
+      <View className="p-4">
+        <View className="flex-row items-start justify-between">
+          <View className="flex-1 pr-3">
+            <View className="flex-row items-center mb-2">
+              <View className="w-9 h-9 rounded-xl bg-primary/10 items-center justify-center mr-2.5">
+                <FileText size={18} color={theme.primary} />
+              </View>
+
+              <View>
+                <Text
+                  className="text-xs font-semibold uppercase tracking-[1.2px]"
+                  style={{ color: theme.primary }}
+                >
+                  Estimate
+                </Text>
+
+                <Text
+                  className="text-xs mt-0.5"
+                  style={{ color: theme.textSecondary }}
+                >
+                  Generated {date}
+                </Text>
+              </View>
+            </View>
+
+            <Text
+              className="text-2xl font-bold"
+              style={{ color: theme.text }}
+            >
+              ₱
+              {total.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </Text>
+          </View>
+
+          <View
+            className="px-3 min-h-[30px] rounded-full items-center justify-center"
+            style={{ backgroundColor: `${statusColor}18` }}
+          >
+            <Text
+              className="text-xs font-semibold"
+              style={{ color: statusColor }}
+            >
+              {statusLabel}
+            </Text>
+          </View>
         </View>
-        <View
-          className="px-3 py-1 rounded-full"
-          style={{ backgroundColor: statusColor + '20' }}
+
+        <View className="mt-4 rounded-xl bg-background overflow-hidden">
+          {vehicle && (
+            <View className="flex-row items-center px-3 py-3 border-b border-border">
+              <CarFront size={17} color={theme.textSecondary} />
+              <View className="flex-1 ml-3">
+                <Text
+                  className="text-sm font-semibold"
+                  style={{ color: theme.text }}
+                >
+                  {vehicle.make} {vehicle.model}
+                </Text>
+
+                <Text
+                  className="text-xs mt-0.5"
+                  style={{ color: theme.textSecondary }}
+                >
+                  {vehicle.plateNumber}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          <View className="flex-row items-center px-3 py-3 border-b border-border">
+            <CalendarDays size={17} color={theme.textSecondary} />
+
+            <View className="flex-1 ml-3">
+              <Text
+                className="text-xs"
+                style={{ color: theme.textSecondary }}
+              >
+                Appointment
+              </Text>
+
+              <Text
+                className="text-sm font-medium mt-0.5"
+                style={{ color: theme.text }}
+              >
+                #{item.appointment?.trackingNumber || 'N/A'}
+              </Text>
+            </View>
+          </View>
+
+          <View className="flex-row items-center px-3 py-3">
+            <Clock3 size={17} color={theme.textSecondary} />
+
+            <View className="flex-1 ml-3">
+              <Text
+                className="text-xs"
+                style={{ color: theme.textSecondary }}
+              >
+                Schedule
+              </Text>
+
+              <Text
+                className="text-sm font-medium mt-0.5"
+                style={{ color: theme.text }}
+              >
+                {item.appointment?.appointmentDate || 'N/A'}
+                {' • '}
+                {item.appointment?.appointmentTime || 'N/A'}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <View className="min-h-[44px] px-4 flex-row items-center justify-between border-t border-border">
+        <Text
+          className="text-sm font-semibold"
+          style={{ color: theme.primary }}
         >
-          <Text className="text-[10px] font-black" style={{ color: statusColor }}>
-            {statusLabel}
-          </Text>
+          Review estimate
+        </Text>
+
+        <View className="w-8 h-8 items-center justify-center">
+          <ChevronRight size={19} color={theme.primary} />
         </View>
-      </View>
-
-      {/* Details */}
-      <View className="space-y-1">
-        {vehicle && (
-          <Text className="text-sm font-bold" style={{ color: theme.text }}>
-            {vehicle.make} {vehicle.model} • {vehicle.plateNumber}
-          </Text>
-        )}
-        <Text className="text-xs" style={{ color: theme.textSecondary }}>
-          Appointment #{item.appointment?.trackingNumber || 'N/A'} • {item.appointment?.appointmentDate} at {item.appointment?.appointmentTime}
-        </Text>
-        <Text className="text-xs" style={{ color: theme.textSecondary }}>
-          Generated: {date}
-        </Text>
-      </View>
-
-      <View className="flex-row justify-end mt-3">
-        <Ionicons name="chevron-forward" size={18} color={theme.border} />
       </View>
     </TouchableOpacity>
   );

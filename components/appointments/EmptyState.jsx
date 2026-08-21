@@ -1,26 +1,51 @@
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { CalendarDays, ArrowRight } from 'lucide-react-native';
+
+import { useTheme } from '../../context/ThemeContext';
 
 export default function EmptyState() {
   const router = useRouter();
+  const { theme } = useTheme();
+
   return (
-    <View className="items-center py-20 px-10 rounded-[40px] border border-dashed border-border">
-      <View className="w-20 h-20 rounded-full bg-card items-center justify-center mb-6">
-        <Ionicons name="calendar-clear-outline" size={40} color="#666" />
+    <View className="bg-card rounded-2xl p-7 border border-border items-center mt-2">
+      <View className="w-14 h-14 rounded-full bg-primary/10 items-center justify-center">
+        <CalendarDays
+          size={25}
+          color={theme.primary}
+          strokeWidth={2}
+        />
       </View>
-      <Text className="text-lg font-black text-foreground text-center">No active bookings</Text>
-      <Text className="mt-2 text-center text-sm font-medium text-muted-foreground leading-5">
+
+      <Text
+        className="text-lg font-semibold mt-4 text-center"
+        style={{ color: theme.text }}
+      >
+        No active bookings
+      </Text>
+
+      <Text
+        className="text-sm text-center mt-1 leading-5"
+        style={{ color: theme.textSecondary }}
+      >
         Looks like your calendar is clear. Need a checkup or an oil change?
       </Text>
+
       <TouchableOpacity
         activeOpacity={0.8}
-        className="mt-8 px-10 py-4 rounded-2xl bg-primary shadow-lg shadow-primary/20"
         onPress={() => router.push('/booking')}
+        className="min-h-[48px] px-5 rounded-xl bg-primary mt-6 flex-row items-center justify-center"
       >
-        <Text className="text-primary-foreground font-black uppercase tracking-widest text-xs">
+        <Text className="text-sm font-semibold text-white">
           Book Appointment
         </Text>
+
+        <ArrowRight
+          size={17}
+          color="#FFFFFF"
+          style={{ marginLeft: 8 }}
+        />
       </TouchableOpacity>
     </View>
   );

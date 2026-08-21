@@ -1,65 +1,269 @@
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { formatDate, formatTime, getServiceNames } from '../../utils/format';
+import {
+  ChevronRight,
+  CalendarDays,
+  Clock3,
+  CarFront,
+  UserRound,
+  Hash,
+  ClipboardCheck,
+  Wrench,
+  SearchCheck,
+  FileCheck2,
+  CircleCheck,
+  CircleX,
+} from 'lucide-react-native';
+
+import {
+  formatDate,
+  formatTime,
+  getServiceNames,
+} from '../../utils/format';
 import { getStatusConfig } from '../../utils/appointments';
+import { useTheme } from '../../context/ThemeContext';
+
+const statusIcons = {
+  PENDING: Clock3,
+  CONFIRMED: CalendarDays,
+  UNDER_INSPECTION: SearchCheck,
+  WAITING_FOR_APPROVAL: FileCheck2,
+  IN_PROGRESS: Wrench,
+  COMPLETED: CircleCheck,
+  CANCELLED: CircleX,
+};
 
 export default function AppointmentCard({ appointment }) {
   const router = useRouter();
+  const { theme } = useTheme();
+
   const statusConfig = getStatusConfig(appointment.status);
+
   const iconColor = statusConfig.color;
-  const badgeBg = statusConfig.color + '20'; // add opacity
+  const badgeBg = `${statusConfig.color}18`;
+
+  const StatusIcon =
+    statusIcons[appointment.status] || ClipboardCheck;
+
+  const serviceNames = getServiceNames(appointment);
 
   return (
     <TouchableOpacity
       activeOpacity={0.8}
-      onPress={() => router.push(`/tracking?appointmentId=${appointment.id}`)}
-      className="p-5 mb-5 rounded-[28px] border border-border bg-card shadow-sm"
+      onPress={() =>
+        router.push(`/tracking?appointmentId=${appointment.id}`)
+      }
+      className="bg-card rounded-xl mb-3 border border-border overflow-hidden"
     >
-      {/* Top Row */}
-      <View className="flex-row justify-between items-start mb-4">
-        <View className="flex-row items-center flex-1">
+      <View className="p-4">
+        {/* Top section */}
+        <View className="flex-row items-start">
           <View
-            className="w-12 h-12 rounded-2xl items-center justify-center mr-4"
+            className="w-11 h-11 rounded-xl items-center justify-center mr-3"
             style={{ backgroundColor: badgeBg }}
           >
-            <MaterialCommunityIcons name={statusConfig.icon} size={26} color={iconColor} />
+            <StatusIcon
+              size={20}
+              color={iconColor}
+              strokeWidth={2.1}
+            />
           </View>
-          <View className="flex-1 mr-2">
-            <Text className="text-lg font-heading font-black text-foreground" numberOfLines={1}>
-              {getServiceNames(appointment)}
+
+          <View className="flex-1 pr-2">
+            <Text
+              className="text-xs font-semibold uppercase tracking-[1.2px]"
+              style={{ color: theme.primary }}
+            >
+              Appointment
             </Text>
-            <Text className="text-xs font-bold text-foreground/50">
-              {appointment.vehicle?.make} {appointment.vehicle?.model}
+
+            <Text
+              className="text-base font-semibold mt-1"
+              style={{ color: theme.text }}
+              numberOfLines={2}
+            >
+              {serviceNames}
+            </Text>
+
+            {appointment.vehicle && (
+              <View className="flex-row items-center mt-1.5">
+                <CarFront
+                  size={14}
+                  color={theme.textSecondary}
+                />
+
+                <Text
+                  className="text-sm ml-1.5"
+                  style={{ color: theme.textSecondary }}
+                  numberOfLines={1}
+                >
+                  {appointment.vehicle.make}{' '}
+                  {appointment.vehicle.model}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Status badge */}
+          <View
+            className="px-3 min-h-[30px] rounded-full items-center justify-center"
+            style={{ backgroundColor: badgeBg }}
+          >
+            <Text
+              className="text-xs font-semibold"
+              style={{ color: iconColor }}
+            >
+              {statusConfig.label}
             </Text>
           </View>
         </View>
 
-        {/* Status Badge */}
-        <View className="px-3 py-1 rounded-lg" style={{ backgroundColor: badgeBg }}>
-          <Text className="text-[10px] font-black" style={{ color: iconColor }}>
-            {statusConfig.label}
-          </Text>
+        {/* Information rows */}
+        <View className="mt-4 rounded-xl bg-background overflow-hidden">
+          {/* Appointment date */}
+          <View className="flex-row items-center min-h-[48px] px-3 border-b border-border">
+            <CalendarDays
+              size={17}
+              color={theme.textSecondary}
+            />
+
+            <View className="flex-1 ml-3">
+              <Text
+                className="text-xs"
+                style={{ color: theme.textSecondary }}
+              >
+                Appointment
+              </Text>
+
+              <Text
+                className="text-sm font-medium mt-0.5"
+                style={{ color: theme.text }}
+              >
+                {formatDate(appointment.appointmentDate)}
+              </Text>
+            </View>
+
+            <View className="flex-row items-center">
+              <Clock3
+                size={14}
+                color={theme.textSecondary}
+              />
+
+              <Text
+                className="text-xs font-medium ml-1.5"
+                style={{ color: theme.textSecondary }}
+              >
+                {formatTime(appointment.appointmentTime)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Vehicle / plate */}
+          {appointment.vehicle && (
+            <View className="flex-row items-center min-h-[48px] px-3 border-b border-border">
+              <CarFront
+                size={17}
+                color={theme.textSecondary}
+              />
+
+              <View className="flex-1 ml-3">
+                <Text
+                  className="text-xs"
+                  style={{ color: theme.textSecondary }}
+                >
+                  Vehicle
+                </Text>
+
+                <Text
+                  className="text-sm font-medium mt-0.5"
+                  style={{ color: theme.text }}
+                >
+                  {appointment.vehicle.make}{' '}
+                  {appointment.vehicle.model}
+                </Text>
+              </View>
+
+              {appointment.vehicle.plateNumber && (
+                <View className="bg-card rounded-lg px-2.5 py-1.5">
+                  <Text
+                    className="text-xs font-semibold"
+                    style={{ color: theme.text }}
+                  >
+                    {appointment.vehicle.plateNumber}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Customer */}
+          {appointment.customer?.fullname && (
+            <View className="flex-row items-center min-h-[48px] px-3 border-b border-border">
+              <UserRound
+                size={17}
+                color={theme.textSecondary}
+              />
+
+              <View className="flex-1 ml-3">
+                <Text
+                  className="text-xs"
+                  style={{ color: theme.textSecondary }}
+                >
+                  Customer
+                </Text>
+
+                <Text
+                  className="text-sm font-medium mt-0.5"
+                  style={{ color: theme.text }}
+                  numberOfLines={1}
+                >
+                  {appointment.customer.fullname}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Tracking */}
+          <View className="flex-row items-center min-h-[48px] px-3">
+            <Hash
+              size={17}
+              color={theme.textSecondary}
+            />
+
+            <View className="flex-1 ml-3">
+              <Text
+                className="text-xs"
+                style={{ color: theme.textSecondary }}
+              >
+                Tracking number
+              </Text>
+
+              <Text
+                className="text-sm font-medium mt-0.5"
+                style={{ color: theme.text }}
+              >
+                #{appointment.trackingNumber || 'N/A'}
+              </Text>
+            </View>
+          </View>
         </View>
       </View>
 
-      {/* Bottom Row: Date + Time */}
-      <View className="flex-row items-center justify-between pt-4 border-t border-border">
-        <View className="flex-row items-center flex-1">
-          <View className="flex-row items-center mr-4">
-            <Ionicons name="calendar-clear" size={14} color={iconColor} />
-            <Text className="text-[13px] ml-1.5 font-bold text-muted-foreground">
-              {formatDate(appointment.appointmentDate)}
-            </Text>
-          </View>
-          <View className="flex-row items-center">
-            <Ionicons name="time" size={14} color={iconColor} />
-            <Text className="text-[13px] ml-1.5 font-bold text-muted-foreground">
-              {formatTime(appointment.appointmentTime)}
-            </Text>
-          </View>
+      {/* Bottom action row */}
+      <View className="min-h-[44px] px-4 flex-row items-center justify-between border-t border-border">
+        <Text
+          className="text-sm font-semibold"
+          style={{ color: theme.primary }}
+        >
+          View appointment
+        </Text>
+
+        <View className="w-8 h-8 items-center justify-center">
+          <ChevronRight
+            size={19}
+            color={theme.primary}
+          />
         </View>
-        <Ionicons name="chevron-forward" size={18} color="#666" />
       </View>
     </TouchableOpacity>
   );

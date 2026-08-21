@@ -1,112 +1,234 @@
-// components/tracking/TaskList.jsx
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import {
+  CheckCircle2,
+  Circle,
+  Clock3,
+  Wrench,
+} from 'lucide-react-native';
+
 import OverallProgressBar from './OverallProgressBar';
 import TaskProgressBar from './TaskProgressBar';
 import { useTheme } from '../../context/ThemeContext';
 
-export default function TaskList({ tasks, excludedFindingIds, onToggleExclude, isWaitingForApproval }) {
+const getStatusPresentation = (status) => {
+  switch (status) {
+    case 'IN_PROGRESS':
+      return {
+        icon: Clock3,
+        color: '#F59E0B',
+        label: 'In progress',
+      };
+
+    case 'DONE':
+      return {
+        icon: CheckCircle2,
+        color: '#10B981',
+        label: 'Done',
+      };
+
+    default:
+      return {
+        icon: Circle,
+        color: '#8E8E93',
+        label: 'Waiting',
+      };
+  }
+};
+
+export default function TaskList({
+  tasks,
+  excludedFindingIds,
+  onToggleExclude,
+  isWaitingForApproval,
+}) {
   const { theme } = useTheme();
 
   if (tasks.length === 0) {
     return (
-      <View className="items-center py-10 rounded-[32px] border-2 border-dashed border-border mb-8">
-        <Text className="text-sm font-bold" style={{ color: theme.textSecondary + '80' }}>No tasks yet</Text>
+      <View className="bg-card rounded-xl border border-border mb-6 px-4 py-10 items-center">
+        <View className="w-12 h-12 rounded-full bg-secondary items-center justify-center">
+          <Wrench size={22} color="#8E8E93" />
+        </View>
+
+        <Text className="mt-3 text-sm font-medium text-muted-foreground">
+          No tasks yet
+        </Text>
       </View>
     );
   }
 
   return (
-    <View className="mb-8">
-      <View className="flex-row justify-between items-center mb-5">
-        <Text className="text-xl font-heading font-black" style={{ color: theme.text }}>
-          {isWaitingForApproval ? 'Inspection Checklist' : 'Work Tasks'}
-        </Text>
-        <View className="px-3 py-1 rounded-lg" style={{ backgroundColor: theme.primary + '10' }}>
-          <Text className="text-[10px] font-black uppercase" style={{ color: theme.primary }}>{tasks.length} Items</Text>
+    <View className="mb-6">
+      <View className="flex-row items-end justify-between px-1 mb-3">
+        <View className="flex-1 pr-3">
+          <Text className="text-2xl font-bold tracking-tight text-foreground">
+            {isWaitingForApproval
+              ? 'Inspection Checklist'
+              : 'Work Tasks'}
+          </Text>
+
+          <Text className="text-sm text-muted-foreground mt-1">
+            {tasks.length} service {tasks.length === 1 ? 'item' : 'items'}
+          </Text>
+        </View>
+
+        <View className="min-h-[44px] px-3 rounded-xl bg-secondary items-center justify-center">
+          <Text className="text-xs font-semibold text-secondary-foreground">
+            {tasks.length}
+          </Text>
         </View>
       </View>
 
-      {/* Overall Progress Bar */}
-      <View className="mb-6">
-        <OverallProgressBar tasks={tasks} />
-      </View>
+      <View className="bg-card rounded-xl border border-border overflow-hidden">
+        <View className="px-4 pt-4">
+          <OverallProgressBar tasks={tasks} />
+        </View>
 
-      {tasks.map(task => {
-        const findingsToShow = isWaitingForApproval
-          ? task.findings?.filter(f => !excludedFindingIds.includes(f.id)) || []
-          : task.findings || [];
+        {tasks.map((task, taskIndex) => {
+          const findingsToShow = isWaitingForApproval
+            ? task.findings?.filter(
+                f => !excludedFindingIds.includes(f.id)
+              ) || []
+            : task.findings || [];
 
-        const durationText = task.durationMinutes ? `${task.durationMinutes} min` : null;
+          const durationText = task.durationMinutes
+            ? `${task.durationMinutes} min`
+            : null;
 
-        return (
-          <View key={task.id} className="mb-4 rounded-[24px] border overflow-hidden" style={{ borderColor: theme.border, backgroundColor: theme.background }}>
-            <View className="p-5 flex-row justify-between items-center">
-              <View className="flex-1 mr-3">
-                <Text className="font-black text-sm uppercase tracking-wide" style={{ color: theme.text }}>{task.title}</Text>
-                <View className="flex-row items-center mt-1">
-                  <View
-                    className={`w-2 h-2 rounded-full mr-2 ${
-                      task.status === 'IN_PROGRESS' ? 'bg-amber-500' : task.status === 'DONE' ? 'bg-green-500' : 'bg-gray-400'
-                    }`}
+          const statusPresentation =
+            getStatusPresentation(task.status);
+
+          const StatusIcon = statusPresentation.icon;
+
+          return (
+            <View
+              key={task.id}
+              className={`ml-4 ${taskIndex !== 0 ? 'border-t border-border' : ''}`}
+            >
+              <View className="px-4 py-4 flex-row items-start">
+                <View className="w-11 h-11 rounded-full bg-secondary items-center justify-center mr-3">
+                  <StatusIcon
+                    size={20}
+                    color={statusPresentation.color}
+                    strokeWidth={2}
                   />
-                  <Text className="text-[10px] font-black uppercase" style={{ color: theme.textSecondary }}>
-                    {task.status.replace('_', ' ')}
-                  </Text>
-                  {durationText && (
-                    <Text className="text-[10px] font-bold ml-2" style={{ color: theme.textSecondary }}>
-                      • {durationText}
-                    </Text>
-                  )}
                 </View>
+
+                <View className="flex-1 pr-3">
+                  <Text className="text-base font-semibold text-foreground">
+                    {task.title}
+                  </Text>
+
+                  <View className="flex-row items-center flex-wrap mt-1">
+                    <Text
+                      className="text-xs font-medium"
+                      style={{
+                        color: statusPresentation.color,
+                      }}
+                    >
+                      {statusPresentation.label}
+                    </Text>
+
+                    {durationText && (
+                      <Text className="text-xs text-muted-foreground ml-2">
+                        · {durationText}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                {task.status === 'DONE' && (
+                  <CheckCircle2
+                    size={21}
+                    color="#10B981"
+                    strokeWidth={2}
+                  />
+                )}
               </View>
-              {task.status === 'DONE' && <Ionicons name="checkmark-circle" size={24} color="#22c55e" />}
-            </View>
 
-            {/* Per‑task live progress bar (only for active tasks with duration) */}
-            <TaskProgressBar task={task} />
+              <TaskProgressBar task={task} />
 
-            {findingsToShow.length > 0 && (
-              <View className="px-5 pb-5 pt-2" style={{ backgroundColor: theme.muted + '30' }}>
-                {findingsToShow.map(finding => (
-                  <View key={finding.id} className="p-4 mb-3 rounded-2xl border" style={{ borderColor: theme.border, backgroundColor: theme.card }}>
-                    <View className="flex-row justify-between">
-                      <View className="flex-1 pr-4">
-                        <Text className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color: theme.primary }}>Diagnostic Finding</Text>
-                        <Text className="text-xs font-bold leading-5" style={{ color: theme.text }}>{finding.description}</Text>
-                        {finding.products?.length > 0 && (
-                          <View className="mt-4 pt-3 border-t" style={{ borderTopColor: theme.border }}>
-                            {finding.products.map((p, i) => (
-                              <View key={i} className="flex-row justify-between mb-1">
-                                <Text className="text-[11px] font-medium" style={{ color: theme.textSecondary }}>• {p.quantity}x {p.name}</Text>
-                                <Text className="text-[11px] font-black" style={{ color: theme.text }}>₱{parseFloat(p.priceAtTime).toFixed(2)}</Text>
-                              </View>
-                            ))}
-                          </View>
+              {findingsToShow.length > 0 && (
+                <View className="px-4 pb-4">
+                  {findingsToShow.map(finding => (
+                    <View
+                      key={finding.id}
+                      className="bg-background rounded-xl border border-border p-4 mb-3"
+                    >
+                      <View className="flex-row items-start">
+                        <View className="flex-1 pr-3">
+                          <Text className="text-xs font-semibold uppercase tracking-wide text-primary">
+                            Diagnostic finding
+                          </Text>
+
+                          <Text className="text-sm font-medium leading-5 text-foreground mt-1">
+                            {finding.description}
+                          </Text>
+
+                          {finding.products?.length > 0 && (
+                            <View className="mt-4 pt-3 border-t border-border">
+                              {finding.products.map((p, i) => (
+                                <View
+                                  key={i}
+                                  className="flex-row items-center justify-between mb-2"
+                                >
+                                  <Text className="flex-1 text-xs text-muted-foreground pr-2">
+                                    {p.quantity}x {p.name}
+                                  </Text>
+
+                                  <Text className="text-xs font-semibold text-foreground">
+                                    ₱{parseFloat(
+                                      p.priceAtTime
+                                    ).toFixed(2)}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          )}
+                        </View>
+
+                        {isWaitingForApproval && (
+                          <TouchableOpacity
+                            onPress={() =>
+                              onToggleExclude(finding.id)
+                            }
+                            activeOpacity={0.8}
+                            className="min-h-[44px] px-3 rounded-lg items-center justify-center border"
+                            style={{
+                              backgroundColor:
+                                excludedFindingIds.includes(finding.id)
+                                  ? '#10B981'
+                                  : '#FFFFFF',
+                              borderColor:
+                                excludedFindingIds.includes(finding.id)
+                                  ? '#10B981'
+                                  : '#C1272D',
+                            }}
+                          >
+                            <Text
+                              className="text-xs font-semibold"
+                              style={{
+                                color:
+                                  excludedFindingIds.includes(finding.id)
+                                    ? '#FFFFFF'
+                                    : '#C1272D',
+                              }}
+                            >
+                              {excludedFindingIds.includes(finding.id)
+                                ? 'Include'
+                                : 'Skip'}
+                            </Text>
+                          </TouchableOpacity>
                         )}
                       </View>
-                      {isWaitingForApproval && (
-                        <TouchableOpacity
-                          onPress={() => onToggleExclude(finding.id)}
-                          className="h-10 px-4 rounded-xl items-center justify-center border shadow-sm"
-                          style={{
-                            backgroundColor: excludedFindingIds.includes(finding.id) ? '#22c55e' : '#fff',
-                            borderColor: excludedFindingIds.includes(finding.id) ? '#22c55e' : '#EF4444',
-                          }}
-                        >
-                          <Text className="text-[10px] font-black uppercase" style={{ color: excludedFindingIds.includes(finding.id) ? '#fff' : '#EF4444' }}>
-                            {excludedFindingIds.includes(finding.id) ? 'Include' : 'Skip Item'}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
                     </View>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        );
-      })}
+                  ))}
+                </View>
+              )}
+            </View>
+          );
+        })}
+      </View>
     </View>
   );
 }

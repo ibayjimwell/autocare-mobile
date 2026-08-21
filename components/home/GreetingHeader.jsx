@@ -9,7 +9,6 @@ export default function GreetingHeader() {
   const platformName = Platform.OS === 'ios' ? 'iOS' : Platform.OS === 'android' ? 'Android' : 'Web';
   
   return (
-    // Removed 'absolute top-0 left-0 right-0' so it naturally occupies space without overlapping
     <View className="z-50 px-4 pt-4 pb-6 bg-primary rounded-b-[32px] shadow-md">
       {/* Location row */}
       <View className="flex-row items-center justify-between mb-5">

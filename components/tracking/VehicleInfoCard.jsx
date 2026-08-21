@@ -1,37 +1,73 @@
 import { View, Text } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { formatDate, formatTime12h, getServiceNames } from '../../utils/format';
+import {
+  CalendarDays,
+  CarFront,
+  Clock3,
+  FileText,
+} from 'lucide-react-native';
+import {
+  formatDate,
+  formatTime12h,
+  getServiceNames,
+} from '../../utils/format';
 
 export default function VehicleInfoCard({ appointment }) {
   return (
-    <View className="p-6 rounded-[32px] mb-8 border border-border bg-card shadow-sm">
-      <View className="flex-row items-center mb-4">
-        <View className="w-12 h-12 rounded-2xl items-center justify-center bg-primary/10 mr-4">
-          <MaterialCommunityIcons name="car-cog" size={24} color="#C1272D" />
+    <View
+      className="bg-card rounded-xl mb-6 border border-border overflow-hidden"
+      style={{
+        shadowColor: '#000',
+        shadowOpacity: 0.04,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 1,
+      }}
+    >
+      <View className="px-4 py-4">
+        <View className="flex-row items-center">
+          <View className="w-11 h-11 rounded-full bg-primary/10 items-center justify-center mr-3">
+            <CarFront size={21} color="#C1272D" strokeWidth={2} />
+          </View>
+
+          <View className="flex-1">
+            <Text className="text-lg font-semibold text-foreground">
+              {getServiceNames(appointment)}
+            </Text>
+
+            <Text className="text-sm text-muted-foreground mt-1">
+              {appointment?.vehicle?.make}{' '}
+              {appointment?.vehicle?.model}
+            </Text>
+
+            <Text className="text-xs text-muted-foreground mt-0.5">
+              {appointment?.vehicle?.plateNumber}
+            </Text>
+          </View>
         </View>
-        <View className="flex-1">
-          <Text className="text-lg font-black text-foreground">
-            {getServiceNames(appointment)}
+      </View>
+
+      <View className="ml-4 border-t border-border">
+        <View className="px-4 py-4 flex-row items-center border-b border-border">
+          <CalendarDays size={17} color="#8E8E93" />
+          <Text className="ml-3 flex-1 text-sm text-foreground">
+            {formatDate(appointment?.appointmentDate)}
           </Text>
-          <Text className="text-xs font-bold text-muted-foreground">
-            {appointment?.vehicle?.make} {appointment?.vehicle?.model} • {appointment?.vehicle?.plateNumber}
+        </View>
+
+        <View className="px-4 py-4 flex-row items-center">
+          <Clock3 size={17} color="#8E8E93" />
+          <Text className="ml-3 flex-1 text-sm text-foreground">
+            {formatTime12h(appointment?.appointmentTime)}
           </Text>
         </View>
       </View>
-      <View className="flex-row justify-between pt-4 border-t border-border">
-        <View className="flex-row items-center">
-          <Ionicons name="calendar-outline" size={14} color="#666" />
-          <Text className="text-xs font-bold ml-2 text-foreground">{formatDate(appointment?.appointmentDate)}</Text>
-        </View>
-        <View className="flex-row items-center">
-          <Ionicons name="time-outline" size={14} color="#666" />
-          <Text className="text-xs font-bold ml-2 text-foreground">{formatTime12h(appointment?.appointmentTime)}</Text>
-        </View>
-      </View>
+
       {appointment?.notes && (
-        <View className="flex-row items-start pt-2 mt-2 border-t border-border">
-          <Ionicons name="document-text-outline" size={18} color="#666" style={{ marginRight: 8 }} />
-          <Text className="flex-1 text-xs leading-5 font-medium text-muted-foreground">{appointment.notes}</Text>
+        <View className="ml-4 border-t border-border px-4 py-4 flex-row items-start">
+          <FileText size={17} color="#8E8E93" />
+          <Text className="ml-3 flex-1 text-sm leading-5 text-muted-foreground">
+            {appointment.notes}
+          </Text>
         </View>
       )}
     </View>

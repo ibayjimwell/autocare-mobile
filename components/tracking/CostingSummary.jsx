@@ -1,5 +1,15 @@
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
+import {
+  ArrowRight,
+  Check,
+  X,
+  ReceiptText,
+} from 'lucide-react-native';
 import EstimateBreakdown from './EstimateBreakdown';
 
 export default function CostingSummary({
@@ -12,33 +22,49 @@ export default function CostingSummary({
   actionLoading,
   onApprove,
   onReject,
-  estimate, // full estimate object
+  estimate,
 }) {
   // If we have the full estimate, render breakdown
   if (estimate && estimate.findings) {
     return (
-      <View className="mb-10">
+      <View className="mb-6">
         <EstimateBreakdown estimate={estimate} />
+
         {isWaitingForApproval && (
-          <View className="flex-row gap-4 mt-6">
+          <View className="bg-card rounded-xl border border-border p-3 flex-row">
             <TouchableOpacity
               onPress={onReject}
               disabled={actionLoading}
-              className="flex-1 h-16 rounded-[24px] items-center justify-center border-2 border-destructive"
+              activeOpacity={0.8}
+              className="flex-1 min-h-[52px] rounded-xl items-center justify-center border border-primary mr-2"
             >
-              <Text className="text-sm font-black uppercase text-destructive">Reject</Text>
+              <View className="flex-row items-center">
+                <X size={17} color="#C1272D" />
+                <Text className="text-sm font-semibold text-primary ml-2">
+                  Reject
+                </Text>
+              </View>
             </TouchableOpacity>
+
             <TouchableOpacity
               onPress={onApprove}
               disabled={actionLoading}
-              className="flex-[2] h-16 rounded-[24px] items-center justify-center bg-green-500 shadow-lg shadow-green-500/30"
+              activeOpacity={0.8}
+              className="flex-[2] min-h-[52px] rounded-xl items-center justify-center bg-primary ml-2"
             >
               {actionLoading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <View className="flex-row items-center">
-                  <Text className="text-white font-black uppercase mr-2">Approve</Text>
-                  <Ionicons name="arrow-forward" size={18} color="#fff" />
+                  <Check size={18} color="#FFFFFF" />
+                  <Text className="text-white font-semibold ml-2">
+                    Approve
+                  </Text>
+                  <ArrowRight
+                    size={17}
+                    color="#FFFFFF"
+                    style={{ marginLeft: 6 }}
+                  />
                 </View>
               )}
             </TouchableOpacity>
@@ -50,56 +76,118 @@ export default function CostingSummary({
 
   // Fallback: simple summary (original)
   return (
-    <View className="p-8 rounded-[32px] mb-10 border border-border bg-card">
-      <Text className="text-xl font-heading font-black mb-6 text-foreground">
-        Estimate Cost
-      </Text>
+    <View className="mb-6">
+      <View className="bg-card rounded-xl border border-border overflow-hidden">
+        <View className="px-4 py-4 flex-row items-center">
+          <View className="w-11 h-11 rounded-full bg-primary/10 items-center justify-center mr-3">
+            <ReceiptText size={21} color="#C1272D" />
+          </View>
 
-      <View className="flex-row justify-between mb-4">
-        <Text className="text-sm font-medium text-foreground/60">Service</Text>
-        <Text className="text-sm font-black text-foreground">₱{servicePrice.toFixed(2)}</Text>
-      </View>
-      <View className="flex-row justify-between mb-4">
-        <Text className="text-sm font-medium text-foreground/60">Parts</Text>
-        <Text className="text-sm font-black text-foreground">₱{partsTotal.toFixed(2)}</Text>
-      </View>
-      <View className="flex-row justify-between mb-4">
-        <Text className="text-sm font-medium text-foreground/60">Labor</Text>
-        <Text className="text-sm font-black text-foreground">₱{laborTotal.toFixed(2)}</Text>
-      </View>
-      {discountTotal > 0 && (
-        <View className="flex-row justify-between mb-4 px-4 py-3 rounded-2xl bg-green-100">
-          <Text className="text-sm font-black text-green-600">Discount</Text>
-          <Text className="text-sm font-black text-green-600">- ₱{discountTotal.toFixed(2)}</Text>
+          <View className="flex-1">
+            <Text className="text-lg font-semibold text-foreground">
+              Estimate Cost
+            </Text>
+
+            <Text className="text-sm text-muted-foreground mt-1">
+              Current estimated service total
+            </Text>
+          </View>
         </View>
-      )}
-      <View className="mt-6 pt-6 border-t border-border flex-row justify-between items-center">
-        <Text className="text-lg font-black uppercase text-foreground">Total</Text>
-        <View className="items-end">
-          <Text className="text-3xl font-heading font-black text-primary">₱{grandTotal.toFixed(2)}</Text>
+
+        <View className="ml-4 border-t border-border">
+          <View className="px-4">
+            <View className="min-h-[52px] py-3 flex-row items-center justify-between border-b border-border">
+              <Text className="text-sm text-muted-foreground">
+                Service
+              </Text>
+
+              <Text className="text-sm font-semibold text-foreground">
+                ₱{servicePrice.toFixed(2)}
+              </Text>
+            </View>
+
+            <View className="min-h-[52px] py-3 flex-row items-center justify-between border-b border-border">
+              <Text className="text-sm text-muted-foreground">
+                Parts
+              </Text>
+
+              <Text className="text-sm font-semibold text-foreground">
+                ₱{partsTotal.toFixed(2)}
+              </Text>
+            </View>
+
+            <View className="min-h-[52px] py-3 flex-row items-center justify-between border-b border-border">
+              <Text className="text-sm text-muted-foreground">
+                Labor
+              </Text>
+
+              <Text className="text-sm font-semibold text-foreground">
+                ₱{laborTotal.toFixed(2)}
+              </Text>
+            </View>
+
+            {discountTotal > 0 && (
+              <View className="min-h-[52px] py-3 flex-row items-center justify-between border-b border-border">
+                <Text className="text-sm font-medium text-primary">
+                  Discount
+                </Text>
+
+                <Text className="text-sm font-semibold text-primary">
+                  - ₱{discountTotal.toFixed(2)}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View className="bg-background px-4 py-5 flex-row items-center justify-between">
+            <Text className="text-base font-semibold text-foreground">
+              Total
+            </Text>
+
+            <Text className="text-2xl font-bold text-primary">
+              ₱{grandTotal.toFixed(2)}
+            </Text>
+          </View>
         </View>
       </View>
 
       {isWaitingForApproval && (
-        <View className="flex-row gap-4 mt-8">
+        <View className="bg-card rounded-xl border border-border p-3 flex-row mt-3">
           <TouchableOpacity
             onPress={onReject}
             disabled={actionLoading}
-            className="flex-1 h-16 rounded-[24px] items-center justify-center border-2 border-destructive"
+            activeOpacity={0.8}
+            className="flex-1 min-h-[52px] rounded-xl items-center justify-center border border-primary mr-2"
           >
-            <Text className="text-sm font-black uppercase text-destructive">Reject</Text>
+            <View className="flex-row items-center">
+              <X size={17} color="#C1272D" />
+              <Text className="text-sm font-semibold text-primary ml-2">
+                Reject
+              </Text>
+            </View>
           </TouchableOpacity>
+
           <TouchableOpacity
             onPress={onApprove}
             disabled={actionLoading}
-            className="flex-[2] h-16 rounded-[24px] items-center justify-center bg-green-500 shadow-lg shadow-green-500/30"
+            activeOpacity={0.8}
+            className="flex-[2] min-h-[52px] rounded-xl items-center justify-center bg-primary ml-2"
           >
             {actionLoading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
               <View className="flex-row items-center">
-                <Text className="text-white font-black uppercase mr-2">Approve</Text>
-                <Ionicons name="arrow-forward" size={18} color="#fff" />
+                <Check size={18} color="#FFFFFF" />
+
+                <Text className="text-white font-semibold ml-2">
+                  Approve
+                </Text>
+
+                <ArrowRight
+                  size={17}
+                  color="#FFFFFF"
+                  style={{ marginLeft: 6 }}
+                />
               </View>
             )}
           </TouchableOpacity>

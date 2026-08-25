@@ -1,12 +1,13 @@
 import { Stack, useRouter } from 'expo-router';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import { NotificationProvider } from '../context/NotificationContext';
 import React, { useEffect } from 'react';          // ✅ useEffect imported here
 import { View, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
-// import { usePushNotifications } from '../hooks/usePushNotifications';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 import '../global.css';
 
 /**
@@ -64,8 +65,7 @@ function RootLayoutNav() {
   const url = Linking.useURL();
   const router = useRouter();
 
-  // ✅ Register push notifications (safe – hook internally guards for user)
-  // usePushNotifications();
+  usePushNotifications();
 
   // Handle deep links (e.g., payment-success)
   useEffect(() => {
@@ -236,7 +236,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
-          <RootLayoutNav />
+          <NotificationProvider>
+             <RootLayoutNav />
+          </NotificationProvider>
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>

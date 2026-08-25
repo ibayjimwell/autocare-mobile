@@ -1,13 +1,12 @@
 import { View, Text, TouchableOpacity, Platform } from 'react-native';
-import { Wrench, Bell } from 'lucide-react-native';
+import { Wrench } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
+import NotificationBell from './NotificationBell';
 
 export default function GreetingHeader() {
   const { user } = useAuth();
-  
-  // Determine current platform name dynamically
   const platformName = Platform.OS === 'ios' ? 'iOS' : Platform.OS === 'android' ? 'Android' : 'Web';
-  
+
   return (
     <View className="z-50 px-4 pt-4 pb-6 bg-primary rounded-b-[32px] shadow-md">
       {/* Location row */}
@@ -24,12 +23,7 @@ export default function GreetingHeader() {
           </View>
         </View>
 
-        <TouchableOpacity
-          className="w-11 h-11 rounded-full bg-white/15 border border-white/20 items-center justify-center min-h-[44px] min-w-[44px]"
-          onPress={() => { /* navigate to notifications */ }}
-        >
-          <Bell size={20} color="#FFFFFF" />
-        </TouchableOpacity>
+        <NotificationBell />
       </View>
 
       {/* Large Title headline */}

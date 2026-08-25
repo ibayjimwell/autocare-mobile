@@ -1,14 +1,12 @@
-// hooks/usePushNotifications.js
-import { useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Platform, Linking } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
-import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 import api from '../services/api';
 
-// Configure how notifications are presented when the app is in the foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -20,7 +18,6 @@ Notifications.setNotificationHandler({
 
 async function registerForPushNotificationsAsync() {
   let token;
-
   if (Device.isDevice) {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -40,13 +37,12 @@ async function registerForPushNotificationsAsync() {
   } else {
     console.log('Must use physical device for push notifications');
   }
-
   return token;
 }
 
 export function usePushNotifications() {
   const { user } = useAuth();
-  const router = useRouter();
+  const { addNotification } = useNotifications();
   const notificationListener = useRef();
   const responseListener = useRef();
 
@@ -56,7 +52,6 @@ export function usePushNotifications() {
     // Register token
     registerForPushNotificationsAsync().then(token => {
       if (!token) return;
-      // Send token to server
       api.request(
         '/customers/push-subscriptions',
         'POST',
@@ -67,14 +62,37 @@ export function usePushNotifications() {
 
     // Listener for incoming notifications while app is in foreground
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notification received:', notification);
+      const data = notification.request.content.data || {};
+      const title = notification.request.content.title || 'AutoCare Notification';
+      const body = notification.request.content.body || '';
+      console.log('📱 Notification received:', title, body);
+      // Save to local DB
+      addNotification({
+        title,
+        body,
+        url: data.url || null,
+        module: data.module || 'app',
+        event: data.event || 'push',
+      });
     });
 
-    // Listener for user tapping a notification
+    // Listener for user tapping a notification (opens app)
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      const url = response.notification.request.content.data?.url;
+      const data = response.notification.request.content.data || {};
+      const url = data.url || null;
+      const title = response.notification.request.content.title || 'AutoCare Notification';
+      const body = response.notification.request.content.body || '';
+      // Save to local DB (it may not have been saved if app was in background)
+      addNotification({
+        title,
+        body,
+        url,
+        module: data.module || 'app',
+        event: data.event || 'push',
+      });
+      // Navigate using Linking if url is present
       if (url) {
-        router.push(url);
+        Linking.openURL(url).catch(err => console.error('Failed to open URL:', err));
       }
     });
 

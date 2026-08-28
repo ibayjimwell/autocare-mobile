@@ -1,3 +1,5 @@
+// app/tracking.jsx (updated)
+
 import {
   View,
   ScrollView,
@@ -15,10 +17,12 @@ import {
   ChevronRight,
   FileText,
   ReceiptText,
+  Calendar,
 } from 'lucide-react-native';
 
 import { useTrackingData } from '../hooks/useTrackingData';
 import { useQueue } from '../hooks/useQueue';
+import { useRescheduleRequests } from '../hooks/useRescheduleRequests';
 import { statusToStage } from '../utils/constants';
 import TrackingHeader from '../components/tracking/TrackingHeader';
 import VehicleInfoCard from '../components/tracking/VehicleInfoCard';
@@ -28,7 +32,11 @@ import ProgressTimeline from '../components/tracking/ProgressTimeline';
 import CancellationNote from '../components/tracking/CancellationNote';
 import QueueSection from '../components/tracking/QueueSection';
 import { ApproveModal, RejectModal } from '../components/tracking/EstimateModals';
+import RescheduleRequestCard from '../components/tracking/RescheduleRequestCard';
+import RescheduleModal from '../components/tracking/RescheduleModal';
 import estimateApi from '../services/estimateApi';
+import { canReschedule } from '../utils/appointments';
+import { format } from 'date-fns';
 
 export default function TrackingScreen() {
   const { appointmentId } = useLocalSearchParams();
@@ -43,7 +51,7 @@ export default function TrackingScreen() {
     refreshAll,
   } = useTrackingData(appointmentId);
 
-  // Queue data – only fetch if appointment is CONFIRMED and has appointmentDate
+  // Queue data
   const appointmentDate = appointment?.appointmentDate;
   const isConfirmed = appointment?.status === 'CONFIRMED';
   const { queue, loading: queueLoading, error: queueError } = useQueue(
@@ -51,24 +59,37 @@ export default function TrackingScreen() {
     appointmentId
   );
 
+  // Reschedule requests
+  const {
+    requests,
+    loading: requestsLoading,
+    approveRequest,
+    rejectRequest,
+    pendingRequest, // ✅ get pending request
+  } = useRescheduleRequests(appointmentId);
+
   const [excludedFindingIds, setExcludedFindingIds] = useState([]);
   const [approveModalVisible, setApproveModalVisible] = useState(false);
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Reschedule modal
+  const [rescheduleModalVisible, setRescheduleModalVisible] = useState(false);
+
   const currentStage = statusToStage[appointment?.status] ?? 0;
   const isWaitingForApproval = appointment?.status === 'WAITING_FOR_APPROVAL';
   const isInProgress = appointment?.status === 'IN_PROGRESS';
   const isCancelled = appointment?.status === 'CANCELLED';
 
-  // --- GRAND TOTAL: use estimate.grandTotal as source of truth ---
-  // Only fallback to computed if estimate is null or missing grandTotal
+  // ✅ Check if appointment can be rescheduled AND there is no pending request
+  const canRescheduleAppointment = appointment && canReschedule(appointment.status) && !pendingRequest;
+
+  // Grand total logic (unchanged)
   let grandTotal = 0;
   if (estimate?.grandTotal !== undefined && estimate?.grandTotal !== null) {
     grandTotal = parseFloat(estimate.grandTotal) || 0;
   } else {
-    // Fallback: compute from components (tasks and estimate fields)
     const servicePrice = parseFloat(estimate?.serviceSubtotal) || 0;
     const partsTotal = tasks
       .filter(t => t.status === 'DONE' && t.findings)
@@ -85,7 +106,6 @@ export default function TrackingScreen() {
     grandTotal = (servicePrice + partsTotal + laborTotal) - discountTotal;
   }
 
-  // Keep these for display in CostingSummary fallback (if estimate missing)
   const servicePrice = parseFloat(estimate?.serviceSubtotal) || 0;
   const partsTotal = tasks
     .filter(t => t.status === 'DONE' && t.findings)
@@ -152,6 +172,10 @@ export default function TrackingScreen() {
     }
   };
 
+  const handleRescheduleSuccess = () => {
+    refreshAll();
+  };
+
   if (loading) {
     return (
       <SafeAreaView className="flex-1 bg-background items-center justify-center">
@@ -202,6 +226,21 @@ export default function TrackingScreen() {
           <TrackingHeader appointment={appointment} />
           <VehicleInfoCard appointment={appointment} />
 
+          {/* Reschedule Requests */}
+          {!requestsLoading && requests.length > 0 && (
+            <View className="mb-4">
+              <Text className="text-sm font-bold text-foreground mb-2">Reschedule Requests</Text>
+              {requests.map((req) => (
+                <RescheduleRequestCard
+                  key={req.id}
+                  request={req}
+                  onApprove={approveRequest}
+                  onReject={rejectRequest}
+                />
+              ))}
+            </View>
+          )}
+
           {/* Queue Section – only for CONFIRMED appointments */}
           {isConfirmed && (
             <QueueSection
@@ -210,6 +249,28 @@ export default function TrackingScreen() {
               error={queueError}
               appointmentId={appointmentId}
             />
+          )}
+
+          {/* Reschedule Button – hidden if there's a pending request */}
+          {canRescheduleAppointment && (
+            <TouchableOpacity
+              onPress={() => setRescheduleModalVisible(true)}
+              className="bg-primary rounded-xl p-3 mb-4 flex-row items-center justify-center"
+            >
+              <Calendar size={20} color="white" />
+              <Text className="text-white font-bold ml-2">Reschedule Appointment</Text>
+            </TouchableOpacity>
+          )}
+
+          {pendingRequest && (
+            <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+              <Text className="text-sm text-amber-700 font-medium">Pending Reschedule Request</Text>
+              <Text className="text-xs text-amber-600 mt-1">
+                {pendingRequest.requestedBy === 'staff' ? 'Staff requested' : 'You requested'} to reschedule to{' '}
+                {format(new Date(pendingRequest.newAppointmentDate), 'MMM d, yyyy')} at {pendingRequest.newAppointmentTime}.
+              </Text>
+              <Text className="text-xs text-amber-600 mt-1">Waiting for approval.</Text>
+            </View>
           )}
 
           {/* Tasks always visible for relevant statuses */}
@@ -227,7 +288,7 @@ export default function TrackingScreen() {
             />
           )}
 
-          {/* Estimate costing – only for UNDER_INSPECTION / WAITING_FOR_APPROVAL */}
+          {/* Estimate costing – only for WAITING_FOR_APPROVAL */}
           {['WAITING_FOR_APPROVAL'].includes(appointment.status) && (
             <CostingSummary
               servicePrice={servicePrice}
@@ -312,6 +373,13 @@ export default function TrackingScreen() {
         reason={rejectReason}
         setReason={setRejectReason}
         actionLoading={actionLoading}
+      />
+
+      <RescheduleModal
+        visible={rescheduleModalVisible}
+        onClose={() => setRescheduleModalVisible(false)}
+        appointment={appointment}
+        onSuccess={handleRescheduleSuccess}
       />
     </SafeAreaView>
   );

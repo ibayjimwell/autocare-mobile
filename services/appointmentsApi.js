@@ -36,6 +36,34 @@ const appointmentsApi = {
   // Check custom time availability
   checkAvailability: (date, startTime, serviceId) =>
     api.request('/appointments/check-availability', 'POST', { date, startTime, serviceIds: serviceId }, true),
+
+  /// Reschedule an appointment directly (customer initiated) – DEPRECATED, use createRescheduleRequest instead
+    reschedule: (id, newDate, newTime) =>
+      api.request(`/appointments/${id}`, 'PUT', {
+        appointmentDate: newDate,
+        appointmentTime: newTime,
+      }, true),
+  
+    // Create a reschedule request (with approval)
+    createRescheduleRequest: (appointmentId, newDate, newTime, reason) =>
+      api.request(`/appointments/${appointmentId}/reschedule-request`, 'POST', {
+        newAppointmentDate: newDate,
+        newAppointmentTime: newTime,
+        reason: reason || '',
+      }, true),
+  
+    // Get reschedule requests for an appointment
+    getRescheduleRequests: (appointmentId) =>
+      api.request(`/appointments/${appointmentId}/reschedule-request`, 'GET', null, true),
+  
+    // Approve a reschedule request
+    approveRescheduleRequest: (requestId) =>
+      api.request(`/appointments/reschedule-request/${requestId}`, 'PATCH', { action: 'approve' }, true),
+  
+    // Reject a reschedule request with reason
+    rejectRescheduleRequest: (requestId, rejectionReason) =>
+      api.request(`/appointments/reschedule-request/${requestId}`, 'PATCH', { action: 'reject', rejectionReason }, true),
+  
 };
 
 export default appointmentsApi;

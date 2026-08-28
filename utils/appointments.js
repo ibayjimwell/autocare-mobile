@@ -39,3 +39,8 @@ export const STATUS_CONFIG = {
 export function getStatusConfig(status) {
   return STATUS_CONFIG[status] || STATUS_CONFIG.PENDING;
 }
+
+export function canReschedule(status) {
+  const allowed = ['PENDING', 'CONFIRMED'];
+  return allowed.includes(status);
+}

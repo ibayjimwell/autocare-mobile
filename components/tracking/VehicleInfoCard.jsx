@@ -1,17 +1,21 @@
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import {
   CalendarDays,
   CarFront,
   Clock3,
   FileText,
+  MoreVertical,
 } from 'lucide-react-native';
 import {
   formatDate,
   formatTime12h,
   getServiceNames,
 } from '../../utils/format';
+import { canReschedule } from '../../utils/appointments';
 
-export default function VehicleInfoCard({ appointment }) {
+export default function VehicleInfoCard({ appointment, onReschedule }) {
+  const isReschedulable = appointment && canReschedule(appointment.status);
+
   return (
     <View
       className="bg-card rounded-xl mb-6 border border-border overflow-hidden"
@@ -30,9 +34,23 @@ export default function VehicleInfoCard({ appointment }) {
           </View>
 
           <View className="flex-1">
-            <Text className="text-lg font-semibold text-foreground">
-              {getServiceNames(appointment)}
-            </Text>
+            <View className="flex-row items-center justify-between">
+              <Text className="text-lg font-semibold text-foreground flex-1">
+                {getServiceNames(appointment)}
+              </Text>
+
+              {/* Three-dot menu */}
+              {isReschedulable && (
+                <TouchableOpacity
+                  onPress={onReschedule}
+                  className="p-2"
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <MoreVertical size={20} color="#6B7280" />
+                </TouchableOpacity>
+              )}
+            </View>
 
             <Text className="text-sm text-muted-foreground mt-1">
               {appointment?.vehicle?.make}{' '}

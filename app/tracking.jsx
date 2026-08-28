@@ -17,6 +17,7 @@ import {
   ChevronRight,
   FileText,
   ReceiptText,
+  Calendar,
 } from 'lucide-react-native';
 
 import { useTrackingData } from '../hooks/useTrackingData';
@@ -64,7 +65,7 @@ export default function TrackingScreen() {
     loading: requestsLoading,
     approveRequest,
     rejectRequest,
-    pendingRequest,
+    pendingRequest, // ✅ get pending request
   } = useRescheduleRequests(appointmentId);
 
   const [excludedFindingIds, setExcludedFindingIds] = useState([]);
@@ -81,7 +82,47 @@ export default function TrackingScreen() {
   const isInProgress = appointment?.status === 'IN_PROGRESS';
   const isCancelled = appointment?.status === 'CANCELLED';
 
-  // ✅ Removed the standalone reschedule button logic
+  // ✅ Check if appointment can be rescheduled AND there is no pending request
+  const canRescheduleAppointment = appointment && canReschedule(appointment.status) && !pendingRequest;
+
+  // Grand total logic (unchanged)
+  let grandTotal = 0;
+  if (estimate?.grandTotal !== undefined && estimate?.grandTotal !== null) {
+    grandTotal = parseFloat(estimate.grandTotal) || 0;
+  } else {
+    const servicePrice = parseFloat(estimate?.serviceSubtotal) || 0;
+    const partsTotal = tasks
+      .filter(t => t.status === 'DONE' && t.findings)
+      .reduce((sum, task) => {
+        return sum + (task.findings || []).reduce((s, f) => {
+          return s + (f.products || []).reduce(
+            (ps, p) => ps + (p.quantity || 1) * (parseFloat(p.priceAtTime) || 0),
+            0
+          );
+        }, 0);
+      }, 0);
+    const laborTotal = parseFloat(estimate?.feesTotal) || 0;
+    const discountTotal = parseFloat(estimate?.discountTotal) || 0;
+    grandTotal = (servicePrice + partsTotal + laborTotal) - discountTotal;
+  }
+
+  const servicePrice = parseFloat(estimate?.serviceSubtotal) || 0;
+  const partsTotal = tasks
+    .filter(t => t.status === 'DONE' && t.findings)
+    .reduce((sum, task) => {
+      return sum + (task.findings || []).reduce((s, f) => {
+        return s + (f.products || []).reduce(
+          (ps, p) => ps + (p.quantity || 1) * (parseFloat(p.priceAtTime) || 0),
+          0
+        );
+      }, 0);
+    }, 0);
+  const laborTotal = parseFloat(estimate?.feesTotal) || 0;
+  const discountTotal = parseFloat(estimate?.discountTotal) || 0;
+
+  const finalBillGrandTotal = finalBill
+    ? parseFloat(finalBill.grandTotal)
+    : null;
 
   const toggleExclude = (id) => {
     setExcludedFindingIds(prev =>
@@ -183,12 +224,7 @@ export default function TrackingScreen() {
       >
         <View className="px-4 pt-2">
           <TrackingHeader appointment={appointment} />
-
-          {/* ✅ VehicleInfoCard with three-dot menu */}
-          <VehicleInfoCard
-            appointment={appointment}
-            onReschedule={() => setRescheduleModalVisible(true)}
-          />
+          <VehicleInfoCard appointment={appointment} />
 
           {/* Reschedule Requests */}
           {!requestsLoading && requests.length > 0 && (
@@ -213,6 +249,17 @@ export default function TrackingScreen() {
               error={queueError}
               appointmentId={appointmentId}
             />
+          )}
+
+          {/* Reschedule Button – hidden if there's a pending request */}
+          {canRescheduleAppointment && (
+            <TouchableOpacity
+              onPress={() => setRescheduleModalVisible(true)}
+              className="bg-primary rounded-xl p-3 mb-4 flex-row items-center justify-center"
+            >
+              <Calendar size={20} color="white" />
+              <Text className="text-white font-bold ml-2">Reschedule Appointment</Text>
+            </TouchableOpacity>
           )}
 
           {pendingRequest && (

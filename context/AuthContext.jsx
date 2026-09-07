@@ -1,171 +1,659 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { storage } from '../utils/storage';
-import authApi from '../services/authApi';
-import { decodeToken } from '../utils/jwt';
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useRef,
+} from "react";
+
+import {
+  AppState,
+} from "react-native";
+
+import { storage } from "../utils/storage";
+import authApi from "../services/authApi";
+import customersApi from "../services/customersApi";
+import { decodeToken } from "../utils/jwt";
 
 const AuthContext = createContext();
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(null);
+const PRESENCE_INTERVAL = 30000;
 
-  useEffect(() => {
-    const loadSession = async () => {
+export const AuthProvider = ({
+  children,
+}) => {
+  const [user, setUser] =
+    useState(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [token, setToken] =
+    useState(null);
+
+  const appState =
+    useRef(
+      AppState.currentState
+    );
+
+  const presenceIntervalRef =
+    useRef(null);
+
+  const presenceUserIdRef =
+    useRef(null);
+
+  const updateCustomerPresence =
+    async (
+      customerId,
+      isOnline
+    ) => {
+      if (!customerId) {
+        return;
+      }
+
       try {
-        const storedToken = storage.getItem('auth_token');
-        const storedUser = storage.getItem('auth_user');
+        const result =
+          await customersApi.updatePresence(
+            customerId,
+            isOnline
+          );
 
-        console.log('[Auth] Restored token:', storedToken ? storedToken.substring(0, 30) + '...' : 'NULL');
-        console.log('[Auth] Restored user:', storedUser ? storedUser.substring(0, 50) : 'NULL');
-
-        if (!storedToken || !storedUser) {
-          console.log('[Auth] No stored session.');
-          return;
+        if (result?.error) {
+          console.warn(
+            "[Presence] Failed:",
+            result?.errorMessage ||
+              "Unable to update customer presence."
+          );
+        } else {
+          console.log(
+            `[Presence] Customer ${
+              isOnline
+                ? "ONLINE"
+                : "OFFLINE"
+            }`
+          );
         }
-
-        const decoded = decodeToken(storedToken);
-        if (!decoded || !decoded.exp) {
-          console.warn('[Auth] Token invalid, clearing storage.');
-          clearStorage();
-          return;
-        }
-        if (decoded.exp <= Math.floor(Date.now() / 1000)) {
-          console.warn('[Auth] Token expired, clearing storage.');
-          clearStorage();
-          return;
-        }
-
-        let parsedUser;
-        try {
-          parsedUser = JSON.parse(storedUser);
-        } catch {
-          console.warn('[Auth] User JSON corrupt, clearing storage.');
-          clearStorage();
-          return;
-        }
-        if (!parsedUser || !parsedUser.id) {
-          console.warn('[Auth] User object missing id, clearing storage.');
-          clearStorage();
-          return;
-        }
-
-        console.log('[Auth] Verifying token with server...');
-        try {
-          await authApi.getMe();
-          console.log('[Auth] Server verification OK.');
-        } catch (serverError) {
-          console.warn('[Auth] Server verification failed:', serverError.message);
-          clearStorage();
-          return;
-        }
-
-        console.log('[Auth] Session restored successfully.');
-        setToken(storedToken);
-        setUser(parsedUser);
-      } catch (err) {
-        console.error('[Auth] Unexpected load error:', err);
-        clearStorage();
-      } finally {
-        setLoading(false);
+      } catch (error) {
+        console.warn(
+          "[Presence] Request failed:",
+          error?.message ||
+            error
+        );
       }
     };
 
-    const clearStorage = () => {
-      console.log('[Auth] Clearing stored credentials.');
-      storage.removeItem('auth_token');
-      storage.removeItem('auth_user');
-    };
+  useEffect(() => {
+    const loadSession =
+      async () => {
+        try {
+          const storedToken =
+            storage.getItem(
+              "auth_token"
+            );
+
+          const storedUser =
+            storage.getItem(
+              "auth_user"
+            );
+
+          console.log(
+            "[Auth] Restored token:",
+            storedToken
+              ? storedToken.substring(
+                  0,
+                  30
+                ) + "..."
+              : "NULL"
+          );
+
+          console.log(
+            "[Auth] Restored user:",
+            storedUser
+              ? storedUser.substring(
+                  0,
+                  50
+                )
+              : "NULL"
+          );
+
+          if (
+            !storedToken ||
+            !storedUser
+          ) {
+            console.log(
+              "[Auth] No stored session."
+            );
+
+            return;
+          }
+
+          const decoded =
+            decodeToken(
+              storedToken
+            );
+
+          if (
+            !decoded ||
+            !decoded.exp
+          ) {
+            console.warn(
+              "[Auth] Token invalid, clearing storage."
+            );
+
+            clearStorage();
+
+            return;
+          }
+
+          if (
+            decoded.exp <=
+            Math.floor(
+              Date.now() /
+                1000
+            )
+          ) {
+            console.warn(
+              "[Auth] Token expired, clearing storage."
+            );
+
+            clearStorage();
+
+            return;
+          }
+
+          let parsedUser;
+
+          try {
+            parsedUser =
+              JSON.parse(
+                storedUser
+              );
+          } catch {
+            console.warn(
+              "[Auth] User JSON corrupt, clearing storage."
+            );
+
+            clearStorage();
+
+            return;
+          }
+
+          if (
+            !parsedUser ||
+            !parsedUser.id
+          ) {
+            console.warn(
+              "[Auth] User object missing id, clearing storage."
+            );
+
+            clearStorage();
+
+            return;
+          }
+
+          console.log(
+            "[Auth] Verifying token with server..."
+          );
+
+          try {
+            await authApi.getMe();
+
+            console.log(
+              "[Auth] Server verification OK."
+            );
+          } catch (
+            serverError
+          ) {
+            console.warn(
+              "[Auth] Server verification failed:",
+              serverError.message
+            );
+
+            clearStorage();
+
+            return;
+          }
+
+          console.log(
+            "[Auth] Session restored successfully."
+          );
+
+          setToken(
+            storedToken
+          );
+
+          setUser(
+            parsedUser
+          );
+        } catch (err) {
+          console.error(
+            "[Auth] Unexpected load error:",
+            err
+          );
+
+          clearStorage();
+        } finally {
+          setLoading(false);
+        }
+      };
+
+    const clearStorage =
+      () => {
+        console.log(
+          "[Auth] Clearing stored credentials."
+        );
+
+        storage.removeItem(
+          "auth_token"
+        );
+
+        storage.removeItem(
+          "auth_user"
+        );
+      };
 
     loadSession();
   }, []);
 
-  const login = async (email, password) => {
-    try {
-      const res = await authApi.login({ email, password });
-      if (res.error) return { success: false, message: res.message || 'Login failed' };
+  /*
+   * Customer mobile-app presence.
+   *
+   * Active app:
+   *   Online
+   *
+   * Background/inactive:
+   *   Offline
+   *
+   * Active heartbeat:
+   *   every 30 seconds
+   */
+  useEffect(() => {
+    presenceUserIdRef.current =
+      user?.id || null;
 
-      if (res.data?.requiresVerification) {
+    const sendOnline =
+      async () => {
+        if (!user?.id) {
+          return;
+        }
+
+        await updateCustomerPresence(
+          user.id,
+          true
+        );
+      };
+
+    const sendOffline =
+      async () => {
+        if (!user?.id) {
+          return;
+        }
+
+        await updateCustomerPresence(
+          user.id,
+          false
+        );
+      };
+
+    const startHeartbeat =
+      () => {
+        if (
+          presenceIntervalRef.current
+        ) {
+          clearInterval(
+            presenceIntervalRef.current
+          );
+        }
+
+        presenceIntervalRef.current =
+          setInterval(() => {
+            if (
+              appState.current ===
+              "active"
+            ) {
+              void sendOnline();
+            }
+          }, PRESENCE_INTERVAL);
+      };
+
+    if (user?.id) {
+      if (
+        appState.current ===
+        "active"
+      ) {
+        void sendOnline();
+        startHeartbeat();
+      }
+    }
+
+    const subscription =
+      AppState.addEventListener(
+        "change",
+        (
+          nextAppState
+        ) => {
+          const previousState =
+            appState.current;
+
+          appState.current =
+            nextAppState;
+
+          console.log(
+            `[Presence] App state: ${previousState} → ${nextAppState}`
+          );
+
+          if (
+            nextAppState ===
+            "active"
+          ) {
+            if (
+              user?.id
+            ) {
+              void sendOnline();
+              startHeartbeat();
+            }
+
+            return;
+          }
+
+          if (
+            nextAppState ===
+              "background" ||
+            nextAppState ===
+              "inactive"
+          ) {
+            if (
+              presenceUserIdRef.current
+            ) {
+              void updateCustomerPresence(
+                presenceUserIdRef.current,
+                false
+              );
+            }
+
+            if (
+              presenceIntervalRef.current
+            ) {
+              clearInterval(
+                presenceIntervalRef.current
+              );
+
+              presenceIntervalRef.current =
+                null;
+            }
+          }
+        }
+      );
+
+    return () => {
+      subscription.remove();
+
+      if (
+        presenceIntervalRef.current
+      ) {
+        clearInterval(
+          presenceIntervalRef.current
+        );
+
+        presenceIntervalRef.current =
+          null;
+      }
+    };
+  }, [user?.id]);
+
+  const login = async (
+    email,
+    password
+  ) => {
+    try {
+      const res =
+        await authApi.login({
+          email,
+          password,
+        });
+
+      if (res.error) {
         return {
           success: false,
-          requiresVerification: true,
-          customerId: res.data.customerId,
-          phone: res.data.phone,
-          message: 'Phone verification required.',
+          message:
+            res.message ||
+            "Login failed",
         };
       }
 
-      const { customer, token } = res.data;
-      storage.setItem('auth_token', token);
-      storage.setItem('auth_user', JSON.stringify(customer));
+      if (
+        res.data
+          ?.requiresVerification
+      ) {
+        return {
+          success: false,
+          requiresVerification:
+            true,
+          customerId:
+            res.data.customerId,
+          phone:
+            res.data.phone,
+          message:
+            "Phone verification required.",
+        };
+      }
+
+      const {
+        customer,
+        token,
+      } = res.data;
+
+      storage.setItem(
+        "auth_token",
+        token
+      );
+
+      storage.setItem(
+        "auth_user",
+        JSON.stringify(
+          customer
+        )
+      );
+
       setToken(token);
       setUser(customer);
-      return { success: true, user: customer };
+
+      return {
+        success: true,
+        user: customer,
+      };
     } catch (err) {
-      return { success: false, message: err.message };
+      return {
+        success: false,
+        message:
+          err.message,
+      };
     }
   };
 
-  const register = async (fullName, email, phone, password) => {
+  const register = async (
+    fullName,
+    email,
+    phone,
+    password
+  ) => {
     try {
-      const res = await authApi.register({ fullname: fullName, email, phone, password });
-      if (res.error) return { success: false, message: res.message || 'Registration failed' };
-      
-      // ✅ Return the customer ID from the registration response
-      const customerId = res.data?.id;
-      
-      // Auto-login after registration
-      const loginRes = await authApi.login({ email, password });
-      if (loginRes.error) return { success: false, message: 'Account created but login failed' };
-      
-      const { customer, token } = loginRes.data;
-      storage.setItem('auth_token', token);
-      storage.setItem('auth_user', JSON.stringify(customer));
-      setToken(token);
-      setUser(customer);
-      
-      return { success: true, user: customer, customerId: customerId || customer?.id };
-    } catch (err) {
-      return { success: false, message: err.message };
-    }
-  };
+      const res =
+        await authApi.register({
+          fullname: fullName,
+          email,
+          phone,
+          password,
+        });
 
-  const refreshUser = async () => {
-    try {
-      const res = await authApi.getMe();
       if (res.error) {
-        console.error('Failed to refresh user:', res.errorMessage);
+        return {
+          success: false,
+          message:
+            res.message ||
+            "Registration failed",
+        };
+      }
+
+      const customerId =
+        res.data?.id;
+
+      const loginRes =
+        await authApi.login({
+          email,
+          password,
+        });
+
+      if (loginRes.error) {
+        return {
+          success: false,
+          message:
+            "Account created but login failed",
+        };
+      }
+
+      const {
+        customer,
+        token,
+      } = loginRes.data;
+
+      storage.setItem(
+        "auth_token",
+        token
+      );
+
+      storage.setItem(
+        "auth_user",
+        JSON.stringify(
+          customer
+        )
+      );
+
+      setToken(token);
+      setUser(customer);
+
+      return {
+        success: true,
+        user: customer,
+        customerId:
+          customerId ||
+          customer?.id,
+      };
+    } catch (err) {
+      return {
+        success: false,
+        message:
+          err.message,
+      };
+    }
+  };
+
+  const refreshUser =
+    async () => {
+      try {
+        const res =
+          await authApi.getMe();
+
+        if (res.error) {
+          console.error(
+            "Failed to refresh user:",
+            res.errorMessage
+          );
+
+          return null;
+        }
+
+        const customer =
+          res.data;
+
+        storage.setItem(
+          "auth_user",
+          JSON.stringify(
+            customer
+          )
+        );
+
+        setUser(customer);
+
+        return customer;
+      } catch (err) {
+        console.error(
+          "Failed to refresh user:",
+          err
+        );
+
         return null;
       }
-      const customer = res.data;
-      storage.setItem('auth_user', JSON.stringify(customer));
-      setUser(customer);
-      return customer;
-    } catch (err) {
-      console.error('Failed to refresh user:', err);
-      return null;
-    }
-  };
+    };
 
-  const setSession = (customer, token) => {
-    storage.setItem('auth_token', token);
-    storage.setItem('auth_user', JSON.stringify(customer));
-    setToken(token);
+  const setSession = (
+    customer,
+    newToken
+  ) => {
+    storage.setItem(
+      "auth_token",
+      newToken
+    );
+
+    storage.setItem(
+      "auth_user",
+      JSON.stringify(
+        customer
+      )
+    );
+
+    setToken(newToken);
     setUser(customer);
   };
 
-  const logout = async () => {
-    storage.removeItem('auth_token');
-    storage.removeItem('auth_user');
-    setToken(null);
-    setUser(null);
-  };
+  const logout =
+    async () => {
+      try {
+        if (user?.id) {
+          await updateCustomerPresence(
+            user.id,
+            false
+          );
+        }
+      } catch (error) {
+        console.warn(
+          "[Presence] Logout presence update failed:",
+          error
+        );
+      }
+
+      storage.removeItem(
+        "auth_token"
+      );
+
+      storage.removeItem(
+        "auth_user"
+      );
+
+      setToken(null);
+      setUser(null);
+    };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, token, setSession, refreshUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        register,
+        logout,
+        token,
+        setSession,
+        refreshUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth =
+  () =>
+    useContext(
+      AuthContext
+    );

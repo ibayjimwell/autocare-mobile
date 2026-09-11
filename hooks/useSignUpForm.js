@@ -14,90 +14,10 @@ import {
 
 import {
   signupSchema,
+  normalizePhilippinePhone,
+  isValidPhilippinePhone,
+  validateSignupField,
 } from '../utils/validation';
-
-/**
- * Normalize a Philippine mobile
- * number into:
- *
- * +639XXXXXXXXX
- */
-function normalizePhilippinePhone(
-  value
-) {
-  if (
-    typeof value !==
-    'string'
-  ) {
-    return '';
-  }
-
-  let digits =
-    value.replace(
-      /\D/g,
-      ''
-    );
-
-  if (!digits) {
-    return '';
-  }
-
-  /*
-   * Remove Philippine local
-   * leading zero.
-   *
-   * 09157803417
-   *      ↓
-   * 9157803417
-   */
-  if (
-    digits.startsWith('0')
-  ) {
-    digits =
-      digits.replace(
-        /^0+/,
-        ''
-      );
-  }
-
-  /*
-   * If user entered:
-   *
-   * 639157803417
-   *
-   * remove 63 before rebuilding.
-   */
-  if (
-    digits.startsWith('63')
-  ) {
-    digits =
-      digits.slice(2);
-  }
-
-  /*
-   * Philippine mobile numbers
-   * begin with 9 after removing
-   * the local zero.
-   */
-  if (
-    digits.startsWith('9')
-  ) {
-    return `+63${digits}`;
-  }
-
-  return '';
-}
-
-/**
- * Validate canonical PH mobile number.
- */
-function isValidPhilippinePhone(
-  value
-) {
-  return /^\+639\d{9}$/.test(
-    value
-  );
-}
 
 export function useSignUpForm() {
   const {
@@ -158,7 +78,7 @@ export function useSignUpForm() {
   ] = useState(false);
 
   // ---------------------------------------------------------------
-  // Errors
+  // Validation state
   // ---------------------------------------------------------------
 
   const [
@@ -166,13 +86,27 @@ export function useSignUpForm() {
     setErrors,
   ] = useState({});
 
+  // ---------------------------------------------------------------
+  // General signup/API error
+  // ---------------------------------------------------------------
+
   const [
     signupError,
     setSignupError,
   ] = useState('');
 
   // ---------------------------------------------------------------
-  // Mounted ref
+  // Track whether the user has interacted with each field.
+  //
+  // This prevents the form from showing every required-field error
+  // immediately when the screen first opens.
+  // ---------------------------------------------------------------
+
+  const touchedRef =
+    useRef({});
+
+  // ---------------------------------------------------------------
+  // Mounted state
   // ---------------------------------------------------------------
 
   const mountedRef =
@@ -186,6 +120,149 @@ export function useSignUpForm() {
   }, []);
 
   // ---------------------------------------------------------------
+  // Get current form values
+  // ---------------------------------------------------------------
+
+  const getFormValues =
+    (
+      overrides = {}
+    ) => ({
+      fullName:
+        overrides.fullName !==
+        undefined
+          ? overrides.fullName
+          : fullName,
+
+      email:
+        overrides.email !==
+        undefined
+          ? overrides.email
+          : email,
+
+      phone:
+        overrides.phone !==
+        undefined
+          ? overrides.phone
+          : phone,
+
+      password:
+        overrides.password !==
+        undefined
+          ? overrides.password
+          : password,
+
+      confirmPassword:
+        overrides.confirmPassword !==
+        undefined
+          ? overrides.confirmPassword
+          : confirmPassword,
+    });
+
+  // ---------------------------------------------------------------
+  // Set one field error
+  // ---------------------------------------------------------------
+
+  const setFieldError = (
+    field,
+    message
+  ) => {
+    setErrors(
+      previous => {
+        if (
+          previous[field] ===
+          message
+        ) {
+          return previous;
+        }
+
+        return {
+          ...previous,
+          [field]:
+            message || '',
+        };
+      }
+    );
+  };
+
+  // ---------------------------------------------------------------
+  // Validate one field while typing
+  // ---------------------------------------------------------------
+
+  const validateField =
+    (
+      field,
+      values
+    ) => {
+      if (
+        !touchedRef.current[
+          field
+        ]
+      ) {
+        return;
+      }
+
+      const result =
+        validateSignupField(
+          field,
+          values
+        );
+
+      setFieldError(
+        field,
+        result.error
+      );
+
+      // -----------------------------------------------------------
+      // When password changes, also revalidate confirmation.
+      // -----------------------------------------------------------
+
+      if (
+        field ===
+        'password'
+      ) {
+        if (
+          touchedRef.current
+            .confirmPassword
+        ) {
+          const confirmResult =
+            validateSignupField(
+              'confirmPassword',
+              values
+            );
+
+          setFieldError(
+            'confirmPassword',
+            confirmResult.error
+          );
+        }
+      }
+    };
+
+  // ---------------------------------------------------------------
+  // Validate all touched fields
+  // ---------------------------------------------------------------
+
+  const validateTouchedFields =
+    values => {
+      Object.keys(
+        touchedRef.current
+      ).forEach(
+        field => {
+          if (
+            touchedRef.current[
+              field
+            ]
+          ) {
+            validateField(
+              field,
+              values
+            );
+          }
+        }
+      );
+    };
+
+  // ---------------------------------------------------------------
   // Handle field change
   // ---------------------------------------------------------------
 
@@ -193,49 +270,255 @@ export function useSignUpForm() {
     field,
     value
   ) => {
-    switch (field) {
-      case 'fullName':
-        setFullName(value);
-        break;
+    // -------------------------------------------------------------
+    // Mark field as touched.
+    // -------------------------------------------------------------
 
-      case 'email':
-        setEmail(value);
-        break;
+    touchedRef.current[
+      field
+    ] = true;
 
-      case 'phone':
-        setPhone(value);
-        break;
+    // -------------------------------------------------------------
+    // Update state
+    // -------------------------------------------------------------
 
-      case 'password':
-        setPassword(value);
-        break;
+    let nextValue =
+      value;
 
-      case 'confirmPassword':
-        setConfirmPassword(
-          value
-        );
-        break;
-
-      default:
-        break;
-    }
+    // -------------------------------------------------------------
+    // Phone
+    //
+    // Keep what the user typed while typing.
+    //
+    // We validate against the normalized value, but do not replace
+    // the visible value on every keystroke because that would make
+    // the input jump while the user is typing.
+    // -------------------------------------------------------------
 
     if (
-      errors &&
-      errors[field]
+      field ===
+      'fullName'
     ) {
-      setErrors(
-        prev => ({
-          ...prev,
-          [field]: '',
-        })
+      setFullName(
+        nextValue
+      );
+    } else if (
+      field ===
+      'email'
+    ) {
+      setEmail(
+        nextValue
+      );
+    } else if (
+      field ===
+      'phone'
+    ) {
+      setPhone(
+        nextValue
+      );
+    } else if (
+      field ===
+      'password'
+    ) {
+      setPassword(
+        nextValue
+      );
+    } else if (
+      field ===
+      'confirmPassword'
+    ) {
+      setConfirmPassword(
+        nextValue
       );
     }
 
-    if (signupError) {
-      setSignupError('');
+    // -------------------------------------------------------------
+    // Clear general API error as soon as the user edits anything.
+    // -------------------------------------------------------------
+
+    if (
+      signupError
+    ) {
+      setSignupError(
+        ''
+      );
+    }
+
+    // -------------------------------------------------------------
+    // Build the next form snapshot.
+    //
+    // React state updates are asynchronous, so validation should
+    // use the new value directly rather than stale state.
+    // -------------------------------------------------------------
+
+    const nextValues =
+      getFormValues({
+        [field]:
+          nextValue,
+      });
+
+    // -------------------------------------------------------------
+    // Real-time Zod validation
+    // -------------------------------------------------------------
+
+    validateField(
+      field,
+      nextValues
+    );
+
+    // -------------------------------------------------------------
+    // Confirm password depends on password.
+    //
+    // Revalidate it immediately if either password field changes.
+    // -------------------------------------------------------------
+
+    if (
+      field ===
+        'password' ||
+      field ===
+        'confirmPassword'
+    ) {
+      if (
+        touchedRef.current
+          .confirmPassword
+      ) {
+        const confirmResult =
+          validateSignupField(
+            'confirmPassword',
+            nextValues
+          );
+
+        setFieldError(
+          'confirmPassword',
+          confirmResult.error
+        );
+      }
     }
   };
+
+  // ---------------------------------------------------------------
+  // Normalize phone for submission
+  // ---------------------------------------------------------------
+
+  const getNormalizedPhone =
+    value => {
+      return normalizePhilippinePhone(
+        value
+      );
+    };
+
+  // ---------------------------------------------------------------
+  // Complete Zod validation
+  // ---------------------------------------------------------------
+
+  const runCompleteValidation =
+    () => {
+      const rawValues =
+        getFormValues();
+
+      // -----------------------------------------------------------
+      // Mark every form field as touched so all errors become
+      // visible when submit is attempted.
+      // -----------------------------------------------------------
+
+      touchedRef.current = {
+        fullName:
+          true,
+
+        email:
+          true,
+
+        phone:
+          true,
+
+        password:
+          true,
+
+        confirmPassword:
+          true,
+      };
+
+      // -----------------------------------------------------------
+      // Normalize phone BEFORE sending it through the complete
+      // schema.
+      // -----------------------------------------------------------
+
+      const normalizedPhone =
+        getNormalizedPhone(
+          rawValues.phone
+        );
+
+      const values = {
+        ...rawValues,
+
+        phone:
+          normalizedPhone,
+      };
+
+      // -----------------------------------------------------------
+      // Run complete Zod validation.
+      // -----------------------------------------------------------
+
+      const result =
+        signupSchema.safeParse(
+          values
+        );
+
+      if (
+        result.success
+      ) {
+        setErrors({});
+
+        return {
+          valid: true,
+
+          values:
+            result.data,
+        };
+      }
+
+      // -----------------------------------------------------------
+      // Convert Zod issues into field errors.
+      // -----------------------------------------------------------
+
+      const formattedErrors =
+        {};
+
+      result.error.issues.forEach(
+        issue => {
+          if (
+            issue &&
+            issue.path &&
+            issue.path.length >
+              0
+          ) {
+            const field =
+              issue.path[0];
+
+            if (
+              !formattedErrors[
+                field
+              ]
+            ) {
+              formattedErrors[
+                field
+              ] =
+                issue.message;
+            }
+          }
+        }
+      );
+
+      setErrors(
+        formattedErrors
+      );
+
+      return {
+        valid: false,
+
+        values,
+      };
+    };
 
   // ---------------------------------------------------------------
   // Signup
@@ -246,64 +529,28 @@ export function useSignUpForm() {
       setSignupError('');
 
       // -----------------------------------------------------------
-      // Validate form
+      // Complete validation
       // -----------------------------------------------------------
 
-      try {
-        signupSchema.parse({
-          fullName,
-          email,
-          phone,
-          password,
-          confirmPassword,
-        });
+      const validation =
+        runCompleteValidation();
 
-        setErrors({});
-      } catch (
-        err
+      if (
+        !validation.valid
       ) {
-        const formattedErrors =
-          {};
-
-        if (
-          err &&
-          Array.isArray(
-            err.issues
-          )
-        ) {
-          err.issues.forEach(
-            issue => {
-              if (
-                issue &&
-                issue.path &&
-                issue.path.length >
-                  0
-              ) {
-                formattedErrors[
-                  issue.path[0]
-                ] =
-                  issue.message;
-              }
-            }
-          );
-        } else {
-          setSignupError(
-            'Please check your information and try again.'
-          );
-        }
-
-        setErrors(
-          formattedErrors
-        );
-
         return;
       }
 
       // -----------------------------------------------------------
       // Terms
+      //
+      // This is application/UI validation and is not part of the
+      // customer API payload.
       // -----------------------------------------------------------
 
-      if (!agree) {
+      if (
+        !agree
+      ) {
         setSignupError(
           'You must agree to the Terms of Service.'
         );
@@ -312,13 +559,27 @@ export function useSignUpForm() {
       }
 
       // -----------------------------------------------------------
-      // Normalize phone
+      // Validated values
       // -----------------------------------------------------------
 
+      const validatedValues =
+        validation.values;
+
       const normalizedPhone =
-        normalizePhilippinePhone(
-          phone
-        );
+        validatedValues.phone;
+
+      const normalizedEmail =
+        typeof validatedValues.email ===
+          'string' &&
+        validatedValues.email.trim()
+          ? validatedValues.email
+              .trim()
+              .toLowerCase()
+          : '';
+
+      // -----------------------------------------------------------
+      // Defensive phone check
+      // -----------------------------------------------------------
 
       if (
         !isValidPhilippinePhone(
@@ -326,50 +587,41 @@ export function useSignUpForm() {
         )
       ) {
         setErrors(
-          prev => ({
-            ...prev,
+          previous => ({
+            ...previous,
 
             phone:
-              'Enter a valid Philippine mobile number, e.g. 09157803417.',
+              'Phone number must be a valid Philippine mobile number.',
           })
         );
 
         return;
       }
 
-      /*
-       * Update the field so the user
-       * sees the canonical phone number.
-       */
+      // -----------------------------------------------------------
+      // Update phone to canonical format after successful
+      // validation.
+      // -----------------------------------------------------------
+
       setPhone(
         normalizedPhone
       );
 
       // -----------------------------------------------------------
-      // Normalize email
-      //
-      // Email is optional.
-      // Empty email remains empty.
+      // Submit
       // -----------------------------------------------------------
 
-      const normalizedEmail =
-        typeof email ===
-          'string' &&
-        email.trim()
-          ? email
-              .trim()
-              .toLowerCase()
-          : '';
-
-      setLoading(true);
+      setLoading(
+        true
+      );
 
       try {
         const result =
           await register(
-            fullName,
+            validatedValues.fullName,
             normalizedEmail,
             normalizedPhone,
-            password
+            validatedValues.password
           );
 
         console.log(
@@ -379,13 +631,6 @@ export function useSignUpForm() {
 
         // ---------------------------------------------------------
         // PHONE VERIFICATION REQUIRED
-        //
-        // IMPORTANT:
-        //
-        // This MUST be checked BEFORE result.success.
-        //
-        // A newly created customer is not authenticated yet because
-        // the phone must be verified first.
         // ---------------------------------------------------------
 
         if (
@@ -411,12 +656,6 @@ export function useSignUpForm() {
             customerId &&
             verificationPhone
           ) {
-            /*
-             * Replace the signup screen instead of pushing.
-             *
-             * This prevents the user from going back to the signup
-             * form after the account has already been created.
-             */
             router.replace(
               `/verify-phone?customerId=${encodeURIComponent(
                 customerId
@@ -428,11 +667,6 @@ export function useSignUpForm() {
             return;
           }
 
-          /*
-           * The backend said verification is required,
-           * but did not provide enough information to open
-           * the verification screen.
-           */
           setSignupError(
             'Your account was created, but we could not open phone verification. Please try logging in again.'
           );
@@ -442,9 +676,6 @@ export function useSignUpForm() {
 
         // ---------------------------------------------------------
         // NORMAL SUCCESS
-        //
-        // This should only happen when the user can already be
-        // authenticated without additional verification.
         // ---------------------------------------------------------
 
         if (
@@ -459,7 +690,7 @@ export function useSignUpForm() {
         }
 
         // ---------------------------------------------------------
-        // NORMAL SIGNUP ERROR
+        // API ERROR
         // ---------------------------------------------------------
 
         setSignupError(

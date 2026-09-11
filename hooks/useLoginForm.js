@@ -19,6 +19,10 @@ export function useLoginForm() {
     login,
   } = useAuth();
 
+  // ----------------------------------------------------------------
+  // Form state
+  // ----------------------------------------------------------------
+
   const [
     emailOrPhone,
     setEmailOrPhone,
@@ -28,6 +32,10 @@ export function useLoginForm() {
     password,
     setPassword,
   ] = useState("");
+
+  // ----------------------------------------------------------------
+  // UI state
+  // ----------------------------------------------------------------
 
   const [
     showPassword,
@@ -39,6 +47,10 @@ export function useLoginForm() {
     setLoading,
   ] = useState(false);
 
+  // ----------------------------------------------------------------
+  // Validation / error state
+  // ----------------------------------------------------------------
+
   const [
     errors,
     setErrors,
@@ -49,10 +61,27 @@ export function useLoginForm() {
     setLoginError,
   ] = useState("");
 
+  // ----------------------------------------------------------------
+  // Deactivated account modal
+  // ----------------------------------------------------------------
+
+  const [
+    deactivatedModalVisible,
+    setDeactivatedModalVisible,
+  ] = useState(false);
+
+  // ----------------------------------------------------------------
+  // Handle field changes
+  // ----------------------------------------------------------------
+
   const handleFieldChange = (
     field,
     value
   ) => {
+    // --------------------------------------------------------------
+    // Update field
+    // --------------------------------------------------------------
+
     if (
       field ===
       "emailOrPhone"
@@ -61,35 +90,75 @@ export function useLoginForm() {
         value
       );
     } else if (
-      field === "password"
+      field ===
+      "password"
     ) {
-      setPassword(value);
+      setPassword(
+        value
+      );
     }
+
+    // --------------------------------------------------------------
+    // Clear field validation error
+    // --------------------------------------------------------------
 
     if (
       errors &&
       errors[field]
     ) {
       setErrors(
-        prev => ({
-          ...prev,
+        previous => ({
+          ...previous,
           [field]: "",
         })
       );
     }
 
-    if (loginError) {
-      setLoginError("");
+    // --------------------------------------------------------------
+    // Clear general login error
+    // --------------------------------------------------------------
+
+    if (
+      loginError
+    ) {
+      setLoginError(
+        ""
+      );
     }
   };
 
+  // ----------------------------------------------------------------
+  // Close deactivated modal
+  // ----------------------------------------------------------------
+
+  const closeDeactivatedModal =
+    () => {
+      setDeactivatedModalVisible(
+        false
+      );
+    };
+
+  // ----------------------------------------------------------------
+  // Handle login
+  // ----------------------------------------------------------------
+
   const handleLogin =
     async () => {
-      setLoginError("");
+      // ------------------------------------------------------------
+      // Clear previous error state
+      // ------------------------------------------------------------
 
-      // -----------------------------------------------------------
-      // Validate
-      // -----------------------------------------------------------
+      setLoginError(
+        ""
+      );
+
+      setDeactivatedModalVisible(
+        false
+      );
+
+      // ------------------------------------------------------------
+      // Validate form
+      // ------------------------------------------------------------
 
       try {
         loginSchema.parse({
@@ -134,23 +203,62 @@ export function useLoginForm() {
         return;
       }
 
-      setLoading(true);
+      // ------------------------------------------------------------
+      // Start request
+      // ------------------------------------------------------------
+
+      setLoading(
+        true
+      );
 
       try {
-        /*
-         * AuthContext.login()
-         * should submit:
-         *
-         * {
-         *   emailOrPhone,
-         *   password
-         * }
-         */
+        const identifier =
+          emailOrPhone.trim();
+
+        console.log(
+          "[useLoginForm] Logging in with:",
+          identifier
+        );
+
         const result =
           await login(
-            emailOrPhone.trim(),
+            identifier,
             password
           );
+
+        console.log(
+          "[useLoginForm] Login result:",
+          result
+        );
+
+        // ----------------------------------------------------------
+        // ACCOUNT DEACTIVATED
+        //
+        // This is deliberately checked before normal errors.
+        // ----------------------------------------------------------
+
+        if (
+          result &&
+          result.deactivated
+        ) {
+          console.warn(
+            "[useLoginForm] Account is deactivated."
+          );
+
+          setLoginError(
+            ""
+          );
+
+          setDeactivatedModalVisible(
+            true
+          );
+
+          return;
+        }
+
+        // ----------------------------------------------------------
+        // SUCCESS
+        // ----------------------------------------------------------
 
         if (
           result &&
@@ -163,9 +271,9 @@ export function useLoginForm() {
           return;
         }
 
-        // ---------------------------------------------------------
-        // Phone verification required
-        // ---------------------------------------------------------
+        // ----------------------------------------------------------
+        // PHONE VERIFICATION REQUIRED
+        // ----------------------------------------------------------
 
         if (
           result &&
@@ -189,22 +297,34 @@ export function useLoginForm() {
             customerId &&
             phone
           ) {
-            router.push(
-              `/verify-phone?customerId=${customerId}&phone=${encodeURIComponent(
+            router.replace(
+              `/verify-phone?customerId=${encodeURIComponent(
+                customerId
+              )}&phone=${encodeURIComponent(
                 phone
               )}`
             );
 
             return;
           }
+
+          setLoginError(
+            "Phone verification information is missing."
+          );
+
+          return;
         }
+
+        // ----------------------------------------------------------
+        // NORMAL LOGIN ERROR
+        // ----------------------------------------------------------
 
         setLoginError(
           (
             result &&
             result.message
           ) ||
-          "Login failed. Please try again."
+            "Login failed. Please try again."
         );
       } catch (
         err
@@ -214,31 +334,93 @@ export function useLoginForm() {
           err
         );
 
-        setLoginError(
+        // ----------------------------------------------------------
+        // Defensive 403 check
+        //
+        // This handles the situation where the API layer throws
+        // instead of returning the response object.
+        // ----------------------------------------------------------
+
+        const errorStatus =
+          err?.status ||
+          err?.statusCode ||
+          err?.response?.status;
+
+        const errorTitle =
+          err?.errorTitle ||
+          err?.response?.data
+            ?.errorTitle;
+
+        const errorMessage =
+          err?.errorMessage ||
+          err?.response?.data
+            ?.errorMessage ||
+          err?.message ||
+          err?.response?.data
+            ?.message;
+
+        if (
+          errorStatus ===
+            403 ||
+          errorTitle ===
+            "Account deactivated" ||
           (
-            err &&
-            err.message
-          ) ||
-          "Login failed. Please try again."
+            typeof errorMessage ===
+              "string" &&
+            errorMessage
+              .toLowerCase()
+              .includes(
+                "account is deactivated"
+              )
+          )
+        ) {
+          setLoginError(
+            ""
+          );
+
+          setDeactivatedModalVisible(
+            true
+          );
+
+          return;
+        }
+
+        setLoginError(
+          errorMessage ||
+            "Login failed. Please try again."
         );
       } finally {
-        setLoading(false);
+        setLoading(
+          false
+        );
       }
     };
 
+  // ----------------------------------------------------------------
+  // Return
+  // ----------------------------------------------------------------
+
   return {
     emailOrPhone,
+
     password,
 
     showPassword,
+
     setShowPassword,
 
     loading,
 
     errors,
+
     loginError,
 
+    deactivatedModalVisible,
+
+    closeDeactivatedModal,
+
     handleFieldChange,
+
     handleLogin,
   };
 }

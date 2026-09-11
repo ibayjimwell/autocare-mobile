@@ -1,20 +1,44 @@
 import api from './api';
-import { storage } from '../utils/storage';
-import { decodeToken } from '../utils/jwt';
+
+import {
+  storage,
+} from '../utils/storage';
+
+import {
+  decodeToken,
+} from '../utils/jwt';
 
 const authApi = {
-  // Signup – backend expects FormData
-  register(userData) {
-    const form = new FormData();
+  // ------------------------------------------------------------------
+  // REGISTER
+  //
+  // Backend expects FormData.
+  //
+  // Email is optional.
+  // ------------------------------------------------------------------
+
+  register(
+    userData
+  ) {
+    const form =
+      new FormData();
 
     form.append(
       'fullname',
       userData.fullname
     );
 
+    /*
+     * FormData converts null into the string "null".
+     *
+     * Because email is optional, always send an empty string when
+     * there is no email. The backend converts the empty string to
+     * NULL.
+     */
     form.append(
       'email',
-      userData.email
+      userData.email ||
+        ''
     );
 
     form.append(
@@ -39,14 +63,37 @@ const authApi = {
     );
   },
 
-  // Login – backend expects JSON:
+  // ------------------------------------------------------------------
+  // LOGIN
+  //
+  // Backend expects:
   //
   // {
   //   emailOrPhone,
   //   password
   // }
   //
-  login(credentials) {
+  // The backend may return:
+  //
+  // 200
+  //   Login successful
+  //
+  // 200
+  //   Phone verification required
+  //
+  // 401
+  //   Invalid credentials
+  //
+  // 403
+  //   Account deactivated
+  //
+  // We intentionally return the API response directly so the auth
+  // context can handle each state.
+  // ------------------------------------------------------------------
+
+  login(
+    credentials
+  ) {
     return api.request(
       '/customers/login',
       'POST',
@@ -54,7 +101,10 @@ const authApi = {
     );
   },
 
-  // Get current customer
+  // ------------------------------------------------------------------
+  // CURRENT CUSTOMER
+  // ------------------------------------------------------------------
+
   async getMe() {
     const token =
       storage.getItem(
@@ -68,7 +118,9 @@ const authApi = {
     }
 
     const decoded =
-      decodeToken(token);
+      decodeToken(
+        token
+      );
 
     if (
       !decoded ||
@@ -85,8 +137,13 @@ const authApi = {
     );
   },
 
-  // Forgot password
-  requestOTP(phone) {
+  // ------------------------------------------------------------------
+  // FORGOT PASSWORD
+  // ------------------------------------------------------------------
+
+  requestOTP(
+    phone
+  ) {
     return api.request(
       '/customers/forgot-password',
       'POST',
@@ -124,7 +181,10 @@ const authApi = {
     );
   },
 
-  // Send phone verification OTP
+  // ------------------------------------------------------------------
+  // PHONE VERIFICATION
+  // ------------------------------------------------------------------
+
   sendPhoneVerificationOTP(
     customerId,
     newPhone
@@ -139,7 +199,10 @@ const authApi = {
     );
   },
 
-  // Verify phone OTP
+  // ------------------------------------------------------------------
+  // VERIFY PHONE OTP
+  // ------------------------------------------------------------------
+
   verifyPhoneOTP: (
     customerId,
     otp,

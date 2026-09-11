@@ -1,116 +1,329 @@
-import { useState, useEffect } from 'react';
-import { Alert } from 'react-native';
-import { useAuth } from '../context/AuthContext';
+import {
+  useEffect,
+  useState,
+} from 'react';
+
+import {
+  useAuth,
+} from '../context/AuthContext';
+
 import appointmentsApi from '../services/appointmentsApi';
 
-export function useBookingForm(selectedDate, selectedService) {
-  const { user } = useAuth();
-  const customerId = user?.id;
+function dateToLocalString(
+  date
+) {
+  if (!date) return '';
 
-  const [selectedVehicle, setSelectedVehicle] = useState(null);
-  const [selectedTime, setSelectedTime] = useState(null);
-  const [customTime, setCustomTime] = useState(null);
-  const [availableSlots, setAvailableSlots] = useState([]);
-  const [notes, setNotes] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [availabilityModal, setAvailabilityModal] = useState({
+  const year =
+    date.getFullYear();
+
+  const month =
+    String(
+      date.getMonth() + 1
+    ).padStart(2, '0');
+
+  const day =
+    String(
+      date.getDate()
+    ).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+export function useBookingForm(
+  selectedDate,
+  selectedService
+) {
+  const {
+    user,
+  } = useAuth();
+
+  const customerId =
+    user?.id;
+
+  const [
+    selectedVehicle,
+    setSelectedVehicle,
+  ] = useState(null);
+
+  const [
+    selectedTime,
+    setSelectedTime,
+  ] = useState(null);
+
+  const [
+    availableSlots,
+    setAvailableSlots,
+  ] = useState([]);
+
+  const [
+    slotsLoading,
+    setSlotsLoading,
+  ] = useState(false);
+
+  const [
+    notes,
+    setNotes,
+  ] = useState('');
+
+  const [
+    submitting,
+    setSubmitting,
+  ] = useState(false);
+
+  const [
+    availabilityModal,
+    setAvailabilityModal,
+  ] = useState({
     visible: false,
     available: false,
     message: '',
   });
 
-  // Load available slots when date or service changes
   useEffect(() => {
-    if (!selectedDate || !selectedService) {
+    let cancelled =
+      false;
+
+    if (
+      !selectedDate ||
+      !selectedService
+    ) {
       setAvailableSlots([]);
-      return;
+      setSlotsLoading(false);
+      setSelectedTime(null);
+
+      return () => {
+        cancelled = true;
+      };
     }
-    const fetchSlots = async () => {
-      try {
-        const dateStr = selectedDate.toISOString().split('T')[0];
-        const res = await appointmentsApi.getAvailableSlots(dateStr, selectedService.id);
-        setAvailableSlots(res.data || []);
-      } catch (err) {
-        console.error(err);
+
+    const fetchSlots =
+      async () => {
+        setSlotsLoading(
+          true
+        );
         setAvailableSlots([]);
+        setSelectedTime(
+          null
+        );
+
+        try {
+          const dateStr =
+            dateToLocalString(
+              selectedDate
+            );
+
+          const res =
+            await appointmentsApi.getAvailableSlots(
+              dateStr,
+              selectedService.id
+            );
+
+          const data =
+            res?.data?.data ||
+            res?.data ||
+            res ||
+            [];
+
+          if (!cancelled) {
+            setAvailableSlots(
+              Array.isArray(
+                data
+              )
+                ? data
+                : []
+            );
+          }
+        } catch (err) {
+          console.error(
+            'Available slots error:',
+            err
+          );
+
+          if (!cancelled) {
+            setAvailableSlots([]);
+          }
+        } finally {
+          if (!cancelled) {
+            setSlotsLoading(
+              false
+            );
+          }
+        }
+      };
+
+    fetchSlots();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedDate,
+    selectedService,
+  ]);
+
+  const validateBooking =
+    () => {
+      if (
+        !selectedService ||
+        !selectedVehicle ||
+        !selectedDate ||
+        !selectedTime
+      ) {
+        return {
+          valid: false,
+          message:
+            'Please select a service, vehicle, date, and available time.',
+        };
+      }
+
+      if (!customerId) {
+        return {
+          valid: false,
+          message:
+            'Customer not identified.',
+        };
+      }
+
+      return {
+        valid: true,
+        message: '',
+      };
+    };
+
+  const handleBook =
+    async () => {
+      const validation =
+        validateBooking();
+
+      if (!validation.valid) {
+        setAvailabilityModal({
+          visible: true,
+          available: false,
+          message:
+            validation.message,
+        });
+
+        return {
+          success: false,
+          appointment: null,
+        };
+      }
+
+      setSubmitting(true);
+
+      try {
+        const dateStr =
+          dateToLocalString(
+            selectedDate
+          );
+
+        const response =
+          await appointmentsApi.create({
+            customerId,
+            vehicleId:
+              selectedVehicle.id,
+            serviceId:
+              selectedService.id,
+            appointmentDate:
+              dateStr,
+            appointmentTime:
+              selectedTime,
+            notes,
+          });
+
+        const appointment =
+          response?.data?.data ||
+          response?.data?.appointment ||
+          response?.data ||
+          response?.appointment ||
+          null;
+
+        /*
+         * Some APIs return:
+         * { data: { id } }
+         *
+         * Others return:
+         * { data: { appointment: { id } } }
+         *
+         * Support both without changing the backend contract.
+         */
+        const appointmentId =
+          appointment?.id ||
+          appointment?.appointment?.id ||
+          response?.data?.id ||
+          response?.id ||
+          null;
+
+        const normalizedAppointment =
+          appointmentId
+            ? {
+                ...(appointment &&
+                typeof appointment ===
+                  'object'
+                  ? appointment
+                  : {}),
+                id: appointmentId,
+              }
+            : null;
+
+        setSelectedVehicle(
+          null
+        );
+        setSelectedTime(
+          null
+        );
+        setNotes('');
+
+        return {
+          success: true,
+          appointment:
+            normalizedAppointment,
+          appointmentId,
+        };
+      } catch (err) {
+        const message =
+          err?.response?.data
+            ?.message ||
+          err?.response?.data
+            ?.errorMessage ||
+          err?.message ||
+          'Booking failed.';
+
+        setAvailabilityModal({
+          visible: true,
+          available: false,
+          message,
+        });
+
+        return {
+          success: false,
+          appointment: null,
+          message,
+        };
+      } finally {
+        setSubmitting(false);
       }
     };
-    fetchSlots();
-    setSelectedTime(null);
-    setCustomTime(null);
-  }, [selectedDate, selectedService]);
-
-  const checkCustomTime = async (timeStr) => {
-    if (!selectedDate || !selectedService) {
-      setAvailabilityModal({ visible: true, available: false, message: 'Please select a date and service first.' });
-      return;
-    }
-    const dateStr = selectedDate.toISOString().split('T')[0];
-    try {
-      const res = await appointmentsApi.checkAvailability(dateStr, timeStr, selectedService.id);
-      if (res.data?.available) {
-        setCustomTime(timeStr);
-        setSelectedTime(null);
-        setAvailabilityModal({ visible: true, available: true, message: 'This time is available!' });
-      } else {
-        setAvailabilityModal({ visible: true, available: false, message: 'Slot unavailable.' });
-      }
-    } catch (err) {
-      setAvailabilityModal({ visible: true, available: false, message: 'Error checking availability.' });
-    }
-  };
-
-  const handleBook = async () => {
-    const finalTime = customTime || selectedTime;
-    if (!selectedService || !selectedVehicle || !selectedDate || !finalTime) {
-      Alert.alert('Incomplete', 'Please fill all required fields.');
-      return false;
-    }
-    if (!customerId) {
-      Alert.alert('Error', 'Customer not identified.');
-      return false;
-    }
-
-    setSubmitting(true);
-    try {
-      const dateStr = selectedDate.toISOString().split('T')[0];
-      await appointmentsApi.create({
-        customerId,
-        vehicleId: selectedVehicle.id,
-        serviceId: selectedService.id,       // single service, will be wrapped in array
-        appointmentDate: dateStr,
-        appointmentTime: finalTime,
-        notes,
-      });
-      Alert.alert('Success', 'Appointment booked!');
-      // Reset form
-      setSelectedVehicle(null);
-      setSelectedTime(null);
-      setCustomTime(null);
-      setNotes('');
-      return true;
-    } catch (err) {
-      const msg = err?.response?.data?.message || err.message || 'Booking failed';
-      setAvailabilityModal({ visible: true, available: false, message: msg });
-      return false;
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   return {
     selectedVehicle,
     setSelectedVehicle,
+
     selectedTime,
     setSelectedTime,
-    customTime,
-    setCustomTime,
+
     availableSlots,
+    slotsLoading,
+
     notes,
     setNotes,
+
     submitting,
+
+    validateBooking,
     handleBook,
-    checkCustomTime,
+
     availabilityModal,
     setAvailabilityModal,
   };

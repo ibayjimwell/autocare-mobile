@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   Check,
   AlertCircle,
+  CheckCircle2,
 } from 'lucide-react-native';
 
 import {
@@ -45,18 +46,40 @@ export default function SignUpForm() {
     phone,
     password,
     confirmPassword,
+
     agree,
     setAgree,
+
     showPassword,
     setShowPassword,
+
     showConfirm,
     setShowConfirm,
+
     loading,
+
     errors,
     signupError,
+
     handleFieldChange,
     handleSignup,
   } = useSignUpForm();
+
+  // ---------------------------------------------------------------
+  // Determine whether a field has a value and currently has no
+  // validation error.
+  // ---------------------------------------------------------------
+
+  const isValidField = (
+    value,
+    error
+  ) => {
+    return (
+      typeof value === 'string' &&
+      value.trim().length > 0 &&
+      !error
+    );
+  };
 
   return (
     <SafeAreaView
@@ -73,18 +96,26 @@ export default function SignUpForm() {
         showsVerticalScrollIndicator={
           false
         }
+        keyboardShouldPersistTaps="handled"
         className="flex-1"
       >
+        {/* ====================================================== */}
         {/* HEADER */}
+        {/* ====================================================== */}
+
         <View className="bg-primary pt-16 pb-24 px-4 items-center rounded-b-4xl">
 
           <View className="mb-10 items-center justify-center p-3 rounded-full border-4 border-card bg-card shadow-lg shadow-black/10">
+
             <View className="w-16 h-16 rounded-3xl items-center justify-center bg-primary">
+
               <UserPlus
                 size={32}
                 color="white"
               />
+
             </View>
+
           </View>
 
           <Text className="text-3xl font-bold tracking-tight text-primary-foreground mb-1 text-center">
@@ -94,14 +125,21 @@ export default function SignUpForm() {
           <Text className="text-lg font-normal text-primary-foreground text-center px-4">
             Create your account to start managing your vehicle service.
           </Text>
+
         </View>
 
+        {/* ====================================================== */}
         {/* CONTENT */}
+        {/* ====================================================== */}
+
         <View className="-mt-16 mx-4 mb-8 bg-card rounded-xl overflow-hidden shadow-lg shadow-black/10">
 
           <View className="p-6">
 
+            {/* ================================================== */}
             {/* TITLE */}
+            {/* ================================================== */}
+
             <View className="mb-8 items-center">
 
               <Text className="text-3xl font-bold tracking-tight text-foreground text-center">
@@ -116,7 +154,10 @@ export default function SignUpForm() {
 
             <View className="space-y-4">
 
-              {/* API ERROR */}
+              {/* ================================================= */}
+              {/* GENERAL SIGNUP ERROR */}
+              {/* ================================================= */}
+
               {signupError ? (
                 <View className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 flex-row items-center mb-2">
 
@@ -139,7 +180,10 @@ export default function SignUpForm() {
                 </View>
               ) : null}
 
+              {/* ================================================= */}
               {/* FULL NAME */}
+              {/* ================================================= */}
+
               <View>
 
                 <Text className="text-xs font-semibold text-foreground mb-1.5 ml-1">
@@ -150,6 +194,11 @@ export default function SignUpForm() {
                   className={`flex-row items-center rounded-lg px-4 h-12 border ${
                     errors.fullName
                       ? 'border-destructive'
+                      : isValidField(
+                          fullName,
+                          errors.fullName
+                        )
+                      ? 'border-primary'
                       : 'border-input'
                   } bg-input`}
                 >
@@ -157,9 +206,20 @@ export default function SignUpForm() {
                   <User
                     size={18}
                     color={
-                      theme[
-                        'muted-foreground'
-                      ]
+                      errors.fullName
+                        ? theme[
+                            'destructive'
+                          ]
+                        : isValidField(
+                            fullName,
+                            errors.fullName
+                          )
+                        ? theme[
+                            'primary'
+                          ]
+                        : theme[
+                            'muted-foreground'
+                          ]
                     }
                     style={{
                       marginRight: 10,
@@ -178,41 +238,70 @@ export default function SignUpForm() {
                       fullName
                     }
                     onChangeText={
-                      val =>
+                      value =>
                         handleFieldChange(
                           'fullName',
-                          val
+                          value
                         )
+                    }
+                    autoCapitalize="words"
+                    autoCorrect={
+                      false
                     }
                   />
 
+                  {isValidField(
+                    fullName,
+                    errors.fullName
+                  ) ? (
+                    <CheckCircle2
+                      size={18}
+                      color={
+                        theme[
+                          'primary'
+                        ]
+                      }
+                    />
+                  ) : null}
+
                 </View>
 
-                {errors.fullName && (
+                {errors.fullName ? (
                   <Text className="text-sm text-destructive mt-1 ml-1 font-medium">
                     {
                       errors.fullName
                     }
                   </Text>
-                )}
+                ) : null}
 
               </View>
 
+              {/* ================================================= */}
               {/* EMAIL */}
+              {/* ================================================= */}
+
               <View>
 
                 <Text className="text-xs font-semibold text-foreground mb-1.5 ml-1">
+
                   Email Address
+
                   <Text className="text-xs font-normal text-muted-foreground">
                     {' '}
                     (Optional)
                   </Text>
+
                 </Text>
 
                 <View
                   className={`flex-row items-center rounded-lg px-4 h-12 border ${
                     errors.email
                       ? 'border-destructive'
+                      : isValidField(
+                          email,
+                          errors.email
+                        )
+                      ? 'border-primary'
                       : 'border-input'
                   } bg-input`}
                 >
@@ -220,9 +309,20 @@ export default function SignUpForm() {
                   <Mail
                     size={18}
                     color={
-                      theme[
-                        'muted-foreground'
-                      ]
+                      errors.email
+                        ? theme[
+                            'destructive'
+                          ]
+                        : isValidField(
+                            email,
+                            errors.email
+                          )
+                        ? theme[
+                            'primary'
+                          ]
+                        : theme[
+                            'muted-foreground'
+                          ]
                     }
                     style={{
                       marginRight: 10,
@@ -241,49 +341,75 @@ export default function SignUpForm() {
                       email
                     }
                     autoCapitalize="none"
+                    autoCorrect={
+                      false
+                    }
                     keyboardType="email-address"
                     onChangeText={
-                      val =>
+                      value =>
                         handleFieldChange(
                           'email',
-                          val
+                          value
                         )
                     }
                   />
 
+                  {isValidField(
+                    email,
+                    errors.email
+                  ) ? (
+                    <CheckCircle2
+                      size={18}
+                      color={
+                        theme[
+                          'primary'
+                        ]
+                      }
+                    />
+                  ) : null}
+
                 </View>
 
                 <Text className="text-xs text-muted-foreground mt-1 ml-1">
-                  Optional. You can
-                  use your phone
-                  number to log in.
+                  Optional. You can use your phone number to log in.
                 </Text>
 
-                {errors.email && (
+                {errors.email ? (
                   <Text className="text-sm text-destructive mt-1 ml-1 font-medium">
                     {
                       errors.email
                     }
                   </Text>
-                )}
+                ) : null}
 
               </View>
 
+              {/* ================================================= */}
               {/* PHONE */}
+              {/* ================================================= */}
+
               <View>
 
                 <Text className="text-xs font-semibold text-foreground mb-1.5 ml-1">
+
                   Phone Number
+
                   <Text className="text-destructive">
                     {' '}
                     *
                   </Text>
+
                 </Text>
 
                 <View
                   className={`flex-row items-center rounded-lg px-4 h-12 border ${
                     errors.phone
                       ? 'border-destructive'
+                      : isValidField(
+                          phone,
+                          errors.phone
+                        )
+                      ? 'border-primary'
                       : 'border-input'
                   } bg-input`}
                 >
@@ -291,9 +417,20 @@ export default function SignUpForm() {
                   <Phone
                     size={18}
                     color={
-                      theme[
-                        'muted-foreground'
-                      ]
+                      errors.phone
+                        ? theme[
+                            'destructive'
+                          ]
+                        : isValidField(
+                            phone,
+                            errors.phone
+                          )
+                        ? theme[
+                            'primary'
+                          ]
+                        : theme[
+                            'muted-foreground'
+                          ]
                     }
                     style={{
                       marginRight: 10,
@@ -313,33 +450,48 @@ export default function SignUpForm() {
                     }
                     keyboardType="phone-pad"
                     onChangeText={
-                      val =>
+                      value =>
                         handleFieldChange(
                           'phone',
-                          val
+                          value
                         )
                     }
                   />
 
+                  {isValidField(
+                    phone,
+                    errors.phone
+                  ) ? (
+                    <CheckCircle2
+                      size={18}
+                      color={
+                        theme[
+                          'primary'
+                        ]
+                      }
+                    />
+                  ) : null}
+
                 </View>
 
                 <Text className="text-xs text-muted-foreground mt-1 ml-1">
-                  Required. We'll
-                  convert it to +63
-                  automatically.
+                  Required. We'll convert it to +63 automatically.
                 </Text>
 
-                {errors.phone && (
+                {errors.phone ? (
                   <Text className="text-sm text-destructive mt-1 ml-1 font-medium">
                     {
                       errors.phone
                     }
                   </Text>
-                )}
+                ) : null}
 
               </View>
 
+              {/* ================================================= */}
               {/* PASSWORD */}
+              {/* ================================================= */}
+
               <View>
 
                 <Text className="text-xs font-semibold text-foreground mb-1.5 ml-1">
@@ -350,6 +502,11 @@ export default function SignUpForm() {
                   className={`flex-row items-center rounded-lg px-4 h-12 border ${
                     errors.password
                       ? 'border-destructive'
+                      : isValidField(
+                          password,
+                          errors.password
+                        )
+                      ? 'border-primary'
                       : 'border-input'
                   } bg-input`}
                 >
@@ -357,9 +514,20 @@ export default function SignUpForm() {
                   <Lock
                     size={18}
                     color={
-                      theme[
-                        'muted-foreground'
-                      ]
+                      errors.password
+                        ? theme[
+                            'destructive'
+                          ]
+                        : isValidField(
+                            password,
+                            errors.password
+                          )
+                        ? theme[
+                            'primary'
+                          ]
+                        : theme[
+                            'muted-foreground'
+                          ]
                     }
                     style={{
                       marginRight: 10,
@@ -381,18 +549,22 @@ export default function SignUpForm() {
                       password
                     }
                     onChangeText={
-                      val =>
+                      value =>
                         handleFieldChange(
                           'password',
-                          val
+                          value
                         )
                     }
                   />
 
                   <TouchableOpacity
+                    activeOpacity={
+                      0.7
+                    }
                     onPress={() =>
                       setShowPassword(
-                        !showPassword
+                        previous =>
+                          !previous
                       )
                     }
                     className="p-1"
@@ -428,17 +600,20 @@ export default function SignUpForm() {
 
                 </View>
 
-                {errors.password && (
+                {errors.password ? (
                   <Text className="text-sm text-destructive mt-1 ml-1 font-medium">
                     {
                       errors.password
                     }
                   </Text>
-                )}
+                ) : null}
 
               </View>
 
+              {/* ================================================= */}
               {/* CONFIRM PASSWORD */}
+              {/* ================================================= */}
+
               <View>
 
                 <Text className="text-xs font-semibold text-foreground mb-1.5 ml-1">
@@ -449,6 +624,11 @@ export default function SignUpForm() {
                   className={`flex-row items-center rounded-lg px-4 h-12 border ${
                     errors.confirmPassword
                       ? 'border-destructive'
+                      : isValidField(
+                          confirmPassword,
+                          errors.confirmPassword
+                        )
+                      ? 'border-primary'
                       : 'border-input'
                   } bg-input`}
                 >
@@ -456,9 +636,20 @@ export default function SignUpForm() {
                   <ShieldCheck
                     size={18}
                     color={
-                      theme[
-                        'muted-foreground'
-                      ]
+                      errors.confirmPassword
+                        ? theme[
+                            'destructive'
+                          ]
+                        : isValidField(
+                            confirmPassword,
+                            errors.confirmPassword
+                          )
+                        ? theme[
+                            'primary'
+                          ]
+                        : theme[
+                            'muted-foreground'
+                          ]
                     }
                     style={{
                       marginRight: 10,
@@ -480,18 +671,22 @@ export default function SignUpForm() {
                       confirmPassword
                     }
                     onChangeText={
-                      val =>
+                      value =>
                         handleFieldChange(
                           'confirmPassword',
-                          val
+                          value
                         )
                     }
                   />
 
                   <TouchableOpacity
+                    activeOpacity={
+                      0.7
+                    }
                     onPress={() =>
                       setShowConfirm(
-                        !showConfirm
+                        previous =>
+                          !previous
                       )
                     }
                     className="p-1"
@@ -527,17 +722,20 @@ export default function SignUpForm() {
 
                 </View>
 
-                {errors.confirmPassword && (
+                {errors.confirmPassword ? (
                   <Text className="text-sm text-destructive mt-1 ml-1 font-medium">
                     {
                       errors.confirmPassword
                     }
                   </Text>
-                )}
+                ) : null}
 
               </View>
 
+              {/* ================================================= */}
               {/* TERMS */}
+              {/* ================================================= */}
+
               <TouchableOpacity
                 activeOpacity={
                   0.7
@@ -545,7 +743,8 @@ export default function SignUpForm() {
                 className="flex-row items-center mt-4 mb-2 px-1 min-h-[44px]"
                 onPress={() =>
                   setAgree(
-                    !agree
+                    previous =>
+                      !previous
                   )
                 }
               >
@@ -570,15 +769,16 @@ export default function SignUpForm() {
                         : 'transparent',
                   }}
                 >
-                  {agree && (
+                  {agree ? (
                     <Check
                       size={16}
                       color="white"
                     />
-                  )}
+                  ) : null}
                 </View>
 
                 <Text className="flex-1 text-sm text-muted-foreground">
+
                   I agree to the{' '}
 
                   <Text className="font-semibold text-primary">
@@ -590,11 +790,15 @@ export default function SignUpForm() {
                   <Text className="font-semibold text-primary">
                     Privacy Policy
                   </Text>
+
                 </Text>
 
               </TouchableOpacity>
 
+              {/* ================================================= */}
               {/* SUBMIT */}
+              {/* ================================================= */}
+
               <TouchableOpacity
                 activeOpacity={
                   0.8
@@ -632,7 +836,10 @@ export default function SignUpForm() {
 
             </View>
 
+            {/* ================================================== */}
             {/* FOOTER */}
+            {/* ================================================== */}
+
             <View className="mt-8 items-center">
 
               <View className="flex-row items-center mb-6 w-full">
@@ -677,6 +884,7 @@ export default function SignUpForm() {
             </View>
 
           </View>
+
         </View>
       </ScrollView>
     </SafeAreaView>

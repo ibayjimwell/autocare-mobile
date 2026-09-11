@@ -3,39 +3,71 @@ import {
   ScrollView,
   ActivityIndicator,
   Text,
-  TouchableOpacity
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useState } from "react";
-import { router, Link } from "expo-router";
-import { LogOut } from "lucide-react-native";
-import { useAuth } from "../../context/AuthContext";
-import { useProfileData } from "../../hooks/useProfileData";
-import ProfileHeader from "../../components/profile/ProfileHeader";
-import ContactCards from "../../components/profile/ContactCards";
-import StatsCards from "../../components/profile/StatsCards";
-import MembershipBanner from "../../components/profile/MembershipBanner";
-import RecentHistory from "../../components/profile/RecentHistory";
-import SettingsList from "../../components/profile/SettingsList";
-import LogoutModal from "../../components/profile/LogoutModal";
-import pushNotificationApi from "../../services/pushNotificationApi";
+  TouchableOpacity,
+} from 'react-native';
+import {
+  SafeAreaView,
+} from 'react-native-safe-area-context';
+import {
+  router,
+} from 'expo-router';
+import {
+  LogOut,
+  ShieldCheck,
+  ShieldAlert,
+} from 'lucide-react-native';
+import {
+  useState,
+} from 'react';
+
+import {
+  useAuth,
+} from '../../context/AuthContext';
+
+import {
+  useProfileData,
+} from '../../hooks/useProfileData';
+
+import ProfileHeader from '../../components/profile/ProfileHeader';
+import ContactCards from '../../components/profile/ContactCards';
+import StatsCards from '../../components/profile/StatsCards';
+import RecentHistory from '../../components/profile/RecentHistory';
+import SettingsList from '../../components/profile/SettingsList';
+import LogoutModal from '../../components/profile/LogoutModal';
 
 export default function ProfileScreen() {
-  const { logout } = useAuth();
-  const { loading, stats } = useProfileData();
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const {
+    user,
+    logout,
+  } = useAuth();
+
+  const {
+    loading,
+    stats,
+  } = useProfileData();
+
+  const [
+    loggingOut,
+    setLoggingOut,
+  ] = useState(false);
+
+  const [
+    showLogoutModal,
+    setShowLogoutModal,
+  ] = useState(false);
 
   const handleLogout = async () => {
     setLoggingOut(true);
     setShowLogoutModal(false);
+
     try {
-      // Unregister push token if you have one
-      // await pushNotificationApi.unregisterToken(token);
       await logout();
-      router.replace("/login");
+      router.replace('/login');
     } catch (err) {
-      console.error("Logout error:", err);
+      console.error(
+        'Logout error:',
+        err
+      );
     } finally {
       setLoggingOut(false);
     }
@@ -43,61 +75,144 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 justify-center items-center bg-background">
-        <ActivityIndicator size="large" color="#C1272D" />
+      <SafeAreaView className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator
+          size="large"
+          color="#C1272D"
+        />
       </SafeAreaView>
     );
   }
+
+  const phoneVerified =
+    Boolean(user?.isPhoneVerified);
 
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }} // Adjusted padding since floating bar is removed
+        contentContainerStyle={{
+          paddingBottom: 40,
+        }}
       >
-        {/* Header zone — mirrors the image's top bar + large headline */}
         <ProfileHeader />
 
-        {/* Search-bar slot → contact grouped card */}
+        {/* Mobile Phone Verification */}
+        <View className="mx-4 mb-4 rounded-xl bg-card overflow-hidden">
+          <View className="flex-row items-center px-4 py-4">
+            <View
+              className={`h-11 w-11 items-center justify-center rounded-full ${
+                phoneVerified
+                  ? 'bg-primary/10'
+                  : 'bg-secondary'
+              }`}
+            >
+              {phoneVerified ? (
+                <ShieldCheck
+                  size={21}
+                  color="#C1272D"
+                />
+              ) : (
+                <ShieldAlert
+                  size={21}
+                  color="#8E8E93"
+                />
+              )}
+            </View>
+
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-semibold text-foreground">
+                Mobile Phone
+              </Text>
+
+              <Text className="mt-1 text-sm text-muted-foreground">
+                {user?.phone ||
+                  'No phone number'}
+              </Text>
+            </View>
+
+            <View
+              className={`rounded-full px-3 py-1.5 ${
+                phoneVerified
+                  ? 'bg-primary/10'
+                  : 'bg-secondary'
+              }`}
+            >
+              <Text
+                className={`text-xs font-bold ${
+                  phoneVerified
+                    ? 'text-primary'
+                    : 'text-muted-foreground'
+                }`}
+              >
+                {phoneVerified
+                  ? 'Verified'
+                  : 'Not Verified'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Contact */}
         <ContactCards />
 
-        {/* "Top Brands" slot → stat tiles */}
-        <StatsCards vehicles={stats.vehicles} visits={stats.visits} />
+        {/* Overview */}
+        <StatsCards
+          vehicles={stats.vehicles}
+          visits={stats.visits}
+        />
 
-        {/* Promo banner slot → membership banner */}
-        <MembershipBanner />
-
-        {/* "Available Near You" slot → Activity section */}
-        <View className="flex-row justify-between items-end px-8 mb-2 mt-4">
+        {/* Activity */}
+        <View className="mt-4 flex-row items-end justify-between px-8 mb-2">
           <Text className="text-sm font-normal uppercase tracking-wider text-muted-foreground">
             Activity
           </Text>
-          <TouchableOpacity onPress={() => router.push("/history")}>
-            <Link className="text-sm font-semibold text-primary" href="history">
+
+          <TouchableOpacity
+            className="min-h-[44px] justify-center"
+            onPress={() =>
+              router.push('/history')
+            }
+          >
+            <Text className="text-sm font-semibold text-primary">
               View All
-            </Link>
+            </Text>
           </TouchableOpacity>
         </View>
-        <RecentHistory appointments={stats.completedAppointments} />
 
-        {/* Preferences grouped list */}
+        <RecentHistory
+          appointments={
+            stats.completedAppointments
+          }
+        />
+
+        {/* Preferences */}
         <SettingsList />
 
-        {/* Simple inline Logout Button below Preferences */}
-        <View className="px-8 mt-6">
+        {/* Logout */}
+        <View className="mt-6 px-8">
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => setShowLogoutModal(true)}
+            onPress={() =>
+              setShowLogoutModal(true)
+            }
             disabled={loggingOut}
-            className="bg-primary rounded-xl min-h-[50px] flex-row items-center justify-center"
+            className="min-h-[50px] flex-row items-center justify-center rounded-xl bg-primary"
           >
             {loggingOut ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator
+                size="small"
+                color="#FFFFFF"
+              />
             ) : (
               <>
-                <LogOut size={20} color="#FFFFFF" />
-                <Text className="text-base font-semibold text-white ml-2">
+                <LogOut
+                  size={20}
+                  color="#FFFFFF"
+                />
+
+                <Text className="ml-2 text-base font-semibold text-white">
                   Sign Out
                 </Text>
               </>
@@ -105,14 +220,16 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text className="text-center mt-8 text-xs font-normal text-muted-foreground">
+        <Text className="mt-8 text-center text-xs font-normal text-muted-foreground">
           AutoCare v2.0 • 2026
         </Text>
       </ScrollView>
 
       <LogoutModal
         visible={showLogoutModal}
-        onClose={() => setShowLogoutModal(false)}
+        onClose={() =>
+          setShowLogoutModal(false)
+        }
         onConfirm={handleLogout}
       />
     </SafeAreaView>

@@ -1,7 +1,18 @@
-import { ScrollView, View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+import {
+  ScrollView,
+  View,
+  Text,
+  ActivityIndicator,
+  TouchableOpacity,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, useRouter } from 'expo-router';
-import { PlusCircle, Search } from 'lucide-react-native';
+import {
+  PlusCircle,
+  Search,
+  Navigation,
+  CalendarClock,
+} from 'lucide-react-native';
 import { useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useHomeData } from '../../hooks/useHomeData';
@@ -17,9 +28,12 @@ import { formatDuration, formatPrice } from '../../utils/format';
 export default function HomeScreen() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+
   const {
-    upcomingConfirmed,
     groupedAppointments,
+    upcomingConfirmed,
+    activeTrackingAppointment,
+    vehicles,
     trendingServices,
     loading: homeLoading,
   } = useHomeData();
@@ -33,7 +47,7 @@ export default function HomeScreen() {
   if (authLoading) {
     return (
       <SafeAreaView className="flex-1 bg-background">
-        <View className="flex-1 justify-center items-center">
+        <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#C1272D" />
         </View>
       </SafeAreaView>
@@ -44,19 +58,18 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      {/* Placed OUTSIDE the ScrollView so it stays fixed at the top */}
       <GreetingHeader />
 
-      <ScrollView 
-        className="flex-1 bg-background" 
+      <ScrollView
+        className="flex-1 bg-background"
         showsVerticalScrollIndicator={false}
-        contentContainerClassName="pt-6" // Added pt-6 here to give breathing room under the header
+        contentContainerClassName="pt-6"
       >
         {/* Search */}
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={() => router.push('/services')}
-          className="mx-4 mb-6 flex-row items-center bg-secondary rounded-lg px-4 min-h-[44px]"
+          className="mx-4 mb-6 flex-row items-center rounded-lg bg-secondary px-4 min-h-[44px]"
         >
           <Search size={18} color="#8E8E93" />
           <Text className="ml-2 text-base font-normal text-muted-foreground">
@@ -68,18 +81,30 @@ export default function HomeScreen() {
 
         <QuickActions />
 
-        {/* Upcoming Appointment */}
+        {/* Schedule */}
         <View className="mb-8">
-          <View className="flex-row justify-between items-end mb-2 px-4">
-            <Text className="text-lg font-semibold text-foreground">Schedule</Text>
+          <View className="mb-2 flex-row items-end justify-between px-4">
+            <View className="flex-row items-center">
+              <View className="mr-2 h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                <CalendarClock size={17} color="#C1272D" />
+              </View>
+
+              <Text className="text-lg font-semibold text-foreground">
+                Schedule
+              </Text>
+            </View>
+
             <Link href="/appointments" asChild>
               <TouchableOpacity className="min-h-[44px] justify-center">
-                <Text className="text-sm font-medium text-primary">View All</Text>
+                <Text className="text-sm font-medium text-primary">
+                  View All
+                </Text>
               </TouchableOpacity>
             </Link>
           </View>
+
           {homeLoading ? (
-            <View className="h-32 rounded-xl mx-4 items-center justify-center bg-card">
+            <View className="mx-4 h-32 items-center justify-center rounded-xl bg-card">
               <ActivityIndicator color="#C1272D" />
             </View>
           ) : (
@@ -147,59 +172,123 @@ export default function HomeScreen() {
           />
         )}
 
-        {/* Garage / My Vehicles */}
+        {/* Garage */}
         <View className="mb-8">
-          <View className="flex-row justify-between items-end mb-2 px-4">
-            <Text className="text-lg font-semibold text-foreground">Garage</Text>
+          <View className="mb-2 flex-row items-end justify-between px-4">
+            <Text className="text-lg font-semibold text-foreground">
+              Garage
+            </Text>
+
             <Link href="/vehicles" asChild>
               <TouchableOpacity className="min-h-[44px] justify-center">
-                <Text className="text-sm font-medium text-primary">Manage</Text>
+                <Text className="text-sm font-medium text-primary">
+                  Manage
+                </Text>
               </TouchableOpacity>
             </Link>
           </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerClassName="px-4"
-          >
-            <VehicleCard name="Toyota Vios" plate="ABC 1234" year="2021" isLast={false} />
-            <VehicleCard name="Honda Civic" plate="XYZ 5678" year="2022" isLast={false} />
-            <TouchableOpacity
-              activeOpacity={0.7}
-              className="w-32 bg-card rounded-xl border border-dashed border-border items-center justify-center py-8 min-h-[44px]"
-              onPress={() => router.push('/vehicles')}
+          {homeLoading ? (
+            <View className="mx-4 h-40 items-center justify-center rounded-xl bg-card">
+              <ActivityIndicator color="#C1272D" />
+            </View>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerClassName="px-4"
             >
-              <PlusCircle size={24} color="#C1272D" />
-              <Text className="mt-2 text-sm font-medium text-primary">Add Vehicle</Text>
-            </TouchableOpacity>
-          </ScrollView>
+              {vehicles.map((vehicle, index) => (
+                <VehicleCard
+                  key={vehicle.id || `${vehicle.make}-${vehicle.model}-${index}`}
+                  name={`${vehicle.make || ''} ${vehicle.model || ''}`.trim() || 'My Vehicle'}
+                  plate={vehicle.plateNumber || vehicle.plate || 'No plate'}
+                  year={vehicle.year ? String(vehicle.year) : ''}
+                  isLast={false}
+                />
+              ))}
+
+              <TouchableOpacity
+                activeOpacity={0.7}
+                className="w-32 min-h-[44px] items-center justify-center rounded-xl border border-dashed border-border bg-card py-8"
+                onPress={() => router.push('/vehicles')}
+              >
+                <PlusCircle size={24} color="#C1272D" />
+
+                <Text className="mt-2 text-sm font-medium text-primary">
+                  Add Vehicle
+                </Text>
+              </TouchableOpacity>
+
+              {vehicles.length === 0 && (
+                <View className="mr-3 w-64 rounded-xl bg-card px-5 py-7">
+                  <Text className="text-base font-semibold text-foreground">
+                    No vehicle added yet
+                  </Text>
+
+                  <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+                    Add your car to make booking and tracking easier.
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+          )}
         </View>
 
-        {/* Trending Services */}
+        {/* Services
+            No "Services" heading and no "See All".
+        */}
         <View className="pb-14">
-          <Text className="text-lg font-semibold px-4 mb-2 text-foreground">Trending Services</Text>
-
-          <View className="bg-card rounded-xl mx-4 overflow-hidden">
-            {trendingServices.length === 0 ? (
-              <View className="p-6 items-center">
-                <Text className="text-sm font-normal text-muted-foreground">No trending services yet</Text>
+          {trendingServices.length === 0 ? (
+            <View className="mx-4 rounded-xl bg-card px-6 py-8 items-center">
+              <Text className="text-sm font-normal text-muted-foreground">
+                No services available yet
+              </Text>
+            </View>
+          ) : (
+            <>
+              <View className="mx-4 overflow-hidden rounded-xl bg-card">
+                {trendingServices.map((service, index) => (
+                  <TrendingServiceCard
+                    key={service.id}
+                    name={service.name}
+                    duration={formatDuration(service.durationMinutes)}
+                    price={formatPrice(service.basePrice)}
+                    rank={index + 1}
+                    count={service.appointmentCount}
+                    isLast={index === trendingServices.length - 1}
+                    onPress={() =>
+                      router.push(`/booking?serviceId=${service.id}`)
+                    }
+                  />
+                ))}
               </View>
-            ) : (
-              trendingServices.map((service, index) => (
-                <TrendingServiceCard
-                  key={service.id}
-                  name={service.name}
-                  duration={formatDuration(service.durationMinutes)}
-                  price={formatPrice(service.basePrice)}
-                  rank={index + 1}
-                  count={service.appointmentCount}
-                  isLast={index === trendingServices.length - 1}
-                  onPress={() => router.push(`/booking?serviceId=${service.id}`)}
-                />
-              ))
-            )}
-          </View>
+
+              {/* Working tracking CTA inside services section */}
+              {activeTrackingAppointment && (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() =>
+                    router.push(
+                      `/tracking?appointmentId=${activeTrackingAppointment.id}`
+                    )
+                  }
+                  className="mx-4 mt-3 min-h-[52px] flex-row items-center justify-center rounded-xl bg-primary px-4"
+                >
+                  <Navigation size={19} color="#FFFFFF" />
+                  <View className="ml-2">
+                    <Text className="text-sm font-semibold text-white">
+                      Track Your Booking
+                    </Text>
+                    <Text className="text-xs text-white/75">
+                      {activeTrackingAppointment.trackingNumber ||
+                        'Open current appointment'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

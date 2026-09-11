@@ -22,6 +22,10 @@ import {
   decodeToken,
 } from "../utils/jwt";
 
+import {
+  useRealtimeTable,
+} from "../connections/useRealtimeTable";
+
 const AuthContext =
   createContext();
 
@@ -58,6 +62,36 @@ export const AuthProvider = ({
     useRef(null);
 
   // ------------------------------------------------------------------
+  // Clear local authentication only
+  //
+  // Used when a realtime customer update detects that the account
+  // has been deactivated.
+  // ------------------------------------------------------------------
+
+  const clearAuthentication =
+    () => {
+      console.log(
+        "[Auth] Clearing local authentication."
+      );
+
+      storage.removeItem(
+        "auth_token"
+      );
+
+      storage.removeItem(
+        "auth_user"
+      );
+
+      setToken(
+        null
+      );
+
+      setUser(
+        null
+      );
+    };
+
+  // ------------------------------------------------------------------
   // CUSTOMER PRESENCE
   // ------------------------------------------------------------------
 
@@ -77,10 +111,13 @@ export const AuthProvider = ({
             isOnline
           );
 
-        if (result?.error) {
+        if (
+          result?.error
+        ) {
           console.warn(
             "[Presence] Failed:",
             result?.errorMessage ||
+              result?.message ||
               "Unable to update customer presence."
           );
         } else {
@@ -104,27 +141,189 @@ export const AuthProvider = ({
     };
 
   // ------------------------------------------------------------------
+  // REALTIME CUSTOMER DEACTIVATION
+  //
+  // Subscribe only to the currently logged-in customer.
+  //
+  // Supabase filter:
+  //
+  // id=eq.<customer-id>
+  //
+  // When the admin changes:
+  //
+  // deactivated: false -> true
+  //
+  // the mobile app immediately clears the local session.
+  // ------------------------------------------------------------------
+
+  useRealtimeTable(
+    "customers",
+    user?.id
+      ? `id=eq.${user.id}`
+      : null,
+    payload => {
+      if (
+        !payload
+      ) {
+        return;
+      }
+
+      const eventType =
+        payload.eventType;
+
+      const newCustomer =
+        payload.new || {};
+
+      const oldCustomer =
+        payload.old || {};
+
+      console.log(
+        "[Realtime][Customers] Event:",
+        eventType,
+        {
+          id:
+            newCustomer.id ||
+            oldCustomer.id,
+          deactivated:
+            newCustomer.deactivated,
+        }
+      );
+
+      // --------------------------------------------------------------
+      // Customer deleted
+      // --------------------------------------------------------------
+
+      if (
+        eventType ===
+        "DELETE"
+      ) {
+        console.warn(
+          "[Auth] Current customer was deleted. Logging out."
+        );
+
+        clearAuthentication();
+
+        return;
+      }
+
+      // --------------------------------------------------------------
+      // Customer inserted
+      //
+      // Normally this does not concern the current authenticated user,
+      // so there is nothing to do here.
+      // --------------------------------------------------------------
+
+      if (
+        eventType ===
+        "INSERT"
+      ) {
+        if (
+          newCustomer.deactivated ===
+          true
+        ) {
+          console.warn(
+            "[Auth] Current customer is deactivated."
+          );
+
+          clearAuthentication();
+        }
+
+        return;
+      }
+
+      // --------------------------------------------------------------
+      // Customer updated
+      // --------------------------------------------------------------
+
+      if (
+        eventType ===
+        "UPDATE"
+      ) {
+        // ------------------------------------------------------------
+        // Explicitly detect false -> true.
+        //
+        // This prevents unrelated customer updates from causing a
+        // logout.
+        // ------------------------------------------------------------
+
+        const wasDeactivated =
+          oldCustomer.deactivated ===
+          true;
+
+        const isDeactivated =
+          newCustomer.deactivated ===
+          true;
+
+        if (
+          isDeactivated &&
+          !wasDeactivated
+        ) {
+          console.warn(
+            "[Auth] Current customer was deactivated in realtime."
+          );
+
+          clearAuthentication();
+
+          return;
+        }
+
+        // ------------------------------------------------------------
+        // Defensive check:
+        //
+        // If the initial realtime payload does not contain the old
+        // value, but the new value says deactivated=true, still log
+        // out.
+        // ------------------------------------------------------------
+
+        if (
+          isDeactivated
+        ) {
+          console.warn(
+            "[Auth] Realtime customer record is deactivated."
+          );
+
+          clearAuthentication();
+        }
+      }
+    }
+  );
+
+  // ------------------------------------------------------------------
   // RESTORE EXISTING SESSION
   // ------------------------------------------------------------------
 
   useEffect(() => {
-    const clearStorage =
-      () => {
-        console.log(
-          "[Auth] Clearing stored credentials."
-        );
-
-        storage.removeItem(
-          "auth_token"
-        );
-
-        storage.removeItem(
-          "auth_user"
-        );
-      };
+    let mounted = true;
 
     const loadSession =
       async () => {
+        const clearStorage =
+          () => {
+            console.log(
+              "[Auth] Clearing stored credentials."
+            );
+
+            storage.removeItem(
+              "auth_token"
+            );
+
+            storage.removeItem(
+              "auth_user"
+            );
+
+            if (
+              mounted
+            ) {
+              setToken(
+                null
+              );
+
+              setUser(
+                null
+              );
+            }
+          };
+
         try {
           const storedToken =
             storage.getItem(
@@ -248,6 +447,23 @@ export const AuthProvider = ({
           }
 
           // ----------------------------------------------------------
+          // Detect locally stored deactivated user immediately
+          // ----------------------------------------------------------
+
+          if (
+            parsedUser.deactivated ===
+            true
+          ) {
+            console.warn(
+              "[Auth] Stored customer is deactivated."
+            );
+
+            clearStorage();
+
+            return;
+          }
+
+          // ----------------------------------------------------------
           // Verify token with backend
           // ----------------------------------------------------------
 
@@ -256,21 +472,72 @@ export const AuthProvider = ({
           );
 
           try {
-            await authApi.getMe();
+            const meResponse =
+              await authApi.getMe();
 
             console.log(
               "[Auth] Server verification OK."
             );
+
+            // --------------------------------------------------------
+            // Check fresh backend customer state.
+            //
+            // This catches deactivation even if realtime was not
+            // available while the app was closed/backgrounded.
+            // --------------------------------------------------------
+
+            const serverCustomer =
+              meResponse?.data;
+
+            if (
+              serverCustomer
+                ?.deactivated ===
+              true
+            ) {
+              console.warn(
+                "[Auth] Server reports customer is deactivated."
+              );
+
+              clearStorage();
+
+              return;
+            }
+
+            // --------------------------------------------------------
+            // Update stored user with fresh customer data.
+            // --------------------------------------------------------
+
+            if (
+              serverCustomer &&
+              mounted
+            ) {
+              storage.setItem(
+                "auth_user",
+                JSON.stringify(
+                  serverCustomer
+                )
+              );
+
+              parsedUser =
+                serverCustomer;
+            }
           } catch (
             serverError
           ) {
             console.warn(
               "[Auth] Server verification failed:",
-              serverError.message
+              serverError?.message ||
+                serverError
             );
 
             clearStorage();
 
+            return;
+          }
+
+          if (
+            !mounted
+          ) {
             return;
           }
 
@@ -299,13 +566,22 @@ export const AuthProvider = ({
 
           clearStorage();
         } finally {
-          setLoading(
-            false
-          );
+          if (
+            mounted
+          ) {
+            setLoading(
+              false
+            );
+          }
         }
       };
 
     loadSession();
+
+    return () => {
+      mounted =
+        false;
+    };
   }, []);
 
   // ------------------------------------------------------------------
@@ -327,25 +603,15 @@ export const AuthProvider = ({
 
     const sendOnline =
       async () => {
-        if (!user?.id) {
+        if (
+          !user?.id
+        ) {
           return;
         }
 
         await updateCustomerPresence(
           user.id,
           true
-        );
-      };
-
-    const sendOffline =
-      async () => {
-        if (!user?.id) {
-          return;
-        }
-
-        await updateCustomerPresence(
-          user.id,
-          false
         );
       };
 
@@ -360,29 +626,31 @@ export const AuthProvider = ({
         }
 
         presenceIntervalRef.current =
-          setInterval(() => {
-            if (
-              appState.current ===
-              "active"
-            ) {
-              void sendOnline();
-            }
-          }, PRESENCE_INTERVAL);
+          setInterval(
+            () => {
+              if (
+                appState.current ===
+                "active"
+              ) {
+                void sendOnline();
+              }
+            },
+            PRESENCE_INTERVAL
+          );
       };
 
     // ---------------------------------------------------------------
     // Initial presence
     // ---------------------------------------------------------------
 
-    if (user?.id) {
-      if (
-        appState.current ===
+    if (
+      user?.id &&
+      appState.current ===
         "active"
-      ) {
-        void sendOnline();
+    ) {
+      void sendOnline();
 
-        startHeartbeat();
-      }
+      startHeartbeat();
     }
 
     // ---------------------------------------------------------------
@@ -392,9 +660,7 @@ export const AuthProvider = ({
     const subscription =
       AppState.addEventListener(
         "change",
-        (
-          nextAppState
-        ) => {
+        nextAppState => {
           const previousState =
             appState.current;
 
@@ -482,16 +748,15 @@ export const AuthProvider = ({
   // ------------------------------------------------------------------
   // LOGIN
   //
-  // Customer can login with:
-  //   email
-  //   OR
-  //   phone number
+  // Returns:
   //
-  // Backend expects:
   // {
-  //   emailOrPhone,
-  //   password
+  //   success: false,
+  //   deactivated: true,
+  //   message: ...
   // }
+  //
+  // when backend returns 403 because the customer is deactivated.
   // ------------------------------------------------------------------
 
   const login =
@@ -500,10 +765,6 @@ export const AuthProvider = ({
       password
     ) => {
       try {
-        // ------------------------------------------------------------
-        // Normalize the identifier before sending
-        // ------------------------------------------------------------
-
         const identifier =
           typeof emailOrPhone ===
           "string"
@@ -515,17 +776,11 @@ export const AuthProvider = ({
           identifier
         );
 
-        // ------------------------------------------------------------
-        // IMPORTANT:
-        //
-        // Backend expects `emailOrPhone`,
-        // NOT `email`.
-        // ------------------------------------------------------------
-
         const res =
           await authApi.login({
             emailOrPhone:
               identifier,
+
             password,
           });
 
@@ -533,6 +788,44 @@ export const AuthProvider = ({
           "[Auth] Login response:",
           res
         );
+
+        // ------------------------------------------------------------
+        // Customer account is deactivated
+        //
+        // Backend currently returns 403 with:
+        //
+        // errorTitle: "Account deactivated"
+        //
+        // errorMessage:
+        // "Your account is deactivated..."
+        // ------------------------------------------------------------
+
+        if (
+          res?.status ===
+            403 ||
+          res?.statusCode ===
+            403 ||
+          res?.errorType ===
+            "deactivated" ||
+          res?.errorTitle ===
+            "Account deactivated" ||
+          res?.message ===
+            "Your account is deactivated. Please contact the admin for assistance." ||
+          res?.errorMessage ===
+            "Your account is deactivated. Please contact the admin for assistance."
+        ) {
+          return {
+            success: false,
+
+            deactivated:
+              true,
+
+            message:
+              res.errorMessage ||
+              res.message ||
+              "Your account has been deactivated. Please contact the administrator.",
+          };
+        }
 
         // ------------------------------------------------------------
         // API error
@@ -543,6 +836,7 @@ export const AuthProvider = ({
         ) {
           return {
             success: false,
+
             message:
               res.message ||
               res.errorMessage ||
@@ -581,10 +875,12 @@ export const AuthProvider = ({
         // ------------------------------------------------------------
 
         const customer =
-          res?.data?.customer;
+          res?.data
+            ?.customer;
 
         const newToken =
-          res?.data?.token;
+          res?.data
+            ?.token;
 
         if (
           !customer ||
@@ -597,8 +893,28 @@ export const AuthProvider = ({
 
           return {
             success: false,
+
             message:
               "Login response is invalid.",
+          };
+        }
+
+        // ------------------------------------------------------------
+        // Defensive deactivation check
+        // ------------------------------------------------------------
+
+        if (
+          customer.deactivated ===
+          true
+        ) {
+          return {
+            success: false,
+
+            deactivated:
+              true,
+
+            message:
+              "Your account has been deactivated. Please contact the administrator.",
           };
         }
 
@@ -628,6 +944,7 @@ export const AuthProvider = ({
 
         return {
           success: true,
+
           user: customer,
         };
       } catch (
@@ -640,6 +957,10 @@ export const AuthProvider = ({
 
         return {
           success: false,
+
+          deactivated:
+            err?.status === 403,
+
           message:
             err?.message ||
             "Login failed. Please try again.",
@@ -651,13 +972,6 @@ export const AuthProvider = ({
   // REGISTER
   //
   // Email is OPTIONAL.
-  //
-  // After registration, automatically attempt login using:
-  //
-  //   email    when supplied
-  //   phone    when email is empty
-  //
-  // Phone verification may be required before a session is created.
   // ------------------------------------------------------------------
 
   const register =
@@ -694,7 +1008,7 @@ export const AuthProvider = ({
             : "";
 
         // ------------------------------------------------------------
-        // Create customer account
+        // Create customer
         // ------------------------------------------------------------
 
         const res =
@@ -716,6 +1030,7 @@ export const AuthProvider = ({
         ) {
           return {
             success: false,
+
             message:
               res.message ||
               res.errorMessage ||
@@ -724,19 +1039,17 @@ export const AuthProvider = ({
         }
 
         // ------------------------------------------------------------
-        // Customer ID returned from registration
+        // Customer ID
         // ------------------------------------------------------------
 
         const customerId =
-          res.data?.id;
+          res?.data?.id;
 
         // ------------------------------------------------------------
-        // IMPORTANT:
+        // Login identifier
         //
-        // Because email is optional, do not attempt to login using
-        // an empty email.
-        //
-        // Use email when supplied, otherwise phone.
+        // Email first when provided.
+        // Phone otherwise.
         // ------------------------------------------------------------
 
         const loginIdentifier =
@@ -765,7 +1078,35 @@ export const AuthProvider = ({
           });
 
         // ------------------------------------------------------------
-        // Auto-login API error
+        // Deactivated should not normally happen for newly created
+        // customers, but handle it defensively.
+        // ------------------------------------------------------------
+
+        if (
+          loginRes?.status ===
+            403 ||
+          loginRes?.statusCode ===
+            403 ||
+          loginRes?.errorTitle ===
+            "Account deactivated" ||
+          loginRes?.errorMessage ===
+            "Your account is deactivated. Please contact the admin for assistance."
+        ) {
+          return {
+            success: false,
+
+            deactivated:
+              true,
+
+            message:
+              loginRes.errorMessage ||
+              loginRes.message ||
+              "Your account has been deactivated.",
+          };
+        }
+
+        // ------------------------------------------------------------
+        // Auto-login error
         // ------------------------------------------------------------
 
         if (
@@ -773,6 +1114,7 @@ export const AuthProvider = ({
         ) {
           return {
             success: false,
+
             message:
               "Account created but login failed.",
           };
@@ -815,7 +1157,8 @@ export const AuthProvider = ({
             ?.customer;
 
         const newToken =
-          loginRes?.data?.token;
+          loginRes?.data
+            ?.token;
 
         if (
           !customer ||
@@ -823,13 +1166,33 @@ export const AuthProvider = ({
         ) {
           return {
             success: false,
+
             message:
               "Account created but login response is invalid.",
           };
         }
 
         // ------------------------------------------------------------
-        // Store authenticated session
+        // Defensive deactivation check
+        // ------------------------------------------------------------
+
+        if (
+          customer.deactivated ===
+          true
+        ) {
+          return {
+            success: false,
+
+            deactivated:
+              true,
+
+            message:
+              "Your account has been deactivated.",
+          };
+        }
+
+        // ------------------------------------------------------------
+        // Store session
         // ------------------------------------------------------------
 
         storage.setItem(
@@ -854,6 +1217,7 @@ export const AuthProvider = ({
 
         return {
           success: true,
+
           user: customer,
 
           customerId:
@@ -870,6 +1234,7 @@ export const AuthProvider = ({
 
         return {
           success: false,
+
           message:
             err?.message ||
             "Registration failed. Please try again.",
@@ -900,7 +1265,28 @@ export const AuthProvider = ({
         }
 
         const customer =
-          res.data;
+          res?.data;
+
+        // ------------------------------------------------------------
+        // Deactivated user
+        // ------------------------------------------------------------
+
+        if (
+          customer?.deactivated ===
+          true
+        ) {
+          console.warn(
+            "[Auth] refreshUser detected deactivated customer."
+          );
+
+          clearAuthentication();
+
+          return null;
+        }
+
+        // ------------------------------------------------------------
+        // Store fresh user
+        // ------------------------------------------------------------
 
         storage.setItem(
           "auth_user",
@@ -934,6 +1320,23 @@ export const AuthProvider = ({
     customer,
     newToken
   ) => {
+    // ---------------------------------------------------------------
+    // Never create a session for a deactivated customer
+    // ---------------------------------------------------------------
+
+    if (
+      customer?.deactivated ===
+      true
+    ) {
+      console.warn(
+        "[Auth] Refusing to create session for deactivated customer."
+      );
+
+      clearAuthentication();
+
+      return;
+    }
+
     storage.setItem(
       "auth_token",
       newToken
@@ -979,25 +1382,7 @@ export const AuthProvider = ({
         );
       }
 
-      // --------------------------------------------------------------
-      // Clear local authentication
-      // --------------------------------------------------------------
-
-      storage.removeItem(
-        "auth_token"
-      );
-
-      storage.removeItem(
-        "auth_user"
-      );
-
-      setToken(
-        null
-      );
-
-      setUser(
-        null
-      );
+      clearAuthentication();
     };
 
   // ------------------------------------------------------------------

@@ -1,5 +1,3 @@
-// app/tracking.jsx (updated)
-
 import {
   View,
   ScrollView,
@@ -9,377 +7,1486 @@ import {
   Text,
   TouchableOpacity,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
-import { useLocalSearchParams, router } from 'expo-router';
+
+import {
+  SafeAreaView,
+} from 'react-native-safe-area-context';
+
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+
+import {
+  useLocalSearchParams,
+  router,
+} from 'expo-router';
+
 import {
   AlertCircle,
   ChevronRight,
-  FileText,
   ReceiptText,
   Calendar,
 } from 'lucide-react-native';
 
-import { useTrackingData } from '../hooks/useTrackingData';
-import { useQueue } from '../hooks/useQueue';
-import { useRescheduleRequests } from '../hooks/useRescheduleRequests';
-import { statusToStage } from '../utils/constants';
+import {
+  useTrackingData,
+} from '../hooks/useTrackingData';
+
+import {
+  useQueue,
+} from '../hooks/useQueue';
+
+import {
+  useRescheduleRequests,
+} from '../hooks/useRescheduleRequests';
+
+import {
+  statusToStage,
+} from '../utils/constants';
+
 import TrackingHeader from '../components/tracking/TrackingHeader';
+
 import VehicleInfoCard from '../components/tracking/VehicleInfoCard';
+
 import TaskList from '../components/tracking/TaskList';
+
 import CostingSummary from '../components/tracking/CostingSummary';
+
 import ProgressTimeline from '../components/tracking/ProgressTimeline';
+
 import CancellationNote from '../components/tracking/CancellationNote';
+
 import QueueSection from '../components/tracking/QueueSection';
-import { ApproveModal, RejectModal } from '../components/tracking/EstimateModals';
+
+import {
+  ApproveModal,
+  RejectModal,
+} from '../components/tracking/EstimateModals';
+
 import RescheduleRequestCard from '../components/tracking/RescheduleRequestCard';
+
 import RescheduleModal from '../components/tracking/RescheduleModal';
+
+import RescheduleConfirmationModal from '../components/tracking/RescheduleConfirmationModal';
+
 import estimateApi from '../services/estimateApi';
-import { canReschedule } from '../utils/appointments';
-import { format } from 'date-fns';
+
+import {
+  canReschedule,
+} from '../utils/appointments';
+
+import {
+  format,
+} from 'date-fns';
+
+/* ================================================================
+   TRACKING SCREEN
+================================================================ */
 
 export default function TrackingScreen() {
-  const { appointmentId } = useLocalSearchParams();
+  /* ==============================================================
+     PARAMS
+  ============================================================== */
+
+  const {
+    appointmentId,
+  } =
+    useLocalSearchParams();
+
+  /* ==============================================================
+     TRACKING DATA
+  ============================================================== */
+
   const {
     appointment,
+
     tasks,
+
     estimate,
+
     finalBill,
+
     loading,
+
     refreshing,
+
     onRefresh,
+
     refreshAll,
-  } = useTrackingData(appointmentId);
+  } =
+    useTrackingData(
+      appointmentId,
+    );
 
-  // Queue data
-  const appointmentDate = appointment?.appointmentDate;
-  const isConfirmed = appointment?.status === 'CONFIRMED';
-  const { queue, loading: queueLoading, error: queueError } = useQueue(
-    isConfirmed ? appointmentDate : null,
-    appointmentId
-  );
+  /* ==============================================================
+     QUEUE
+  ============================================================== */
 
-  // Reschedule requests
+  const appointmentDate =
+    appointment?.appointmentDate;
+
+  const isConfirmed =
+    appointment?.status ===
+    'CONFIRMED';
+
+  const {
+    queue,
+
+    loading:
+      queueLoading,
+
+    error:
+      queueError,
+  } =
+    useQueue(
+      isConfirmed
+        ? appointmentDate
+        : null,
+      appointmentId,
+    );
+
+  /* ==============================================================
+     RESCHEDULE REQUESTS
+  ============================================================== */
+
   const {
     requests,
-    loading: requestsLoading,
+
+    loading:
+      requestsLoading,
+
     approveRequest,
+
     rejectRequest,
-    pendingRequest, // ✅ get pending request
-  } = useRescheduleRequests(appointmentId);
 
-  const [excludedFindingIds, setExcludedFindingIds] = useState([]);
-  const [approveModalVisible, setApproveModalVisible] = useState(false);
-  const [rejectModalVisible, setRejectModalVisible] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
-  const [actionLoading, setActionLoading] = useState(false);
+    pendingRequest,
 
-  // Reschedule modal
-  const [rescheduleModalVisible, setRescheduleModalVisible] = useState(false);
+    latestDecision,
 
-  const currentStage = statusToStage[appointment?.status] ?? 0;
-  const isWaitingForApproval = appointment?.status === 'WAITING_FOR_APPROVAL';
-  const isInProgress = appointment?.status === 'IN_PROGRESS';
-  const isCancelled = appointment?.status === 'CANCELLED';
+    clearLatestDecision,
+  } =
+    useRescheduleRequests(
+      appointmentId,
+    );
 
-  // ✅ Check if appointment can be rescheduled AND there is no pending request
-  const canRescheduleAppointment = appointment && canReschedule(appointment.status) && !pendingRequest;
+  /* ==============================================================
+     ESTIMATE STATE
+  ============================================================== */
 
-  // Grand total logic (unchanged)
-  let grandTotal = 0;
-  if (estimate?.grandTotal !== undefined && estimate?.grandTotal !== null) {
-    grandTotal = parseFloat(estimate.grandTotal) || 0;
+  const [
+    excludedFindingIds,
+    setExcludedFindingIds,
+  ] = useState(
+    [],
+  );
+
+  const [
+    approveModalVisible,
+    setApproveModalVisible,
+  ] = useState(
+    false,
+  );
+
+  const [
+    rejectModalVisible,
+    setRejectModalVisible,
+  ] = useState(
+    false,
+  );
+
+  const [
+    rejectReason,
+    setRejectReason,
+  ] = useState(
+    '',
+  );
+
+  const [
+    actionLoading,
+    setActionLoading,
+  ] = useState(
+    false,
+  );
+
+  /* ==============================================================
+     RESCHEDULE FORM
+  ============================================================== */
+
+  const [
+    rescheduleModalVisible,
+    setRescheduleModalVisible,
+  ] = useState(
+    false,
+  );
+
+  /* ==============================================================
+     RESCHEDULE RESULT MODAL
+  ============================================================== */
+
+  const [
+    rescheduleDecisionVisible,
+    setRescheduleDecisionVisible,
+  ] = useState(
+    false,
+  );
+
+  /*
+   * The appointment can be updated by a separate realtime
+   * `appointments` event very close to the
+   * `appointment_reschedule_requests` event.
+   *
+   * Keep the previous schedule so that the customer can still see:
+   *
+   *     Old Schedule -> New Schedule
+   */
+  const previousScheduleRef =
+    useRef(null);
+
+  const lastAppointmentIdRef =
+    useRef(null);
+
+  const lastKnownDateRef =
+    useRef(null);
+
+  const lastKnownTimeRef =
+    useRef(null);
+
+  /* ==============================================================
+     TRACK LAST KNOWN APPOINTMENT SCHEDULE
+  ============================================================== */
+
+  useEffect(() => {
+    if (
+      !appointment
+    ) {
+      return;
+    }
+
+    if (
+      lastAppointmentIdRef.current !==
+      appointment.id
+    ) {
+      lastAppointmentIdRef.current =
+        appointment.id;
+
+      lastKnownDateRef.current =
+        appointment.appointmentDate;
+
+      lastKnownTimeRef.current =
+        appointment.appointmentTime;
+
+      previousScheduleRef.current =
+        null;
+
+      return;
+    }
+
+    const oldDate =
+      lastKnownDateRef.current;
+
+    const oldTime =
+      lastKnownTimeRef.current;
+
+    const dateChanged =
+      oldDate &&
+      oldDate !==
+        appointment.appointmentDate;
+
+    const timeChanged =
+      oldTime &&
+      String(
+        oldTime,
+      ).slice(
+        0,
+        5,
+      ) !==
+        String(
+          appointment.appointmentTime ||
+            '',
+        ).slice(
+          0,
+          5,
+        );
+
+    /*
+     * Capture the previous schedule before overwriting the
+     * last-known snapshot.
+     */
+    if (
+      dateChanged ||
+      timeChanged
+    ) {
+      previousScheduleRef.current =
+        {
+          date:
+            oldDate,
+
+          time:
+            oldTime,
+        };
+    }
+
+    lastKnownDateRef.current =
+      appointment.appointmentDate;
+
+    lastKnownTimeRef.current =
+      appointment.appointmentTime;
+  }, [
+    appointment,
+  ]);
+
+  /* ==============================================================
+     REALTIME RESCHEDULE DECISION
+  ============================================================== */
+
+  useEffect(() => {
+    if (
+      !latestDecision?.request
+    ) {
+      return;
+    }
+
+    /*
+     * Do not show the decision modal for unrelated stale state.
+     */
+    setRescheduleModalVisible(
+      false,
+    );
+
+    setRescheduleDecisionVisible(
+      true,
+    );
+  }, [
+    latestDecision,
+  ]);
+
+  /* ==============================================================
+     CLOSE DECISION
+  ============================================================== */
+
+  const closeRescheduleDecision =
+    useCallback(
+      async () => {
+        setRescheduleDecisionVisible(
+          false,
+        );
+
+        clearLatestDecision();
+
+        /*
+         * The staff decision may have updated the appointment
+         * immediately before the modal was displayed.
+         */
+        await refreshAll();
+
+        /*
+         * Once the customer has acknowledged the result, the
+         * old schedule is no longer needed by the confirmation UI.
+         */
+        previousScheduleRef.current =
+          null;
+      },
+      [
+        clearLatestDecision,
+        refreshAll,
+      ],
+    );
+
+  /* ==============================================================
+     STATUS
+  ============================================================== */
+
+  const currentStage =
+    statusToStage[
+      appointment?.status
+    ] ?? 0;
+
+  const isWaitingForApproval =
+    appointment?.status ===
+    'WAITING_FOR_APPROVAL';
+
+  const isInProgress =
+    appointment?.status ===
+    'IN_PROGRESS';
+
+  const isCancelled =
+    appointment?.status ===
+    'CANCELLED';
+
+  /* ==============================================================
+     CAN RESCHEDULE
+  ============================================================== */
+
+  const canRescheduleAppointment =
+    appointment &&
+    canReschedule(
+      appointment.status,
+    ) &&
+    !pendingRequest;
+
+  /* ==============================================================
+     GRAND TOTAL
+  ============================================================== */
+
+  let grandTotal =
+    0;
+
+  if (
+    estimate?.grandTotal !==
+      undefined &&
+    estimate?.grandTotal !==
+      null
+  ) {
+    grandTotal =
+      parseFloat(
+        estimate.grandTotal,
+      ) || 0;
   } else {
-    const servicePrice = parseFloat(estimate?.serviceSubtotal) || 0;
-    const partsTotal = tasks
-      .filter(t => t.status === 'DONE' && t.findings)
-      .reduce((sum, task) => {
-        return sum + (task.findings || []).reduce((s, f) => {
-          return s + (f.products || []).reduce(
-            (ps, p) => ps + (p.quantity || 1) * (parseFloat(p.priceAtTime) || 0),
-            0
-          );
-        }, 0);
-      }, 0);
-    const laborTotal = parseFloat(estimate?.feesTotal) || 0;
-    const discountTotal = parseFloat(estimate?.discountTotal) || 0;
-    grandTotal = (servicePrice + partsTotal + laborTotal) - discountTotal;
+    const serviceSubtotal =
+      parseFloat(
+        estimate?.serviceSubtotal,
+      ) || 0;
+
+    const partsTotal =
+      tasks
+        .filter(
+          (
+            task,
+          ) =>
+            task.status ===
+              'DONE' &&
+            task.findings,
+        )
+        .reduce(
+          (
+            sum,
+            task,
+          ) =>
+            sum +
+            (
+              task.findings ||
+              []
+            ).reduce(
+              (
+                findingSum,
+                finding,
+              ) =>
+                findingSum +
+                (
+                  finding.products ||
+                  []
+                ).reduce(
+                  (
+                    productsSum,
+                    product,
+                  ) =>
+                    productsSum +
+                    (
+                      product.quantity ||
+                      1
+                    ) *
+                      (
+                        parseFloat(
+                          product.priceAtTime,
+                        ) ||
+                        0
+                      ),
+                  0,
+                ),
+              0,
+            ),
+          0,
+        );
+
+    const feesTotal =
+      parseFloat(
+        estimate?.feesTotal,
+      ) || 0;
+
+    const discountTotal =
+      parseFloat(
+        estimate?.discountTotal,
+      ) || 0;
+
+    grandTotal =
+      serviceSubtotal +
+      partsTotal +
+      feesTotal -
+      discountTotal;
   }
 
-  const servicePrice = parseFloat(estimate?.serviceSubtotal) || 0;
-  const partsTotal = tasks
-    .filter(t => t.status === 'DONE' && t.findings)
-    .reduce((sum, task) => {
-      return sum + (task.findings || []).reduce((s, f) => {
-        return s + (f.products || []).reduce(
-          (ps, p) => ps + (p.quantity || 1) * (parseFloat(p.priceAtTime) || 0),
-          0
+  /* ==============================================================
+     ESTIMATE BREAKDOWN
+  ============================================================== */
+
+  const servicePrice =
+    parseFloat(
+      estimate?.serviceSubtotal,
+    ) || 0;
+
+  const partsTotal =
+    tasks
+      .filter(
+        (
+          task,
+        ) =>
+          task.status ===
+            'DONE' &&
+          task.findings,
+      )
+      .reduce(
+        (
+          sum,
+          task,
+        ) =>
+          sum +
+          (
+            task.findings ||
+            []
+          ).reduce(
+            (
+              findingSum,
+              finding,
+            ) =>
+              findingSum +
+              (
+                finding.products ||
+                []
+              ).reduce(
+                (
+                  productsSum,
+                  product,
+                ) =>
+                  productsSum +
+                  (
+                    product.quantity ||
+                    1
+                  ) *
+                    (
+                      parseFloat(
+                        product.priceAtTime,
+                      ) ||
+                      0
+                    ),
+                0,
+              ),
+            0,
+          ),
+        0,
+      );
+
+  const laborTotal =
+    parseFloat(
+      estimate?.feesTotal,
+    ) || 0;
+
+  const discountTotal =
+    parseFloat(
+      estimate?.discountTotal,
+    ) || 0;
+
+  const finalBillGrandTotal =
+    finalBill
+      ? parseFloat(
+          finalBill.grandTotal,
+        )
+      : null;
+
+  /* ==============================================================
+     TOGGLE FINDING
+  ============================================================== */
+
+  const toggleExclude =
+    (
+      id,
+    ) => {
+      setExcludedFindingIds(
+        (
+          previous,
+        ) =>
+          previous.includes(
+            id,
+          )
+            ? previous.filter(
+                (
+                  item,
+                ) =>
+                  item !==
+                  id,
+              )
+            : [
+                ...previous,
+                id,
+              ],
+      );
+    };
+
+  /* ==============================================================
+     APPROVE ESTIMATE
+  ============================================================== */
+
+  const confirmApprove =
+    async () => {
+      if (
+        !estimate
+      ) {
+        return;
+      }
+
+      setApproveModalVisible(
+        false,
+      );
+
+      setActionLoading(
+        true,
+      );
+
+      try {
+        await estimateApi.approve(
+          estimate.id,
         );
-      }, 0);
-    }, 0);
-  const laborTotal = parseFloat(estimate?.feesTotal) || 0;
-  const discountTotal = parseFloat(estimate?.discountTotal) || 0;
 
-  const finalBillGrandTotal = finalBill
-    ? parseFloat(finalBill.grandTotal)
-    : null;
+        Alert.alert(
+          'Approved!',
+          'Work is now in progress.',
+        );
 
-  const toggleExclude = (id) => {
-    setExcludedFindingIds(prev =>
-      prev.includes(id)
-        ? prev.filter(x => x !== id)
-        : [...prev, id]
+        await refreshAll();
+      } catch (
+        error
+      ) {
+        Alert.alert(
+          'Error',
+          error?.response
+            ?.data
+            ?.message ||
+            error?.message ||
+            'Failed to approve',
+        );
+
+        await refreshAll();
+      } finally {
+        setActionLoading(
+          false,
+        );
+      }
+    };
+
+  /* ==============================================================
+     REJECT ESTIMATE
+  ============================================================== */
+
+  const submitRejection =
+    async () => {
+      if (
+        !rejectReason.trim() ||
+        !estimate
+      ) {
+        return;
+      }
+
+      setRejectModalVisible(
+        false,
+      );
+
+      setActionLoading(
+        true,
+      );
+
+      try {
+        await estimateApi.decline(
+          estimate.id,
+          rejectReason.trim(),
+        );
+
+        Alert.alert(
+          'Rejected',
+          'Appointment cancelled.',
+        );
+
+        await refreshAll();
+      } catch (
+        error
+      ) {
+        Alert.alert(
+          'Error',
+          error?.response
+            ?.data
+            ?.message ||
+            error?.message ||
+            'Failed to reject',
+        );
+      } finally {
+        setActionLoading(
+          false,
+        );
+
+        setRejectReason(
+          '',
+        );
+      }
+    };
+
+  /* ==============================================================
+     RESCHEDULE SUCCESS
+  ============================================================== */
+
+  const handleRescheduleSuccess =
+    useCallback(
+      async () => {
+        setRescheduleModalVisible(
+          false,
+        );
+
+        await refreshAll();
+      },
+      [
+        refreshAll,
+      ],
     );
-  };
 
-  const confirmApprove = async () => {
-    if (!estimate) return;
-    setApproveModalVisible(false);
-    setActionLoading(true);
+  /* ==============================================================
+     LOADING
+  ============================================================== */
 
-    try {
-      await estimateApi.approve(estimate.id);
-      Alert.alert('Approved!', 'Work is now in progress.');
-      await refreshAll();
-    } catch (err) {
-      Alert.alert(
-        'Error',
-        err?.response?.data?.message || err.message || 'Failed to approve'
-      );
-      await refreshAll();
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const submitRejection = async () => {
-    if (!rejectReason.trim() || !estimate) return;
-    setRejectModalVisible(false);
-    setActionLoading(true);
-
-    try {
-      await estimateApi.decline(estimate.id, rejectReason.trim());
-      Alert.alert('Rejected', 'Appointment cancelled.');
-      await refreshAll();
-    } catch (err) {
-      Alert.alert(
-        'Error',
-        err?.response?.data?.message || err.message || 'Failed to reject'
-      );
-    } finally {
-      setActionLoading(false);
-      setRejectReason('');
-    }
-  };
-
-  const handleRescheduleSuccess = () => {
-    refreshAll();
-  };
-
-  if (loading) {
+  if (
+    loading
+  ) {
     return (
-      <SafeAreaView className="flex-1 bg-background items-center justify-center">
-        <View className="w-16 h-16 rounded-2xl bg-card items-center justify-center shadow-sm">
-          <ActivityIndicator size="small" color="#C1272D" />
+      <SafeAreaView
+        className="
+          flex-1
+          items-center
+          justify-center
+          bg-background
+        "
+      >
+        <View
+          className="
+            h-16
+            w-16
+            items-center
+            justify-center
+            rounded-2xl
+            bg-card
+            shadow-sm
+          "
+        >
+          <ActivityIndicator
+            size="small"
+            color="#C1272D"
+          />
         </View>
-        <Text className="mt-4 text-sm text-muted-foreground">
+
+        <Text
+          className="
+            mt-4
+            text-sm
+            text-muted-foreground
+          "
+        >
           Loading appointment…
         </Text>
       </SafeAreaView>
     );
   }
 
-  if (!appointment) {
+  /* ==============================================================
+     NOT FOUND
+  ============================================================== */
+
+  if (
+    !appointment
+  ) {
     return (
-      <SafeAreaView className="flex-1 bg-background items-center justify-center px-4">
-        <View className="w-20 h-20 rounded-3xl bg-card items-center justify-center">
-          <AlertCircle size={34} color="#C1272D" strokeWidth={1.8} />
+      <SafeAreaView
+        className="
+          flex-1
+          items-center
+          justify-center
+          bg-background
+          px-4
+        "
+      >
+        <View
+          className="
+            h-20
+            w-20
+            items-center
+            justify-center
+            rounded-3xl
+            bg-card
+          "
+        >
+          <AlertCircle
+            size={
+              34
+            }
+            color="#C1272D"
+            strokeWidth={
+              1.8
+            }
+          />
         </View>
 
-        <Text className="mt-5 text-xl font-bold text-foreground">
+        <Text
+          className="
+            mt-5
+            text-xl
+            font-bold
+            text-foreground
+          "
+        >
           Appointment not found
         </Text>
 
-        <Text className="mt-2 text-sm text-muted-foreground text-center">
-          We could not load the appointment details.
+        <Text
+          className="
+            mt-2
+            text-center
+            text-sm
+            text-muted-foreground
+          "
+        >
+          We could not load the appointment
+          details.
         </Text>
       </SafeAreaView>
     );
   }
 
+  /* ==============================================================
+     PREVIOUS SCHEDULE FOR DECISION MODAL
+  ============================================================== */
+
+  const previousDecisionDate =
+    previousScheduleRef.current
+      ?.date ||
+    appointment.appointmentDate;
+
+  const previousDecisionTime =
+    previousScheduleRef.current
+      ?.time ||
+    appointment.appointmentTime;
+
+  /* ==============================================================
+     RENDER
+  ============================================================== */
+
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+    <SafeAreaView
+      className="
+        flex-1
+        bg-background
+      "
+      edges={[
+        'top',
+      ]}
+    >
       <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
+        className="
+          flex-1
+        "
+        contentContainerStyle={{
+          paddingBottom:
+            40,
+        }}
+        showsVerticalScrollIndicator={
+          false
+        }
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
+            refreshing={
+              refreshing
+            }
+            onRefresh={
+              onRefresh
+            }
             tintColor="#C1272D"
-            colors={['#C1272D']}
+            colors={[
+              '#C1272D',
+            ]}
           />
         }
       >
-        <View className="px-4 pt-2">
-          <TrackingHeader appointment={appointment} />
-          <VehicleInfoCard appointment={appointment} />
+        <View
+          className="
+            px-4
+            pt-2
+          "
+        >
+          {/* ====================================================
+              TRACKING HEADER
+          ===================================================== */}
 
-          {/* Reschedule Requests */}
-          {!requestsLoading && requests.length > 0 && (
-            <View className="mb-4">
-              <Text className="text-sm font-bold text-foreground mb-2">Reschedule Requests</Text>
-              {requests.map((req) => (
-                <RescheduleRequestCard
-                  key={req.id}
-                  request={req}
-                  onApprove={approveRequest}
-                  onReject={rejectRequest}
-                />
-              ))}
-            </View>
-          )}
+          <TrackingHeader
+            appointment={
+              appointment
+            }
+          />
 
-          {/* Queue Section – only for CONFIRMED appointments */}
+          {/* ====================================================
+              VEHICLE INFO
+          ===================================================== */}
+
+          <VehicleInfoCard
+            appointment={
+              appointment
+            }
+          />
+
+          {/* ====================================================
+              RESCHEDULE REQUEST HISTORY
+          ===================================================== */}
+
+          {!requestsLoading &&
+            requests.length >
+              0 && (
+              <View
+                className="
+                  mb-4
+                "
+              >
+                <Text
+                  className="
+                    mb-2
+                    text-sm
+                    font-semibold
+                    text-foreground
+                  "
+                >
+                  Reschedule Requests
+                </Text>
+
+                {requests.map(
+                  (
+                    request,
+                  ) => (
+                    <RescheduleRequestCard
+                      key={
+                        request.id
+                      }
+                      request={
+                        request
+                      }
+                      onApprove={
+                        approveRequest
+                      }
+                      onReject={
+                        rejectRequest
+                      }
+                    />
+                  ),
+                )}
+              </View>
+            )}
+
+          {/* ====================================================
+              QUEUE
+          ===================================================== */}
+
           {isConfirmed && (
             <QueueSection
-              queue={queue}
-              loading={queueLoading}
-              error={queueError}
-              appointmentId={appointmentId}
+              queue={
+                queue
+              }
+              loading={
+                queueLoading
+              }
+              error={
+                queueError
+              }
+              appointmentId={
+                appointmentId
+              }
             />
           )}
 
-          {/* Reschedule Button – hidden if there's a pending request */}
+          {/* ====================================================
+              RESCHEDULE BUTTON
+          ===================================================== */}
+
           {canRescheduleAppointment && (
             <TouchableOpacity
-              onPress={() => setRescheduleModalVisible(true)}
-              className="bg-primary rounded-xl p-3 mb-4 flex-row items-center justify-center"
+              onPress={() =>
+                setRescheduleModalVisible(
+                  true,
+                )
+              }
+              disabled={
+                actionLoading
+              }
+              activeOpacity={
+                0.85
+              }
+              className="
+                mb-4
+                min-h-[44px]
+                flex-row
+                items-center
+                justify-center
+                rounded-xl
+                bg-primary
+                px-4
+                py-3
+              "
             >
-              <Calendar size={20} color="white" />
-              <Text className="text-white font-bold ml-2">Reschedule Appointment</Text>
+              <Calendar
+                size={
+                  19
+                }
+                color="#FFFFFF"
+                strokeWidth={
+                  2
+                }
+              />
+
+              <Text
+                className="
+                  ml-2
+                  text-sm
+                  font-semibold
+                  text-white
+                "
+              >
+                Reschedule Appointment
+              </Text>
             </TouchableOpacity>
           )}
 
+          {/* ====================================================
+              PENDING REQUEST
+          ===================================================== */}
+
           {pendingRequest && (
-            <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
-              <Text className="text-sm text-amber-700 font-medium">Pending Reschedule Request</Text>
-              <Text className="text-xs text-amber-600 mt-1">
-                {pendingRequest.requestedBy === 'staff' ? 'Staff requested' : 'You requested'} to reschedule to{' '}
-                {format(new Date(pendingRequest.newAppointmentDate), 'MMM d, yyyy')} at {pendingRequest.newAppointmentTime}.
+            <View
+              className="
+                mb-4
+                rounded-xl
+                border
+                border-amber-200
+                bg-amber-50
+                p-4
+              "
+            >
+              <Text
+                className="
+                  text-sm
+                  font-semibold
+                  text-amber-800
+                "
+              >
+                Reschedule Request Pending
               </Text>
-              <Text className="text-xs text-amber-600 mt-1">Waiting for approval.</Text>
+
+              <Text
+                className="
+                  mt-1
+                  text-xs
+                  leading-5
+                  text-amber-700
+                "
+              >
+                {pendingRequest.requestedBy ===
+                'staff'
+                  ? 'AutoCare requested'
+                  : 'You requested'}{' '}
+                a new appointment on{' '}
+                {format(
+                  new Date(
+                    `${pendingRequest.newAppointmentDate}T00:00:00`,
+                  ),
+                  'MMM d, yyyy',
+                )}{' '}
+                at{' '}
+                {pendingRequest.newAppointmentTime?.slice(
+                  0,
+                  5,
+                )}
+                .
+              </Text>
+
+              {pendingRequest.reason && (
+                <Text
+                  className="
+                    mt-2
+                    text-xs
+                    leading-5
+                    text-amber-700
+                  "
+                >
+                  Reason: {
+                    pendingRequest.reason
+                  }
+                </Text>
+              )}
+
+              <Text
+                className="
+                  mt-2
+                  text-xs
+                  font-medium
+                  text-amber-700
+                "
+              >
+                Waiting for AutoCare approval.
+              </Text>
             </View>
           )}
 
-          {/* Tasks always visible for relevant statuses */}
+          {/* ====================================================
+              TASKS
+          ===================================================== */}
+
           {[
             'UNDER_INSPECTION',
             'WAITING_FOR_APPROVAL',
             'IN_PROGRESS',
             'COMPLETED',
-          ].includes(appointment.status) && (
+          ].includes(
+            appointment.status,
+          ) && (
             <TaskList
-              tasks={tasks}
-              excludedFindingIds={excludedFindingIds}
-              onToggleExclude={toggleExclude}
-              isWaitingForApproval={isWaitingForApproval}
+              tasks={
+                tasks
+              }
+              excludedFindingIds={
+                excludedFindingIds
+              }
+              onToggleExclude={
+                toggleExclude
+              }
+              isWaitingForApproval={
+                isWaitingForApproval
+              }
             />
           )}
 
-          {/* Estimate costing – only for WAITING_FOR_APPROVAL */}
-          {['WAITING_FOR_APPROVAL'].includes(appointment.status) && (
+          {/* ====================================================
+              ESTIMATE
+          ===================================================== */}
+
+          {appointment.status ===
+            'WAITING_FOR_APPROVAL' && (
             <CostingSummary
-              servicePrice={servicePrice}
-              partsTotal={partsTotal}
-              laborTotal={laborTotal}
-              discountTotal={discountTotal}
-              grandTotal={grandTotal}
-              isWaitingForApproval={isWaitingForApproval}
-              actionLoading={actionLoading}
-              onApprove={() => setApproveModalVisible(true)}
-              onReject={() => setRejectModalVisible(true)}
-              estimate={estimate}
+              servicePrice={
+                servicePrice
+              }
+              partsTotal={
+                partsTotal
+              }
+              laborTotal={
+                laborTotal
+              }
+              discountTotal={
+                discountTotal
+              }
+              grandTotal={
+                grandTotal
+              }
+              isWaitingForApproval={
+                isWaitingForApproval
+              }
+              actionLoading={
+                actionLoading
+              }
+              onApprove={() =>
+                setApproveModalVisible(
+                  true,
+                )
+              }
+              onReject={() =>
+                setRejectModalVisible(
+                  true,
+                )
+              }
+              estimate={
+                estimate
+              }
             />
           )}
 
-          {/* Final bill for IN_PROGRESS */}
-          {isInProgress && finalBill && (
-            <TouchableOpacity
-              onPress={() => router.push(`/invoice/${finalBill.id}`)}
-              activeOpacity={0.8}
-              className="bg-card rounded-xl overflow-hidden mb-6 border border-border"
-              style={{
-                shadowColor: '#000',
-                shadowOpacity: 0.05,
-                shadowRadius: 12,
-                shadowOffset: { width: 0, height: 4 },
-                elevation: 2,
-              }}
-            >
-              <View className="px-4 py-4 flex-row items-center">
-                <View className="w-11 h-11 rounded-full bg-primary/10 items-center justify-center mr-3">
-                  <ReceiptText size={21} color="#C1272D" strokeWidth={2} />
+          {/* ====================================================
+              FINAL BILL
+          ===================================================== */}
+
+          {isInProgress &&
+            finalBill && (
+              <TouchableOpacity
+                onPress={() =>
+                  router.push(
+                    `/invoice/${finalBill.id}`,
+                  )
+                }
+                activeOpacity={
+                  0.8
+                }
+                className="
+                  mb-6
+                  overflow-hidden
+                  rounded-xl
+                  border
+                  border-border
+                  bg-card
+                "
+                style={{
+                  shadowColor:
+                    '#000',
+
+                  shadowOpacity:
+                    0.05,
+
+                  shadowRadius:
+                    12,
+
+                  shadowOffset: {
+                    width: 0,
+                    height: 4,
+                  },
+
+                  elevation:
+                    2,
+                }}
+              >
+                <View
+                  className="
+                    flex-row
+                    items-center
+                    px-4
+                    py-4
+                  "
+                >
+                  <View
+                    className="
+                      mr-3
+                      h-11
+                      w-11
+                      items-center
+                      justify-center
+                      rounded-full
+                      bg-primary/10
+                    "
+                  >
+                    <ReceiptText
+                      size={
+                        21
+                      }
+                      color="#C1272D"
+                      strokeWidth={
+                        2
+                      }
+                    />
+                  </View>
+
+                  <View
+                    className="
+                      flex-1
+                    "
+                  >
+                    <Text
+                      className="
+                        text-lg
+                        font-semibold
+                        text-foreground
+                      "
+                    >
+                      Final Bill
+                    </Text>
+
+                    <Text
+                      className="
+                        mt-1
+                        text-sm
+                        text-muted-foreground
+                      "
+                    >
+                      View your completed service invoice
+                    </Text>
+                  </View>
+
+                  <ChevronRight
+                    size={
+                      20
+                    }
+                    color="#8E8E93"
+                  />
                 </View>
 
-                <View className="flex-1">
-                  <Text className="text-lg font-semibold text-foreground">
-                    Final Bill
+                <View
+                  className="
+                    ml-4
+                    flex-row
+                    items-center
+                    justify-between
+                    border-t
+                    border-border
+                    px-4
+                    py-4
+                  "
+                >
+                  <Text
+                    className="
+                      text-sm
+                      text-muted-foreground
+                    "
+                  >
+                    Total
                   </Text>
-                  <Text className="text-sm text-muted-foreground mt-1">
-                    View your completed service invoice
+
+                  <Text
+                    className="
+                      text-base
+                      font-semibold
+                      text-primary
+                    "
+                  >
+                    ₱
+                    {finalBillGrandTotal?.toFixed(
+                      2,
+                    )}
                   </Text>
                 </View>
+              </TouchableOpacity>
+            )}
 
-                <ChevronRight size={20} color="#8E8E93" />
-              </View>
-
-              <View className="ml-4 border-t border-border px-4 py-4 flex-row items-center justify-between">
-                <Text className="text-sm text-muted-foreground">
-                  Total
-                </Text>
-                <Text className="text-base font-semibold text-primary">
-                  ₱{finalBillGrandTotal.toFixed(2)}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          )}
+          {/* ====================================================
+              CANCELLED
+          ===================================================== */}
 
           {isCancelled && (
-            <CancellationNote notes={appointment.notes} />
+            <CancellationNote
+              notes={
+                appointment.notes
+              }
+            />
           )}
 
-          <ProgressTimeline currentStage={currentStage} />
+          {/* ====================================================
+              PROGRESS
+          ===================================================== */}
+
+          <ProgressTimeline
+            currentStage={
+              currentStage
+            }
+          />
         </View>
       </ScrollView>
 
+      {/* ==========================================================
+          ESTIMATE APPROVAL
+      =========================================================== */}
+
       <ApproveModal
-        visible={approveModalVisible}
-        onClose={() => setApproveModalVisible(false)}
-        onConfirm={confirmApprove}
-        grandTotal={grandTotal}
-        excludedCount={excludedFindingIds.length}
-        actionLoading={actionLoading}
+        visible={
+          approveModalVisible
+        }
+        onClose={() =>
+          setApproveModalVisible(
+            false,
+          )
+        }
+        onConfirm={
+          confirmApprove
+        }
+        grandTotal={
+          grandTotal
+        }
+        excludedCount={
+          excludedFindingIds.length
+        }
+        actionLoading={
+          actionLoading
+        }
       />
+
+      {/* ==========================================================
+          ESTIMATE REJECTION
+      =========================================================== */}
 
       <RejectModal
-        visible={rejectModalVisible}
+        visible={
+          rejectModalVisible
+        }
         onClose={() => {
-          setRejectModalVisible(false);
-          setRejectReason('');
+          setRejectModalVisible(
+            false,
+          );
+
+          setRejectReason(
+            '',
+          );
         }}
-        onSubmit={submitRejection}
-        reason={rejectReason}
-        setReason={setRejectReason}
-        actionLoading={actionLoading}
+        onSubmit={
+          submitRejection
+        }
+        reason={
+          rejectReason
+        }
+        setReason={
+          setRejectReason
+        }
+        actionLoading={
+          actionLoading
+        }
       />
 
+      {/* ==========================================================
+          RESCHEDULE FORM
+      =========================================================== */}
+
       <RescheduleModal
-        visible={rescheduleModalVisible}
-        onClose={() => setRescheduleModalVisible(false)}
-        appointment={appointment}
-        onSuccess={handleRescheduleSuccess}
+        visible={
+          rescheduleModalVisible
+        }
+        onClose={() =>
+          setRescheduleModalVisible(
+            false,
+          )
+        }
+        appointment={
+          appointment
+        }
+        onSuccess={
+          handleRescheduleSuccess
+        }
+      />
+
+      {/* ==========================================================
+          REALTIME RESCHEDULE DECISION
+      =========================================================== */}
+
+      <RescheduleConfirmationModal
+        visible={
+          rescheduleDecisionVisible
+        }
+        mode={
+          latestDecision?.status
+        }
+        request={
+          latestDecision?.request
+        }
+        currentDate={
+          appointment.appointmentDate
+        }
+        currentTime={
+          appointment.appointmentTime
+        }
+        previousDate={
+          previousDecisionDate
+        }
+        previousTime={
+          previousDecisionTime
+        }
+        onCancel={
+          closeRescheduleDecision
+        }
+        onConfirm={
+          closeRescheduleDecision
+        }
       />
     </SafeAreaView>
   );

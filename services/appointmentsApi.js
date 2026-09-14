@@ -64,8 +64,6 @@ const appointmentsApi = {
 
   /* ==============================================================
      CREATE APPOINTMENT
-     
-     Backend expects FormData.
   ============================================================== */
 
   create: (
@@ -84,9 +82,6 @@ const appointmentsApi = {
       data.vehicleId,
     );
 
-    /*
-     * Backend expects services as an array.
-     */
     form.append(
       'services',
       JSON.stringify(
@@ -125,11 +120,22 @@ const appointmentsApi = {
 
   /* ==============================================================
      CANCEL APPOINTMENT
+     
+     CUSTOMER-SIDE CANCELLATION
+     
+     PENDING and CONFIRMED appointments can be cancelled from
+     the mobile app.
+     
+     `changedBy` is the authenticated customer's user ID.
+     
+     The backend validates that the customer actually owns the
+     appointment before allowing the cancellation.
   ============================================================== */
 
   cancel: (
     id,
     reason = '',
+    changedBy = null,
   ) =>
     api.request(
       `/appointments/${id}/status`,
@@ -137,15 +143,18 @@ const appointmentsApi = {
       {
         status:
           'CANCELLED',
-        reason,
+
+        reason:
+          reason,
+
+        changedBy:
+          changedBy,
       },
       true,
     ),
 
   /* ==============================================================
      AVAILABLE SLOTS
-     
-     Existing mobile API accepts a single service ID.
   ============================================================== */
 
   getAvailableSlots: (
@@ -177,7 +186,9 @@ const appointmentsApi = {
       'POST',
       {
         date,
+
         startTime,
+
         serviceIds:
           serviceId,
       },
@@ -187,8 +198,7 @@ const appointmentsApi = {
   /* ==============================================================
      DIRECT RESCHEDULE
      
-     DEPRECATED:
-     Use createRescheduleRequest() instead.
+     DEPRECATED.
   ============================================================== */
 
   reschedule: (
@@ -211,23 +221,6 @@ const appointmentsApi = {
 
   /* ==============================================================
      CREATE RESCHEDULE REQUEST
-     
-     CUSTOMER -> STAFF
-     
-     IMPORTANT:
-     
-     The backend successfully creates the request, but in the
-     current environment it may return an empty HTTP response body.
-     
-     `api.request()` normally expects JSON. That causes:
-     
-       SyntaxError:
-       JSON Parse error: Unexpected end of input
-     
-     even though the POST succeeded.
-     
-     We handle ONLY this specific empty-response parsing problem
-     here. Other errors continue to throw normally.
   ============================================================== */
 
   createRescheduleRequest:
@@ -256,13 +249,11 @@ const appointmentsApi = {
             true,
           );
 
-        /*
-         * Normal JSON response.
-         */
         return (
           response || {
             error:
               false,
+
             data:
               null,
           }
@@ -270,14 +261,6 @@ const appointmentsApi = {
       } catch (
         error
       ) {
-        /*
-         * IMPORTANT:
-         *
-         * Only convert the parser error caused by an empty
-         * successful response into success.
-         *
-         * Do NOT swallow normal network/API errors.
-         */
         const message =
           error?.message ||
           '';
@@ -306,17 +289,11 @@ const appointmentsApi = {
             data:
               null,
 
-            /*
-             * Helpful diagnostic information.
-             */
             emptyResponse:
               true,
           };
         }
 
-        /*
-         * Genuine error.
-         */
         throw error;
       }
     },
@@ -338,9 +315,6 @@ const appointmentsApi = {
 
   /* ==============================================================
      APPROVE RESCHEDULE REQUEST
-     
-     Primarily used when this endpoint is called from a client
-     context that has permission to approve.
   ============================================================== */
 
   approveRescheduleRequest:
@@ -379,9 +353,5 @@ const appointmentsApi = {
         true,
       ),
 };
-
-/* ================================================================
-   EXPORT
-================================================================ */
 
 export default appointmentsApi;

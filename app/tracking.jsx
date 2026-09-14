@@ -29,7 +29,12 @@ import {
   ChevronRight,
   ReceiptText,
   Calendar,
+  XCircle,
 } from 'lucide-react-native';
+
+import {
+  useAuth,
+} from '../context/AuthContext';
 
 import {
   useTrackingData,
@@ -72,7 +77,11 @@ import RescheduleModal from '../components/tracking/RescheduleModal';
 
 import RescheduleConfirmationModal from '../components/tracking/RescheduleConfirmationModal';
 
+import CancelAppointmentModal from '../components/tracking/CancelAppointmentModal';
+
 import estimateApi from '../services/estimateApi';
+
+import appointmentsApi from '../services/appointmentsApi';
 
 import {
   canReschedule,
@@ -87,6 +96,14 @@ import {
 ================================================================ */
 
 export default function TrackingScreen() {
+  /* ==============================================================
+     AUTHENTICATION
+  ============================================================== */
+
+  const {
+    user,
+  } = useAuth();
+
   /* ==============================================================
      PARAMS
   ============================================================== */
@@ -233,26 +250,47 @@ export default function TrackingScreen() {
     false,
   );
 
-  /*
-   * The appointment can be updated by a separate realtime
-   * `appointments` event very close to the
-   * `appointment_reschedule_requests` event.
-   *
-   * Keep the previous schedule so that the customer can still see:
-   *
-   *     Old Schedule -> New Schedule
-   */
+  /* ==============================================================
+     CANCEL APPOINTMENT
+  ============================================================== */
+
+  const [
+    cancelModalVisible,
+    setCancelModalVisible,
+  ] = useState(
+    false,
+  );
+
+  const [
+    cancelLoading,
+    setCancelLoading,
+  ] = useState(
+    false,
+  );
+
+  /* ==============================================================
+     PREVIOUS RESCHEDULE SCHEDULE
+  ============================================================== */
+
   const previousScheduleRef =
-    useRef(null);
+    useRef(
+      null,
+    );
 
   const lastAppointmentIdRef =
-    useRef(null);
+    useRef(
+      null,
+    );
 
   const lastKnownDateRef =
-    useRef(null);
+    useRef(
+      null,
+    );
 
   const lastKnownTimeRef =
-    useRef(null);
+    useRef(
+      null,
+    );
 
   /* ==============================================================
      TRACK LAST KNOWN APPOINTMENT SCHEDULE
@@ -311,10 +349,6 @@ export default function TrackingScreen() {
           5,
         );
 
-    /*
-     * Capture the previous schedule before overwriting the
-     * last-known snapshot.
-     */
     if (
       dateChanged ||
       timeChanged
@@ -349,9 +383,6 @@ export default function TrackingScreen() {
       return;
     }
 
-    /*
-     * Do not show the decision modal for unrelated stale state.
-     */
     setRescheduleModalVisible(
       false,
     );
@@ -376,16 +407,8 @@ export default function TrackingScreen() {
 
         clearLatestDecision();
 
-        /*
-         * The staff decision may have updated the appointment
-         * immediately before the modal was displayed.
-         */
         await refreshAll();
 
-        /*
-         * Once the customer has acknowledged the result, the
-         * old schedule is no longer needed by the confirmation UI.
-         */
         previousScheduleRef.current =
           null;
       },
@@ -416,6 +439,10 @@ export default function TrackingScreen() {
     appointment?.status ===
     'CANCELLED';
 
+  const isPending =
+    appointment?.status ===
+    'PENDING';
+
   /* ==============================================================
      CAN RESCHEDULE
   ============================================================== */
@@ -426,6 +453,165 @@ export default function TrackingScreen() {
       appointment.status,
     ) &&
     !pendingRequest;
+
+  /* ==============================================================
+     CAN CANCEL
+     
+     Customer cancellation is intentionally limited to:
+     
+       PENDING
+       CONFIRMED
+     
+     It is NOT exposed during inspection, estimate approval,
+     work in progress, completed, or already cancelled states.
+  ============================================================== */
+
+  const canCancelAppointment =
+    appointment &&
+    (
+      appointment.status ===
+        'PENDING' ||
+      appointment.status ===
+        'CONFIRMED'
+    );
+
+  /* ==============================================================
+     OPEN CANCEL MODAL
+  ============================================================== */
+
+  const openCancelModal =
+    useCallback(() => {
+      if (
+        !appointment ||
+        !canCancelAppointment ||
+        cancelLoading
+      ) {
+        return;
+      }
+
+      setCancelModalVisible(
+        true,
+      );
+    }, [
+      appointment,
+      canCancelAppointment,
+      cancelLoading,
+    ]);
+
+  /* ==============================================================
+     CONFIRM CANCELLATION
+  ============================================================== */
+
+  const handleCancelAppointment =
+    useCallback(
+      async (
+        reason,
+      ) => {
+        if (
+          cancelLoading ||
+          !appointment?.id
+        ) {
+          return;
+        }
+
+        const normalizedReason =
+          String(
+            reason ||
+              '',
+          ).trim();
+
+        if (
+          normalizedReason.length <
+          3
+        ) {
+          Alert.alert(
+            'Reason Required',
+            'Please provide a cancellation reason.',
+          );
+
+          return;
+        }
+
+        if (
+          !user?.id
+        ) {
+          Alert.alert(
+            'Authentication Required',
+            'Your customer account could not be verified. Please sign in again and try again.',
+          );
+
+          return;
+        }
+
+        setCancelLoading(
+          true,
+        );
+
+        try {
+          const response =
+            await appointmentsApi.cancel(
+              appointment.id,
+              normalizedReason,
+              user.id,
+            );
+
+          if (
+            response?.error
+          ) {
+            throw new Error(
+              response.errorMessage ||
+                'Failed to cancel appointment.',
+            );
+          }
+
+          /*
+           * Close the confirmation modal.
+           */
+          setCancelModalVisible(
+            false,
+          );
+
+          /*
+           * Immediately fetch the latest appointment.
+           *
+           * Supabase realtime will also deliver the appointment
+           * UPDATE to useTrackingData.
+           */
+          await refreshAll();
+
+          /*
+           * Let the customer know the operation succeeded.
+           */
+          Alert.alert(
+            'Appointment Cancelled',
+            'Your appointment has been cancelled successfully.',
+          );
+        } catch (
+          error
+        ) {
+          console.error(
+            '[TrackingScreen] Failed to cancel appointment:',
+            error,
+          );
+
+          Alert.alert(
+            'Unable to Cancel',
+            error?.message ||
+              'Something went wrong while cancelling your appointment.',
+          );
+        } finally {
+          setCancelLoading(
+            false,
+          );
+        }
+      },
+      [
+        cancelLoading,
+        appointment?.id,
+        user?.id,
+        refreshAll,
+      ],
+    );
 
   /* ==============================================================
      GRAND TOTAL
@@ -450,7 +636,7 @@ export default function TrackingScreen() {
         estimate?.serviceSubtotal,
       ) || 0;
 
-    const partsTotal =
+    const partsTotalFallback =
       tasks
         .filter(
           (
@@ -513,7 +699,7 @@ export default function TrackingScreen() {
 
     grandTotal =
       serviceSubtotal +
-      partsTotal +
+      partsTotalFallback +
       feesTotal -
       discountTotal;
   }
@@ -859,7 +1045,7 @@ export default function TrackingScreen() {
   }
 
   /* ==============================================================
-     PREVIOUS SCHEDULE FOR DECISION MODAL
+     PREVIOUS SCHEDULE
   ============================================================== */
 
   const previousDecisionDate =
@@ -892,7 +1078,7 @@ export default function TrackingScreen() {
         "
         contentContainerStyle={{
           paddingBottom:
-            40,
+            44,
         }}
         showsVerticalScrollIndicator={
           false
@@ -929,7 +1115,7 @@ export default function TrackingScreen() {
           />
 
           {/* ====================================================
-              VEHICLE INFO
+              VEHICLE
           ===================================================== */}
 
           <VehicleInfoCard
@@ -939,7 +1125,7 @@ export default function TrackingScreen() {
           />
 
           {/* ====================================================
-              RESCHEDULE REQUEST HISTORY
+              RESCHEDULE HISTORY
           ===================================================== */}
 
           {!requestsLoading &&
@@ -1017,13 +1203,14 @@ export default function TrackingScreen() {
                 )
               }
               disabled={
-                actionLoading
+                actionLoading ||
+                cancelLoading
               }
               activeOpacity={
                 0.85
               }
               className="
-                mb-4
+                mb-3
                 min-h-[44px]
                 flex-row
                 items-center
@@ -1058,7 +1245,7 @@ export default function TrackingScreen() {
           )}
 
           {/* ====================================================
-              PENDING REQUEST
+              PENDING RESCHEDULE REQUEST
           ===================================================== */}
 
           {pendingRequest && (
@@ -1118,7 +1305,8 @@ export default function TrackingScreen() {
                     text-amber-700
                   "
                 >
-                  Reason: {
+                  Reason:{' '}
+                  {
                     pendingRequest.reason
                   }
                 </Text>
@@ -1353,7 +1541,7 @@ export default function TrackingScreen() {
             )}
 
           {/* ====================================================
-              CANCELLED
+              CANCELLED NOTE
           ===================================================== */}
 
           {isCancelled && (
@@ -1373,6 +1561,96 @@ export default function TrackingScreen() {
               currentStage
             }
           />
+
+          {/* ====================================================
+              CANCEL APPOINTMENT
+
+              IMPORTANT:
+              This is intentionally placed at the END of the
+              Tracking screen.
+
+              Only PENDING and CONFIRMED can display it.
+          ===================================================== */}
+
+          {canCancelAppointment && (
+            <View
+              className="
+                mt-6
+                border-t
+                border-border
+                pt-5
+              "
+            >
+              <TouchableOpacity
+                type="button"
+                onPress={
+                  openCancelModal
+                }
+                disabled={
+                  cancelLoading ||
+                  actionLoading
+                }
+                activeOpacity={
+                  0.85
+                }
+                className="
+                  min-h-[48px]
+                  w-full
+                  flex-row
+                  items-center
+                  justify-center
+                  rounded-xl
+                  border
+                  border-border
+                  bg-secondary
+                  px-4
+                  py-3
+                "
+              >
+                {cancelLoading ? (
+                  <ActivityIndicator
+                    size="small"
+                    color="#8E8E93"
+                  />
+                ) : (
+                  <>
+                    <XCircle
+                      size={
+                        18
+                      }
+                      color="#8E8E93"
+                      strokeWidth={
+                        2
+                      }
+                    />
+
+                    <Text
+                      className="
+                        ml-2
+                        text-sm
+                        font-semibold
+                        text-secondary-foreground
+                      "
+                    >
+                      Cancel Appointment
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <Text
+                className="
+                  mt-2
+                  text-center
+                  text-[10px]
+                  leading-4
+                  text-muted-foreground
+                "
+              >
+                Cancellation cannot be undone.
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -1456,7 +1734,7 @@ export default function TrackingScreen() {
       />
 
       {/* ==========================================================
-          REALTIME RESCHEDULE DECISION
+          RESCHEDULE RESULT
       =========================================================== */}
 
       <RescheduleConfirmationModal
@@ -1486,6 +1764,36 @@ export default function TrackingScreen() {
         }
         onConfirm={
           closeRescheduleDecision
+        }
+      />
+
+      {/* ==========================================================
+          CANCEL APPOINTMENT CONFIRMATION
+      =========================================================== */}
+
+      <CancelAppointmentModal
+        visible={
+          cancelModalVisible
+        }
+        appointment={
+          appointment
+        }
+        loading={
+          cancelLoading
+        }
+        onCancel={() => {
+          if (
+            cancelLoading
+          ) {
+            return;
+          }
+
+          setCancelModalVisible(
+            false,
+          );
+        }}
+        onConfirm={
+          handleCancelAppointment
         }
       />
     </SafeAreaView>

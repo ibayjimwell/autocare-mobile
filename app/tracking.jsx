@@ -30,6 +30,7 @@ import {
   ReceiptText,
   Calendar,
   XCircle,
+  FileText,
 } from 'lucide-react-native';
 
 import {
@@ -58,6 +59,8 @@ import VehicleInfoCard from '../components/tracking/VehicleInfoCard';
 
 import TaskList from '../components/tracking/TaskList';
 
+import FindingsCard from '../components/tracking/FindingsCard';
+
 import CostingSummary from '../components/tracking/CostingSummary';
 
 import ProgressTimeline from '../components/tracking/ProgressTimeline';
@@ -65,6 +68,8 @@ import ProgressTimeline from '../components/tracking/ProgressTimeline';
 import CancellationNote from '../components/tracking/CancellationNote';
 
 import QueueSection from '../components/tracking/QueueSection';
+
+import WaitingCard from '../components/tracking/WaitingCard';
 
 import {
   ApproveModal,
@@ -137,6 +142,370 @@ export default function TrackingScreen() {
     useTrackingData(
       appointmentId,
     );
+
+  /* ==============================================================
+     IN-PROGRESS FINDINGS
+  ============================================================== */
+
+  /*
+   * Findings are stored separately from work tasks on the
+   * Service Tracking side.
+   *
+   * The customer should still be able to see those findings after
+   * the appointment changes from WAITING_FOR_APPROVAL to
+   * IN_PROGRESS.
+   *
+   * We therefore keep a dedicated customer-facing findings state.
+   */
+  const [
+    inProgressFindings,
+    setInProgressFindings,
+  ] = useState(
+    [],
+  );
+
+  const [
+    findingsLoading,
+    setFindingsLoading,
+  ] = useState(
+    false,
+  );
+
+  const [
+    findingsError,
+    setFindingsError,
+  ] = useState(
+    null,
+  );
+
+  /* ==============================================================
+     FINDINGS HELPERS
+  ============================================================== */
+
+  /**
+   * Normalize possible estimate response shapes.
+   *
+   * Depending on the API wrapper, the response can be:
+   *
+   * {
+   *   data: [...]
+   * }
+   *
+   * or:
+   *
+   * {
+   *   data: {...}
+   * }
+   *
+   * or directly:
+   *
+   * [...]
+   */
+  const normalizeEstimateList =
+    useCallback(
+      (
+        response,
+      ) => {
+        const data =
+          response?.data ??
+          response;
+
+        if (
+          Array.isArray(
+            data,
+          )
+        ) {
+          return data;
+        }
+
+        if (
+          data &&
+          typeof data ===
+            'object'
+        ) {
+          return [
+            data,
+          ];
+        }
+
+        return [];
+      },
+      [],
+    );
+
+  /**
+   * Extract findings from a fully populated estimate response.
+   *
+   * The mobile estimate breakdown already uses:
+   *
+   * estimate.findings
+   *
+   * so this keeps the customer tracking display on the same
+   * estimate data contract.
+   */
+  const extractEstimateFindings =
+    useCallback(
+      (
+        response,
+      ) => {
+        const data =
+          response?.data ??
+          response;
+
+        if (
+          Array.isArray(
+            data?.findings,
+          )
+        ) {
+          return data.findings;
+        }
+
+        return [];
+      },
+      [],
+    );
+
+  /**
+   * Load the findings associated with the approved estimate.
+   *
+   * This is intentionally restricted to IN_PROGRESS because that
+   * is the customer-facing state requested for live repair work.
+   *
+   * Strategy:
+   *
+   * 1. Use the currently loaded estimate if it already contains
+   *    findings.
+   *
+   * 2. Otherwise retrieve the estimate belonging to the
+   *    appointment.
+   *
+   * 3. Fetch full estimate details when only a summary/list item
+   *    was returned.
+   */
+  const loadInProgressFindings =
+    useCallback(
+      async () => {
+        if (
+          !appointmentId ||
+          appointment?.status !==
+            'IN_PROGRESS'
+        ) {
+          setInProgressFindings(
+            [],
+          );
+
+          setFindingsError(
+            null,
+          );
+
+          setFindingsLoading(
+            false,
+          );
+
+          return;
+        }
+
+        setFindingsLoading(
+          true,
+        );
+
+        setFindingsError(
+          null,
+        );
+
+        try {
+          /*
+           * ------------------------------------------------------
+           * 1. Use already-loaded estimate details when possible.
+           * ------------------------------------------------------
+           */
+
+          const currentFindings =
+            extractEstimateFindings(
+              estimate,
+            );
+
+          if (
+            currentFindings.length >
+            0
+          ) {
+            setInProgressFindings(
+              currentFindings,
+            );
+
+            return;
+          }
+
+          /*
+           * ------------------------------------------------------
+           * 2. Find the estimate belonging to this appointment.
+           * ------------------------------------------------------
+           */
+
+          const listResponse =
+            await estimateApi.getByAppointment(
+              appointmentId,
+            );
+
+          if (
+            listResponse?.error
+          ) {
+            throw new Error(
+              listResponse.errorMessage ||
+                'Unable to load service findings.',
+            );
+          }
+
+          const estimateList =
+            normalizeEstimateList(
+              listResponse,
+            );
+
+          if (
+            estimateList.length ===
+            0
+          ) {
+            setInProgressFindings(
+              [],
+            );
+
+            return;
+          }
+
+          /*
+           * Prefer the approved estimate when the API exposes
+           * multiple estimate records.
+           */
+          const selectedEstimate =
+            estimateList.find(
+              (
+                item,
+              ) =>
+                [
+                  'APPROVED',
+                  'WAITING_FOR_APPROVAL',
+                  'OFFICIAL',
+                ].includes(
+                  String(
+                    item?.status ||
+                      '',
+                  ).toUpperCase(),
+                ),
+            ) ||
+            estimateList[0];
+
+          /*
+           * ------------------------------------------------------
+           * 3. Fetch full estimate details when possible.
+           * ------------------------------------------------------
+           */
+
+          let detail =
+            selectedEstimate;
+
+          if (
+            selectedEstimate?.id
+          ) {
+            try {
+              const detailResponse =
+                await estimateApi.get(
+                  selectedEstimate.id,
+                );
+
+              if (
+                !detailResponse?.error
+              ) {
+                detail =
+                  detailResponse?.data ??
+                  detailResponse ??
+                  selectedEstimate;
+              }
+            } catch (
+              detailError
+            ) {
+              /*
+               * A summary estimate can still contain findings,
+               * so do not fail the entire screen if the second
+               * request is unavailable.
+               */
+              console.warn(
+                '[TrackingScreen] Full estimate detail request failed:',
+                detailError,
+              );
+            }
+          }
+
+          const findings =
+            extractEstimateFindings(
+              detail,
+            );
+
+          setInProgressFindings(
+            findings,
+          );
+        } catch (
+          error
+        ) {
+          console.error(
+            '[TrackingScreen] Failed to load in-progress findings:',
+            error,
+          );
+
+          setInProgressFindings(
+            [],
+          );
+
+          setFindingsError(
+            error?.message ||
+              'Unable to load service findings.',
+          );
+        } finally {
+          setFindingsLoading(
+            false,
+          );
+        }
+      },
+      [
+        appointmentId,
+        appointment?.status,
+        estimate,
+        extractEstimateFindings,
+        normalizeEstimateList,
+      ],
+    );
+
+  /* ==============================================================
+     LOAD FINDINGS WHEN IN PROGRESS
+  ============================================================== */
+
+  useEffect(
+    () => {
+      if (
+        appointment?.status ===
+        'IN_PROGRESS'
+      ) {
+        void loadInProgressFindings();
+
+        return;
+      }
+
+      setInProgressFindings(
+        [],
+      );
+
+      setFindingsError(
+        null,
+      );
+
+      setFindingsLoading(
+        false,
+      );
+    },
+    [
+      appointment?.status,
+      loadInProgressFindings,
+    ],
+  );
 
   /* ==============================================================
      QUEUE
@@ -427,6 +796,10 @@ export default function TrackingScreen() {
       appointment?.status
     ] ?? 0;
 
+  const isUnderInspection =
+    appointment?.status ===
+    'UNDER_INSPECTION';
+
   const isWaitingForApproval =
     appointment?.status ===
     'WAITING_FOR_APPROVAL';
@@ -444,6 +817,63 @@ export default function TrackingScreen() {
     'PENDING';
 
   /* ==============================================================
+     TASK COMPLETION
+  ============================================================== */
+
+  /*
+   * A task list is considered complete only when:
+   *
+   * - At least one task exists
+   * - Every task has the DONE status
+   *
+   * This is used only for determining when the final estimate
+   * waiting card should appear during UNDER_INSPECTION.
+   */
+  const allTasksDone =
+    tasks.length > 0 &&
+    tasks.every(
+      (task) =>
+        task?.status === 'DONE',
+    );
+
+  /*
+   * UNDER_INSPECTION WAITING STATE
+   *
+   * IMPORTANT:
+   * We intentionally DO NOT show a waiting card while tasks are
+   * still being completed.
+   *
+   * The card appears only after:
+   *
+   * UNDER_INSPECTION
+   * + all tasks are DONE
+   * + no estimate exists yet
+   *
+   * This tells the customer to wait for the estimate costing
+   * after the inspection has finished.
+   */
+  const showWaitingForEstimate =
+    isUnderInspection &&
+    allTasksDone &&
+    !estimate;
+
+  /*
+   * IN_PROGRESS WAITING STATE
+   *
+   * The customer has already approved the estimate and the
+   * service is now in progress.
+   *
+   * Until the final bill/costing arrives, show the waiting card.
+   *
+   * Findings are displayed independently above the final
+   * costing state so that the customer can review the findings
+   * already recorded for the vehicle.
+   */
+  const showWaitingForFinalCosting =
+    isInProgress &&
+    !finalBill;
+
+  /* ==============================================================
      CAN RESCHEDULE
   ============================================================== */
 
@@ -456,12 +886,12 @@ export default function TrackingScreen() {
 
   /* ==============================================================
      CAN CANCEL
-     
+
      Customer cancellation is intentionally limited to:
-     
+
        PENDING
        CONFIRMED
-     
+
      It is NOT exposed during inspection, estimate approval,
      work in progress, completed, or already cancelled states.
   ============================================================== */
@@ -841,6 +1271,15 @@ export default function TrackingScreen() {
         );
 
         await refreshAll();
+
+        /*
+         * Give the findings loader the new IN_PROGRESS state.
+         *
+         * refreshAll updates the appointment through the existing
+         * tracking hook. A second refresh is intentionally not
+         * forced here; the effect watching appointment.status will
+         * load findings when the new status is received.
+         */
       } catch (
         error
       ) {
@@ -931,6 +1370,41 @@ export default function TrackingScreen() {
       },
       [
         refreshAll,
+      ],
+    );
+
+  /* ==============================================================
+     REFRESH ALL TRACKING DATA
+  ============================================================== */
+
+  /**
+   * Keep the existing useTrackingData refresh behavior and also
+   * refresh IN_PROGRESS findings.
+   *
+   * Pull-to-refresh therefore updates:
+   *
+   * - Appointment status
+   * - Tasks
+   * - Estimate
+   * - Final bill
+   * - In-progress findings
+   */
+  const handleTrackingRefresh =
+    useCallback(
+      async () => {
+        await onRefresh();
+
+        if (
+          appointment?.status ===
+          'IN_PROGRESS'
+        ) {
+          await loadInProgressFindings();
+        }
+      },
+      [
+        onRefresh,
+        appointment?.status,
+        loadInProgressFindings,
       ],
     );
 
@@ -1089,7 +1563,7 @@ export default function TrackingScreen() {
               refreshing
             }
             onRefresh={
-              onRefresh
+              handleTrackingRefresh
             }
             tintColor="#C1272D"
             colors={[
@@ -1354,46 +1828,253 @@ export default function TrackingScreen() {
           )}
 
           {/* ====================================================
+              IN-PROGRESS FINDINGS
+              
+              These findings are intentionally displayed during:
+              
+                IN_PROGRESS
+              
+              The customer can therefore see the diagnostic
+              findings recorded during inspection even after the
+              appointment has moved into active work.
+          ===================================================== */}
+
+          {isInProgress && (
+            <>
+              {findingsLoading &&
+                inProgressFindings.length ===
+                  0 && (
+                  <View
+                    className="
+                      mb-6
+                      overflow-hidden
+                      rounded-xl
+                      border
+                      border-border
+                      bg-card
+                      p-4
+                    "
+                  >
+                    <View
+                      className="
+                        flex-row
+                        items-center
+                        gap-3
+                      "
+                    >
+                      <View
+                        className="
+                          h-10
+                          w-10
+                          items-center
+                          justify-center
+                          rounded-xl
+                          bg-primary/10
+                        "
+                      >
+                        <ActivityIndicator
+                          size="small"
+                          color="#C1272D"
+                        />
+                      </View>
+
+                      <View
+                        className="
+                          flex-1
+                        "
+                      >
+                        <Text
+                          className="
+                            text-sm
+                            font-semibold
+                            text-foreground
+                          "
+                        >
+                          Loading Findings
+                        </Text>
+
+                        <Text
+                          className="
+                            mt-1
+                            text-xs
+                            leading-5
+                            text-muted-foreground
+                          "
+                        >
+                          Retrieving diagnostic findings for your vehicle.
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+              {findingsError &&
+                inProgressFindings.length ===
+                  0 &&
+                !findingsLoading && (
+                  <View
+                    className="
+                      mb-6
+                      overflow-hidden
+                      rounded-xl
+                      border
+                      border-border
+                      bg-card
+                      p-4
+                    "
+                  >
+                    <View
+                      className="
+                        flex-row
+                        items-start
+                        gap-3
+                      "
+                    >
+                      <View
+                        className="
+                          h-10
+                          w-10
+                          shrink-0
+                          items-center
+                          justify-center
+                          rounded-xl
+                          bg-primary/10
+                        "
+                      >
+                        <FileText
+                          size={
+                            19
+                          }
+                          color="#C1272D"
+                          strokeWidth={
+                            2
+                          }
+                        />
+                      </View>
+
+                      <View
+                        className="
+                          min-w-0
+                          flex-1
+                        "
+                      >
+                        <Text
+                          className="
+                            text-sm
+                            font-semibold
+                            text-foreground
+                          "
+                        >
+                          Findings unavailable
+                        </Text>
+
+                        <Text
+                          className="
+                            mt-1
+                            text-xs
+                            leading-5
+                            text-muted-foreground
+                          "
+                        >
+                          We could not load the diagnostic findings right now. Pull down to refresh and try again.
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+              <FindingsCard
+                findings={
+                  inProgressFindings
+                }
+              />
+            </>
+          )}
+
+          {/* ====================================================
+              WAITING FOR ESTIMATE COSTING
+
+              UNDER_INSPECTION ONLY.
+
+              This card is intentionally NOT displayed while
+              inspection tasks are still being completed.
+
+              It appears only when:
+                - status is UNDER_INSPECTION
+                - at least one task exists
+                - every task is DONE
+                - estimate has not arrived yet
+          ===================================================== */}
+
+          {showWaitingForEstimate && (
+            <WaitingCard
+              message="Wait for Estimate Costing to show"
+              description="Your vehicle inspection is complete. Please wait while the estimate costing is prepared."
+            />
+          )}
+
+          {/* ====================================================
               ESTIMATE
           ===================================================== */}
 
           {appointment.status ===
-            'WAITING_FOR_APPROVAL' && (
-            <CostingSummary
-              servicePrice={
-                servicePrice
-              }
-              partsTotal={
-                partsTotal
-              }
-              laborTotal={
-                laborTotal
-              }
-              discountTotal={
-                discountTotal
-              }
-              grandTotal={
-                grandTotal
-              }
-              isWaitingForApproval={
-                isWaitingForApproval
-              }
-              actionLoading={
-                actionLoading
-              }
-              onApprove={() =>
-                setApproveModalVisible(
-                  true,
-                )
-              }
-              onReject={() =>
-                setRejectModalVisible(
-                  true,
-                )
-              }
-              estimate={
-                estimate
-              }
+            'WAITING_FOR_APPROVAL' &&
+            estimate && (
+              <CostingSummary
+                servicePrice={
+                  servicePrice
+                }
+                partsTotal={
+                  partsTotal
+                }
+                laborTotal={
+                  laborTotal
+                }
+                discountTotal={
+                  discountTotal
+                }
+                grandTotal={
+                  grandTotal
+                }
+                isWaitingForApproval={
+                  isWaitingForApproval
+                }
+                actionLoading={
+                  actionLoading
+                }
+                onApprove={() =>
+                  setApproveModalVisible(
+                    true,
+                  )
+                }
+                onReject={() =>
+                  setRejectModalVisible(
+                    true,
+                  )
+                }
+                estimate={
+                  estimate
+                }
+              />
+            )}
+
+          {/* ====================================================
+              WAITING FOR FINAL COSTING
+
+              IN_PROGRESS ONLY.
+
+              This card appears while the service is being
+              completed and the final bill has not arrived.
+
+              The Findings card is displayed before this card,
+              so customers can review their recorded findings
+              while the repair is still ongoing.
+          ===================================================== */}
+
+          {showWaitingForFinalCosting && (
+            <WaitingCard
+              message="Wait for Final Costing to show"
+              description="Your vehicle service is in progress. The final costing will appear once the completed service details are ready."
             />
           )}
 

@@ -96,7 +96,7 @@ export default function AllFinalBillsScreen() {
               className="text-xl font-bold"
               style={{ color: theme.text }}
             >
-              All Final Bills
+              All Final Costs
             </Text>
 
             <Text
@@ -198,7 +198,7 @@ export default function AllFinalBillsScreen() {
               className="text-base font-semibold mt-4"
               style={{ color: theme.text }}
             >
-              No final bills found
+              No Final Costs found
             </Text>
 
             <Text

@@ -216,7 +216,7 @@ function RootLayoutNav() {
               name="final-bills" 
               options={{ 
                 headerShown: true,
-                title: "All Final Bills",
+                title: "All Final Costs",
                 header: ({ options, navigation }) => (
                   <CustomStackHeader 
                     title={options.title} 

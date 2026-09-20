@@ -1,20 +1,136 @@
 import api from './api';
 
+function normalizeId(value) {
+  if (Array.isArray(value)) {
+    return value[0] ?? '';
+  }
+
+  return value ?? '';
+}
+
 const finalBillsApi = {
-  getByAppointment: (appointmentId) =>
-    api.request(`/payments/final-bills?appointmentId=${appointmentId}`, 'GET', null, true),
+  /*
+   * ================================================================
+   * GET BY APPOINTMENT
+   * ================================================================
+   */
 
-  getById: (billId) =>
-    api.request(`/payments/final-bills/${billId}`, 'GET', null, true),
+  getByAppointment:
+    appointmentId => {
+      const id =
+        normalizeId(
+          appointmentId,
+        );
 
-  listByCustomer: (customerId) =>
-    api.request(`/payments/final-bills?customerId=${customerId}`, 'GET', null, true),
+      return api.request(
+        `/payments/final-bills?appointmentId=${encodeURIComponent(
+          id,
+        )}`,
+        'GET',
+        null,
+        true,
+      );
+    },
 
-  getStatus: (billId) =>
-    api.request(`/payments/final-bills/${billId}/status`, 'GET', null, true),
+  /*
+   * ================================================================
+   * GET BY ID
+   * ================================================================
+   */
 
-  updateStatus: (billId, status) =>
-    api.request(`/payments/final-bills/${billId}/status`, 'PATCH', { status }, true),
+  getById: billId => {
+    const id =
+      normalizeId(
+        billId,
+      );
+
+    return api.request(
+      `/payments/final-bills/${encodeURIComponent(
+        id,
+      )}`,
+      'GET',
+      null,
+      true,
+    );
+  },
+
+  /*
+   * ================================================================
+   * LIST BY CUSTOMER
+   * ================================================================
+   */
+
+  listByCustomer:
+    customerId => {
+      const id =
+        normalizeId(
+          customerId,
+        );
+
+      return api.request(
+        `/payments/final-bills?customerId=${encodeURIComponent(
+          id,
+        )}`,
+        'GET',
+        null,
+        true,
+      );
+    },
+
+  /*
+   * ================================================================
+   * GET STATUS
+   * ================================================================
+   *
+   * Used for:
+   * - initial state
+   * - app-focus recovery
+   *
+   * It is NOT used for polling.
+   */
+
+  getStatus: billId => {
+    const id =
+      normalizeId(
+        billId,
+      );
+
+    return api.request(
+      `/payments/final-bills/${encodeURIComponent(
+        id,
+      )}/status`,
+      'GET',
+      null,
+      true,
+    );
+  },
+
+  /*
+   * ================================================================
+   * UPDATE STATUS
+   * ================================================================
+   */
+
+  updateStatus: (
+    billId,
+    status,
+  ) => {
+    const id =
+      normalizeId(
+        billId,
+      );
+
+    return api.request(
+      `/payments/final-bills/${encodeURIComponent(
+        id,
+      )}/status`,
+      'PATCH',
+      {
+        status,
+      },
+      true,
+    );
+  },
 };
 
 export default finalBillsApi;

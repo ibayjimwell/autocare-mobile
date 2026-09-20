@@ -2,7 +2,7 @@
 import api from './api';
 
 const receiptApi = {
-  // Get receipt for a final bill
+  // Get receipt for a Final Cost
   getByFinalBill: (finalBillId) =>
     api.request(`/payments/receipts?finalBillId=${finalBillId}`, 'GET', null, true),
 };

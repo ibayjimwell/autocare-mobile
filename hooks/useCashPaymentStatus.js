@@ -1,43 +1,246 @@
-// hooks/useCashPaymentStatus.js
-import { useState, useEffect, useRef } from 'react';
-import finalBillsApi from '../services/finalBillsApi';
+import {
+  useState,
+  useCallback,
+  useEffect,
+} from 'react';
 
-export function useCashPaymentStatus(billId) {
-  const [status, setStatus] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const intervalRef = useRef(null);
+import {
+  useFocusEffect,
+} from 'expo-router';
+
+import finalBillsApi from '../services/finalBillsApi';
+import { useRealtimeTable } from '../connections/useRealtimeTable';
+
+function normalizeId(value) {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value ?? null;
+}
+
+function extractStatus(response) {
+  if (!response) {
+    return null;
+  }
+
+  /*
+   * api.request returns the parsed JSON object.
+   *
+   * Expected:
+   * {
+   *   error: false,
+   *   message: "...",
+   *   data: {
+   *     status: "PAID"
+   *   }
+   * }
+   */
+  const payload =
+    response?.data ??
+    response;
+
+  if (
+    payload &&
+    typeof payload.status ===
+      'string'
+  ) {
+    return payload.status
+      .trim()
+      .toUpperCase();
+  }
+
+  if (
+    payload?.data &&
+    typeof payload.data.status ===
+      'string'
+  ) {
+    return payload.data.status
+      .trim()
+      .toUpperCase();
+  }
+
+  return null;
+}
+
+export function useCashPaymentStatus(
+  billId,
+) {
+  const normalizedBillId =
+    normalizeId(billId);
+
+  const [
+    status,
+    setStatus,
+  ] = useState(null);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  /*
+   * ---------------------------------------------------------------
+   * Load current status once.
+   *
+   * This is NOT polling.
+   *
+   * Realtime is responsible for subsequent status changes.
+   * ---------------------------------------------------------------
+   */
+
+  const fetchStatus =
+    useCallback(
+      async showLoading => {
+        if (
+          !normalizedBillId
+        ) {
+          setStatus(null);
+          setLoading(false);
+          return;
+        }
+
+        if (showLoading) {
+          setLoading(true);
+        }
+
+        try {
+          const response =
+            await finalBillsApi.getStatus(
+              normalizedBillId,
+            );
+
+          const currentStatus =
+            extractStatus(
+              response,
+            );
+
+          if (
+            currentStatus
+          ) {
+            setStatus(
+              currentStatus,
+            );
+          }
+        } catch (err) {
+          /*
+           * A failed snapshot request must not break the realtime
+           * subscription. The Realtime listener remains active.
+           */
+          console.error(
+            '[CashPaymentStatus] Initial status check failed:',
+            err,
+          );
+        } finally {
+          setLoading(false);
+        }
+      },
+      [normalizedBillId],
+    );
+
+  /*
+   * ---------------------------------------------------------------
+   * Initial status
+   * ---------------------------------------------------------------
+   */
 
   useEffect(() => {
-    if (!billId) {
-      setLoading(false);
-      return;
-    }
+    fetchStatus(true);
+  }, [fetchStatus]);
 
-    const fetchStatus = async () => {
-      try {
-        const res = await finalBillsApi.getStatus(billId);
-        const currentStatus = res.data?.status || res.status;
-        setStatus(currentStatus);
-        if (currentStatus === 'PAID') {
-          clearInterval(intervalRef.current);
+  /*
+   * ---------------------------------------------------------------
+   * Realtime final_bills subscription
+   *
+   * Exact row filter:
+   *
+   * id=eq.<billId>
+   *
+   * No timer is used.
+   * ---------------------------------------------------------------
+   */
+
+  const handleRealtimeChange =
+    useCallback(
+      payload => {
+        const nextStatus =
+          payload?.new?.status ??
+          payload?.record?.status;
+
+        const previousStatus =
+          payload?.old?.status;
+
+        const currentStatus =
+          typeof nextStatus ===
+          'string'
+            ? nextStatus
+                .trim()
+                .toUpperCase()
+            : typeof previousStatus ===
+                'string'
+              ? previousStatus
+                  .trim()
+                  .toUpperCase()
+              : null;
+
+        if (!currentStatus) {
+          return;
         }
-      } catch (err) {
-        console.error('Status check error:', err);
-      } finally {
-        setLoading(false);
+
+        console.log(
+          '[CashPaymentStatus] Realtime Final Cost status:',
+          currentStatus,
+        );
+
+        setStatus(
+          currentStatus,
+        );
+
+        if (
+          currentStatus ===
+          'PAID'
+        ) {
+          setLoading(false);
+        }
+      },
+      [],
+    );
+
+  useRealtimeTable(
+    'final_bills',
+    normalizedBillId
+      ? `id=eq.${normalizedBillId}`
+      : null,
+    handleRealtimeChange,
+  );
+
+  /*
+   * ---------------------------------------------------------------
+   * Recovery check when returning to the app
+   *
+   * This is a single request on focus, not polling.
+   * ---------------------------------------------------------------
+   */
+
+  useFocusEffect(
+    useCallback(() => {
+      if (
+        normalizedBillId
+      ) {
+        fetchStatus(false);
       }
-    };
+    }, [
+      normalizedBillId,
+      fetchStatus,
+    ]),
+  );
 
-    // Initial fetch
-    fetchStatus();
+  const isPaid =
+    status === 'PAID';
 
-    // Poll every 3 seconds
-    intervalRef.current = setInterval(fetchStatus, 3000);
-
-    return () => clearInterval(intervalRef.current);
-  }, [billId]);
-
-  const isPaid = status === 'PAID';
-
-  return { status, loading, isPaid };
+  return {
+    status,
+    loading,
+    isPaid,
+  };
 }

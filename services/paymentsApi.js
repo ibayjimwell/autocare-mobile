@@ -1,17 +1,35 @@
-// services/paymentsApi.js
 import api from './api';
 
 const paymentsApi = {
-  // Create PayMongo checkout for a bill
-  payOnline: (billId) =>
-    api.request(`/payments/final-bills/${billId}/pay-online`, 'POST', null, true),
-  
-   verifyPayment: (billId, paymongoLinkId) =>
+  /*
+   * Create a PayMongo checkout link for a Final Cost.
+   */
+  payOnline: billId =>
     api.request(
-      `/payments/final-bills/${billId}/verify-payment`,
+      `/payments/final-bills/${encodeURIComponent(
+        billId,
+      )}/pay-online`,
       'POST',
-      { paymongoLinkId },
-      true
+      null,
+      true,
+    ),
+
+  /*
+   * Verify PayMongo payment status.
+   */
+  verifyPayment: (
+    billId,
+    paymongoLinkId,
+  ) =>
+    api.request(
+      `/payments/final-bills/${encodeURIComponent(
+        billId,
+      )}/verify-payment`,
+      'POST',
+      {
+        paymongoLinkId,
+      },
+      true,
     ),
 };
 

@@ -132,7 +132,7 @@ export function FinalBillListItem({ item, onPress }) {
             className="text-xs font-semibold uppercase tracking-[1.2px]"
             style={{ color: theme.primary }}
           >
-            Final Bill
+            Final Cost
           </Text>
 
           <Text

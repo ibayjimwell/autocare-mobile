@@ -6,8 +6,15 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+
+import {
+  SafeAreaView,
+} from 'react-native-safe-area-context';
+
+import {
+  useRouter,
+} from 'expo-router';
+
 import {
   WalletCards,
   ChevronRight,
@@ -19,36 +26,166 @@ import {
 
 import { useTheme } from '../context/ThemeContext';
 import { useBillingData } from '../hooks/useBillingData';
+
 import EstimateCard from '../components/billing/EstimateCard';
 import FinalBillCard from '../components/billing/FinalBillCard';
+
+function normalizeStatus(value) {
+  if (
+    typeof value !== 'string'
+  ) {
+    return '';
+  }
+
+  return value
+    .trim()
+    .toUpperCase();
+}
 
 export default function BillingScreen() {
   const router = useRouter();
   const { theme } = useTheme();
-  const { estimates, finalBills, loading, refreshing, onRefresh } = useBillingData();
 
-  // Filter: WAITING_FOR_APPROVAL only, sorted oldest first
-  const waitingEstimates = estimates
-    .filter(e => e.status === 'WAITING_FOR_APPROVAL')
-    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  const {
+    estimates,
+    finalBills,
+    loading,
+    refreshing,
+    onRefresh,
+  } = useBillingData();
 
-  // Filter: OFFICIAL final bills (ready to pay)
-  const officialBills = finalBills
-    .filter(b => b.status === 'OFFICIAL')
-    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  /*
+   * ================================================================
+   * ESTIMATES
+   * ================================================================
+   *
+   * Only estimates waiting for customer approval are displayed here.
+   */
+  const waitingEstimates = [
+    ...estimates,
+  ]
+    .filter(
+      estimate =>
+        normalizeStatus(
+          estimate?.status,
+        ) ===
+        'WAITING_FOR_APPROVAL',
+    )
+    .sort(
+      (a, b) =>
+        new Date(
+          a?.createdAt ?? 0,
+        ).getTime() -
+        new Date(
+          b?.createdAt ?? 0,
+        ).getTime(),
+    );
 
-  // Filter: PAID final bills (history)
-  const paidBills = finalBills
-    .filter(b => b.status === 'PAID')
-    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  /*
+   * ================================================================
+   * OFFICIAL Final CostS
+   * ================================================================
+   *
+   * OFFICIAL bills are still unpaid and can be opened through the
+   * invoice/payment screen.
+   */
+  const officialBills = [
+    ...finalBills,
+  ]
+    .filter(
+      bill =>
+        normalizeStatus(
+          bill?.status,
+        ) === 'OFFICIAL',
+    )
+    .sort(
+      (a, b) =>
+        new Date(
+          a?.createdAt ?? 0,
+        ).getTime() -
+        new Date(
+          b?.createdAt ?? 0,
+        ).getTime(),
+    );
+
+  /*
+   * ================================================================
+   * PAID Final CostS
+   * ================================================================
+   *
+   * PAID bills must go directly to the receipt.
+   *
+   * They must NOT open /invoice/[id], because the invoice screen is
+   * intended for an OFFICIAL bill that is still ready for payment.
+   */
+  const paidBills = [
+    ...finalBills,
+  ]
+    .filter(
+      bill =>
+        normalizeStatus(
+          bill?.status,
+        ) === 'PAID',
+    )
+    .sort(
+      (a, b) =>
+        new Date(
+          a?.createdAt ?? 0,
+        ).getTime() -
+        new Date(
+          b?.createdAt ?? 0,
+        ).getTime(),
+    );
+
+  /*
+   * ================================================================
+   * OPEN OFFICIAL BILL
+   * ================================================================
+   */
+  const openOfficialBill = billId => {
+    if (!billId) {
+      return;
+    }
+
+    router.push(
+      `/invoice/${billId}`,
+    );
+  };
+
+  /*
+   * ================================================================
+   * OPEN PAID BILL
+   * ================================================================
+   */
+  const openPaidBill = billId => {
+    if (!billId) {
+      return;
+    }
+
+    router.push(
+      `/receipt/${billId}`,
+    );
+  };
+
+  /*
+   * ================================================================
+   * LOADING
+   * ================================================================
+   */
 
   if (loading) {
     return (
       <SafeAreaView
         className="flex-1 bg-background items-center justify-center"
-        style={{ backgroundColor: theme.background }}
+        style={{
+          backgroundColor:
+            theme.background,
+        }}
       >
-        <ActivityIndicator size="large" color={theme.primary} />
+        <ActivityIndicator
+          size="large"
+          color={theme.primary}
+        />
       </SafeAreaView>
     );
   }
@@ -56,33 +193,53 @@ export default function BillingScreen() {
   return (
     <SafeAreaView
       className="flex-1 bg-background"
-      style={{ backgroundColor: theme.background }}
+      style={{
+        backgroundColor:
+          theme.background,
+      }}
       edges={['top']}
     >
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{
+          paddingBottom: 32,
+        }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={theme.primary}
-            colors={[theme.primary]}
+            tintColor={
+              theme.primary
+            }
+            colors={[
+              theme.primary,
+            ]}
           />
         }
       >
         <View className="px-4 pt-5">
-          {/* Header */}
+
+          {/* ========================================================
+              HEADER
+          ========================================================= */}
+
           <View className="mb-6">
             <View className="flex-row items-center mb-2">
               <View className="w-8 h-8 rounded-full bg-primary/10 items-center justify-center mr-2">
-                <WalletCards size={17} color={theme.primary} strokeWidth={2.25} />
+                <WalletCards
+                  size={17}
+                  color={theme.primary}
+                  strokeWidth={2.25}
+                />
               </View>
 
               <Text
                 className="text-sm font-semibold tracking-[1.4px] uppercase"
-                style={{ color: theme.primary }}
+                style={{
+                  color:
+                    theme.primary,
+                }}
               >
                 Billing & Payments
               </Text>
@@ -90,51 +247,79 @@ export default function BillingScreen() {
 
             <Text
               className="text-3xl font-bold tracking-tight"
-              style={{ color: theme.text }}
+              style={{
+                color: theme.text,
+              }}
             >
               Your Documents
             </Text>
 
             <Text
               className="text-sm mt-1 leading-5"
-              style={{ color: theme.textSecondary }}
+              style={{
+                color:
+                  theme.textSecondary,
+              }}
             >
               Review estimates, invoices, and completed payments.
             </Text>
           </View>
 
-          {/* Summary card */}
+          {/* ========================================================
+              SUMMARY CARD
+          ========================================================= */}
+
           <View className="bg-card rounded-2xl p-5 mb-7 border border-border">
             <View className="flex-row items-center justify-between mb-5">
               <View>
                 <Text
                   className="text-xs font-semibold uppercase tracking-[1.4px]"
-                  style={{ color: theme.textSecondary }}
+                  style={{
+                    color:
+                      theme.textSecondary,
+                  }}
                 >
                   Payment overview
                 </Text>
 
                 <Text
                   className="text-xl font-bold mt-1"
-                  style={{ color: theme.text }}
+                  style={{
+                    color:
+                      theme.text,
+                  }}
                 >
                   Stay up to date
                 </Text>
               </View>
 
               <View className="w-11 h-11 rounded-full bg-primary/10 items-center justify-center">
-                <ReceiptText size={21} color={theme.primary} strokeWidth={2.1} />
+                <ReceiptText
+                  size={21}
+                  color={theme.primary}
+                  strokeWidth={2.1}
+                />
               </View>
             </View>
 
             <View className="flex-row">
+
+              {/* Awaiting */}
+
               <View className="flex-1 pr-2">
                 <View className="rounded-xl bg-background p-3">
                   <View className="flex-row items-center mb-2">
-                    <Clock3 size={15} color={theme.primary} />
+                    <Clock3
+                      size={15}
+                      color={theme.primary}
+                    />
+
                     <Text
                       className="text-xs font-medium ml-1.5"
-                      style={{ color: theme.textSecondary }}
+                      style={{
+                        color:
+                          theme.textSecondary,
+                      }}
                     >
                       Awaiting
                     </Text>
@@ -142,20 +327,34 @@ export default function BillingScreen() {
 
                   <Text
                     className="text-2xl font-bold"
-                    style={{ color: theme.text }}
+                    style={{
+                      color:
+                        theme.text,
+                    }}
                   >
-                    {waitingEstimates.length}
+                    {
+                      waitingEstimates.length
+                    }
                   </Text>
                 </View>
               </View>
 
+              {/* Ready */}
+
               <View className="flex-1 px-1">
                 <View className="rounded-xl bg-background p-3">
                   <View className="flex-row items-center mb-2">
-                    <FileText size={15} color={theme.primary} />
+                    <FileText
+                      size={15}
+                      color={theme.primary}
+                    />
+
                     <Text
                       className="text-xs font-medium ml-1.5"
-                      style={{ color: theme.textSecondary }}
+                      style={{
+                        color:
+                          theme.textSecondary,
+                      }}
                     >
                       Ready
                     </Text>
@@ -163,20 +362,34 @@ export default function BillingScreen() {
 
                   <Text
                     className="text-2xl font-bold"
-                    style={{ color: theme.text }}
+                    style={{
+                      color:
+                        theme.text,
+                    }}
                   >
-                    {officialBills.length}
+                    {
+                      officialBills.length
+                    }
                   </Text>
                 </View>
               </View>
 
+              {/* Paid */}
+
               <View className="flex-1 pl-2">
                 <View className="rounded-xl bg-background p-3">
                   <View className="flex-row items-center mb-2">
-                    <CircleCheck size={15} color="#34A853" />
+                    <CircleCheck
+                      size={15}
+                      color="#34A853"
+                    />
+
                     <Text
                       className="text-xs font-medium ml-1.5"
-                      style={{ color: theme.textSecondary }}
+                      style={{
+                        color:
+                          theme.textSecondary,
+                      }}
                     >
                       Paid
                     </Text>
@@ -184,213 +397,320 @@ export default function BillingScreen() {
 
                   <Text
                     className="text-2xl font-bold"
-                    style={{ color: theme.text }}
+                    style={{
+                      color:
+                        theme.text,
+                    }}
                   >
-                    {paidBills.length}
+                    {
+                      paidBills.length
+                    }
                   </Text>
                 </View>
               </View>
             </View>
           </View>
 
-          {/* Estimates */}
+          {/* ========================================================
+              ESTIMATES
+          ========================================================= */}
+
           <View className="mb-7">
             <View className="flex-row items-end justify-between mb-3">
               <View className="flex-1 pr-4">
                 <Text
                   className="text-lg font-semibold"
-                  style={{ color: theme.text }}
+                  style={{
+                    color:
+                      theme.text,
+                  }}
                 >
                   Estimates Awaiting Approval
                 </Text>
 
                 <Text
                   className="text-sm mt-0.5"
-                  style={{ color: theme.textSecondary }}
+                  style={{
+                    color:
+                      theme.textSecondary,
+                  }}
                 >
                   Review the latest proposed work.
                 </Text>
               </View>
 
               <TouchableOpacity
-                onPress={() => router.push('/estimates')}
+                onPress={() =>
+                  router.push(
+                    '/estimates',
+                  )
+                }
                 className="min-h-[44px] justify-center pl-2"
                 activeOpacity={0.7}
               >
                 <Text
                   className="text-sm font-semibold"
-                  style={{ color: theme.primary }}
+                  style={{
+                    color:
+                      theme.primary,
+                  }}
                 >
                   View All
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {waitingEstimates.length === 0 ? (
+            {waitingEstimates.length ===
+            0 ? (
               <View className="bg-card rounded-xl p-6 border border-border items-center">
                 <View className="w-12 h-12 rounded-full bg-primary/10 items-center justify-center mb-3">
-                  <FileText size={22} color={theme.primary} />
+                  <FileText
+                    size={22}
+                    color={theme.primary}
+                  />
                 </View>
 
                 <Text
                   className="text-base font-semibold text-center"
-                  style={{ color: theme.text }}
+                  style={{
+                    color:
+                      theme.text,
+                  }}
                 >
                   Nothing to approve
                 </Text>
 
                 <Text
                   className="text-sm text-center mt-1 leading-5"
-                  style={{ color: theme.textSecondary }}
+                  style={{
+                    color:
+                      theme.textSecondary,
+                  }}
                 >
                   New estimates will appear here when your service advisor sends one.
                 </Text>
               </View>
             ) : (
-              waitingEstimates.slice(0, 3).map(item => (
-                <EstimateCard
-                  key={item.id}
-                  item={item}
-                  onPress={() =>
-                    router.push(`/tracking?appointmentId=${item.appointmentId}`)
-                  }
-                />
-              ))
+              waitingEstimates
+                .slice(0, 3)
+                .map(item => (
+                  <EstimateCard
+                    key={item.id}
+                    item={item}
+                    onPress={() =>
+                      router.push(
+                        `/tracking?appointmentId=${item.appointmentId}`,
+                      )
+                    }
+                  />
+                ))
             )}
           </View>
 
-          {/* Official final bills */}
+          {/* ========================================================
+              OFFICIAL Final CostS
+          ========================================================= */}
+
           <View className="mb-7">
             <View className="flex-row items-end justify-between mb-3">
               <View className="flex-1 pr-4">
                 <Text
                   className="text-lg font-semibold"
-                  style={{ color: theme.text }}
+                  style={{
+                    color:
+                      theme.text,
+                  }}
                 >
                   Ready for Payment
                 </Text>
 
                 <Text
                   className="text-sm mt-0.5"
-                  style={{ color: theme.textSecondary }}
+                  style={{
+                    color:
+                      theme.textSecondary,
+                  }}
                 >
                   Official invoices that can be settled now.
                 </Text>
               </View>
 
               <TouchableOpacity
-                onPress={() => router.push('/final-bills')}
+                onPress={() =>
+                  router.push(
+                    '/final-bills',
+                  )
+                }
                 className="min-h-[44px] justify-center pl-2"
                 activeOpacity={0.7}
               >
                 <Text
                   className="text-sm font-semibold"
-                  style={{ color: theme.primary }}
+                  style={{
+                    color:
+                      theme.primary,
+                  }}
                 >
                   View All
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {officialBills.length === 0 ? (
+            {officialBills.length ===
+            0 ? (
               <View className="bg-card rounded-xl p-6 border border-border items-center">
                 <View className="w-12 h-12 rounded-full bg-primary/10 items-center justify-center mb-3">
-                  <ReceiptText size={22} color={theme.primary} />
+                  <ReceiptText
+                    size={22}
+                    color={theme.primary}
+                  />
                 </View>
 
                 <Text
                   className="text-base font-semibold text-center"
-                  style={{ color: theme.text }}
+                  style={{
+                    color:
+                      theme.text,
+                  }}
                 >
                   No payment due
                 </Text>
 
                 <Text
                   className="text-sm text-center mt-1 leading-5"
-                  style={{ color: theme.textSecondary }}
+                  style={{
+                    color:
+                      theme.textSecondary,
+                  }}
                 >
                   Official invoices will appear here when they are ready.
                 </Text>
               </View>
             ) : (
-              officialBills.slice(0, 3).map(item => (
-                <FinalBillCard
-                  key={item.id}
-                  item={item}
-                  onPress={() => router.push(`/invoice/${item.id}`)}
-                />
-              ))
+              officialBills
+                .slice(0, 3)
+                .map(item => (
+                  <FinalBillCard
+                    key={item.id}
+                    item={item}
+                    onPress={() =>
+                      openOfficialBill(
+                        item.id,
+                      )
+                    }
+                  />
+                ))
             )}
           </View>
 
-          {/* Payment history */}
+          {/* ========================================================
+              PAYMENT HISTORY
+          ========================================================= */}
+
           <View>
             <View className="flex-row items-end justify-between mb-3">
               <View className="flex-1 pr-4">
                 <Text
                   className="text-lg font-semibold"
-                  style={{ color: theme.text }}
+                  style={{
+                    color:
+                      theme.text,
+                  }}
                 >
                   Payment History
                 </Text>
 
                 <Text
                   className="text-sm mt-0.5"
-                  style={{ color: theme.textSecondary }}
+                  style={{
+                    color:
+                      theme.textSecondary,
+                  }}
                 >
                   Completed transactions and receipts.
                 </Text>
               </View>
 
               <TouchableOpacity
-                onPress={() => router.push('/final-bills')}
+                onPress={() =>
+                  router.push(
+                    '/final-bills',
+                  )
+                }
                 className="min-h-[44px] justify-center pl-2"
                 activeOpacity={0.7}
               >
                 <Text
                   className="text-sm font-semibold"
-                  style={{ color: theme.primary }}
+                  style={{
+                    color:
+                      theme.primary,
+                  }}
                 >
                   View All
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {paidBills.length === 0 ? (
+            {paidBills.length ===
+            0 ? (
               <View className="bg-card rounded-xl p-6 border border-border items-center">
                 <View className="w-12 h-12 rounded-full bg-primary/10 items-center justify-center mb-3">
-                  <CircleCheck size={22} color={theme.primary} />
+                  <CircleCheck
+                    size={22}
+                    color={theme.primary}
+                  />
                 </View>
 
                 <Text
                   className="text-base font-semibold text-center"
-                  style={{ color: theme.text }}
+                  style={{
+                    color:
+                      theme.text,
+                  }}
                 >
                   No payments yet
                 </Text>
 
                 <Text
                   className="text-sm text-center mt-1 leading-5"
-                  style={{ color: theme.textSecondary }}
+                  style={{
+                    color:
+                      theme.textSecondary,
+                  }}
                 >
                   Completed payments will appear in this section.
                 </Text>
               </View>
             ) : (
-              paidBills.slice(0, 3).map(item => (
-                <FinalBillCard
-                  key={item.id}
-                  item={item}
-                  onPress={() => router.push(`/invoice/${item.id}`)}
-                />
-              ))
+              paidBills
+                .slice(0, 3)
+                .map(item => (
+                  <FinalBillCard
+                    key={item.id}
+                    item={item}
+                    onPress={() =>
+                      openPaidBill(
+                        item.id,
+                      )
+                    }
+                  />
+                ))
             )}
           </View>
+
+          {/* ========================================================
+              FOOTER
+          ========================================================= */}
 
           <View className="items-center mt-8 mb-2">
             <Text
               className="text-xs text-center leading-5"
-              style={{ color: theme.textSecondary, opacity: 0.55 }}
+              style={{
+                color:
+                  theme.textSecondary,
+                opacity: 0.55,
+              }}
             >
               All transactions are securely processed.
               {'\n'}

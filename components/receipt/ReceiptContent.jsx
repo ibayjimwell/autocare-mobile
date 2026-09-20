@@ -234,13 +234,6 @@ export default function ReceiptContent({ receipt }) {
           )}
         </View>
 
-        {/* Notes */}
-        {appointment?.notes && (
-          <View style={{ marginTop: 16, padding: 8, borderRadius: 4, backgroundColor: theme.muted + '30' }}>
-            <Text style={{ fontSize: 12, color: theme.textSecondary }}>Notes: {appointment.notes}</Text>
-          </View>
-        )}
-
         {/* Zigzag separator (tear line) */}
         <View style={{ alignItems: 'center', marginVertical: 8 }}>
           <Text style={{ fontSize: 12, color: theme.border, lineHeight: 12, letterSpacing: 2 }}>

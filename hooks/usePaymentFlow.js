@@ -1,160 +1,493 @@
-// hooks/usePaymentFlow.js
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { Linking, Alert } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { Buffer } from 'buffer';
+import {
+  useState,
+  useCallback,
+  useEffect,
+} from 'react';
+
+import {
+  Linking,
+  Alert,
+} from 'react-native';
+
+import {
+  useFocusEffect,
+} from 'expo-router';
+
 import paymentsApi from '../services/paymentsApi';
+import finalBillsApi from '../services/finalBillsApi';
 
-const PAYMONGO_PUBLIC_KEY = process.env.EXPO_PUBLIC_PAYMONGO_PUBLIC_KEY;
-if (!PAYMONGO_PUBLIC_KEY) {
-  console.warn('[PayMongo] EXPO_PUBLIC_PAYMONGO_PUBLIC_KEY is not set!');
+import {
+  useRealtimeTable,
+} from '../connections/useRealtimeTable';
+
+function normalizeId(value) {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value ?? null;
 }
 
-async function createPaymentLinkClient(amountInCentavos, description, remarks) {
-  if (!PAYMONGO_PUBLIC_KEY) {
-    throw new Error('Payment service not configured.');
-  }
-  const encodedKey = Buffer.from(`${PAYMONGO_PUBLIC_KEY}:`).toString('base64');
-
-  const response = await fetch('https://api.paymongo.com/v1/links', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Basic ${encodedKey}`,
-    },
-    body: JSON.stringify({
-      data: {
-        attributes: {
-          amount: amountInCentavos,
-          description,
-          remarks,
-        },
-      },
-    }),
-  });
-
-  const text = await response.text();
-  let json;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error('Payment gateway returned an unexpected response.');
+function extractStatus(response) {
+  if (!response) {
+    return null;
   }
 
-  if (!response.ok) {
-    const detail = json?.errors?.[0]?.detail || 'Payment link creation failed';
-    throw new Error(detail);
+  const payload =
+    response?.data ??
+    response;
+
+  if (
+    typeof payload?.status ===
+    'string'
+  ) {
+    return payload.status
+      .trim()
+      .toUpperCase();
   }
 
-  const link = json.data;
-  return {
-    checkoutUrl: link.attributes.checkout_url,
-    paymongoLinkId: link.id,
-    referenceNumber: link.attributes.reference_number,
-  };
+  if (
+    typeof payload?.data?.status ===
+    'string'
+  ) {
+    return payload.data.status
+      .trim()
+      .toUpperCase();
+  }
+
+  return null;
 }
 
-export function usePaymentFlow(billId, grandTotal) {
-  const [state, setState] = useState({
+function extractPaymentData(
+  response,
+) {
+  if (!response) {
+    return null;
+  }
+
+  /*
+   * Expected server response:
+   *
+   * {
+   *   error: false,
+   *   message: "Payment link created.",
+   *   data: {
+   *     checkoutUrl,
+   *     paymongoLinkId,
+   *     referenceNumber
+   *   }
+   * }
+   */
+  if (
+    response?.data &&
+    typeof response.data ===
+      'object'
+  ) {
+    return response.data;
+  }
+
+  return response;
+}
+
+export function usePaymentFlow(
+  billId,
+  grandTotal,
+) {
+  const normalizedBillId =
+    normalizeId(billId);
+
+  const [
+    state,
+    setState,
+  ] = useState({
     paying: false,
     paymongoLinkId: null,
+    referenceNumber: null,
     verifiedPaid: false,
     verifying: false,
   });
 
-  const pollingInterval = useRef(null);
-  const attemptsRef = useRef(0);
-  const MAX_POLL_ATTEMPTS = 10;    // 10 attempts × 2 seconds = 20 seconds
+  /*
+   * ================================================================
+   * CHECK CURRENT BILL STATUS
+   * ================================================================
+   *
+   * This is a snapshot check only.
+   *
+   * It is NOT polling.
+   */
 
-  // Cleanup polling on unmount
+  const fetchCurrentStatus =
+    useCallback(
+      async showLoading => {
+        if (
+          !normalizedBillId
+        ) {
+          return null;
+        }
+
+        if (showLoading) {
+          setState(prev => ({
+            ...prev,
+            verifying: true,
+          }));
+        }
+
+        try {
+          const response =
+            await finalBillsApi.getStatus(
+              normalizedBillId,
+            );
+
+          const currentStatus =
+            extractStatus(
+              response,
+            );
+
+          if (
+            currentStatus ===
+            'PAID'
+          ) {
+            setState(prev => ({
+              ...prev,
+              verifiedPaid: true,
+              verifying: false,
+            }));
+
+            return 'PAID';
+          }
+
+          return currentStatus;
+        } catch (error) {
+          console.error(
+            '[PaymentFlow] Status check failed:',
+            error,
+          );
+
+          return null;
+        } finally {
+          if (showLoading) {
+            setState(prev => ({
+              ...prev,
+              verifying: false,
+            }));
+          }
+        }
+      },
+      [normalizedBillId],
+    );
+
+  /*
+   * ================================================================
+   * REALTIME Final Cost STATUS
+   * ================================================================
+   */
+
+  const handleRealtimeChange =
+    useCallback(
+      payload => {
+        const nextRecord =
+          payload?.new ??
+          payload?.record ??
+          null;
+
+        const changedStatus =
+          nextRecord?.status;
+
+        if (
+          typeof changedStatus !==
+          'string'
+        ) {
+          return;
+        }
+
+        const normalizedStatus =
+          changedStatus
+            .trim()
+            .toUpperCase();
+
+        console.log(
+          '[PaymentFlow] Realtime Final Cost status:',
+          normalizedStatus,
+        );
+
+        if (
+          normalizedStatus ===
+          'PAID'
+        ) {
+          setState(prev => ({
+            ...prev,
+            verifiedPaid: true,
+            verifying: false,
+          }));
+        }
+      },
+      [],
+    );
+
+  useRealtimeTable(
+    'final_bills',
+    normalizedBillId
+      ? `id=eq.${normalizedBillId}`
+      : null,
+    handleRealtimeChange,
+  );
+
+  /*
+   * ================================================================
+   * INITIAL STATUS CHECK
+   * ================================================================
+   */
+
   useEffect(() => {
-    return () => {
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current);
-      }
-    };
-  }, []);
+    fetchCurrentStatus(
+      false,
+    );
+  }, [
+    fetchCurrentStatus,
+  ]);
 
-  const verifyPayment = useCallback(async (linkId) => {
-    if (!billId || !linkId) return false;
-    try {
-      const res = await paymentsApi.verifyPayment(billId, linkId);
-      return res.data?.paid === true;
-    } catch (err) {
-      console.error('Verification error:', err);
-      return false;
-    }
-  }, [billId]);
+  /*
+   * ================================================================
+   * PAY ONLINE
+   * ================================================================
+   *
+   * The mobile app no longer talks directly to PayMongo's API.
+   *
+   * Mobile
+   *   ↓
+   * /api/payments/final-bills/:id/pay-online
+   *   ↓
+   * PayMongo
+   *
+   * The backend creates the link and the server-side PayMongo
+   * webhook/verification changes final_bills.status to PAID.
+   *
+   * Realtime then updates this screen.
+   * ================================================================
+   */
 
-  const startPolling = useCallback((linkId) => {
-    // Clear any existing poll
-    if (pollingInterval.current) clearInterval(pollingInterval.current);
+  const startPayment =
+    useCallback(
+      async () => {
+        if (
+          !normalizedBillId
+        ) {
+          Alert.alert(
+            'Payment Error',
+            'Invalid Final Cost ID.',
+          );
 
-    attemptsRef.current = 0;
-    setState(prev => ({ ...prev, verifying: true }));
+          return;
+        }
 
-    pollingInterval.current = setInterval(async () => {
-      attemptsRef.current += 1;
-      const paid = await verifyPayment(linkId);
+        const amount =
+          Number.parseFloat(
+            String(
+              grandTotal ?? 0,
+            ),
+          ) || 0;
 
-      if (paid) {
-        clearInterval(pollingInterval.current);
-        pollingInterval.current = null;
-        setState(prev => ({ ...prev, verifiedPaid: true, verifying: false }));
+        if (amount <= 0) {
+          Alert.alert(
+            'Payment Error',
+            'Invalid payment amount.',
+          );
+
+          return;
+        }
+
+        /*
+         * Do not start another payment while one is being created.
+         */
+        if (
+          state.paying
+        ) {
+          return;
+        }
+
+        /*
+         * The bill may already have been paid by another payment
+         * method. Do a single status check before creating a link.
+         */
+        try {
+          const currentStatus =
+            await finalBillsApi.getStatus(
+              normalizedBillId,
+            );
+
+          if (
+            extractStatus(
+              currentStatus,
+            ) === 'PAID'
+          ) {
+            setState(prev => ({
+              ...prev,
+              verifiedPaid: true,
+            }));
+
+            return;
+          }
+        } catch (error) {
+          /*
+           * Do not block the payment flow solely because the snapshot
+           * check failed. The realtime subscription is still active.
+           */
+          console.warn(
+            '[PaymentFlow] Pre-payment status check failed:',
+            error,
+          );
+        }
+
+        setState(prev => ({
+          ...prev,
+          paying: true,
+        }));
+
+        try {
+          const response =
+            await paymentsApi.payOnline(
+              normalizedBillId,
+            );
+
+          const paymentData =
+            extractPaymentData(
+              response,
+            );
+
+          const checkoutUrl =
+            paymentData?.checkoutUrl;
+
+          const paymongoLinkId =
+            paymentData?.paymongoLinkId;
+
+          const referenceNumber =
+            paymentData?.referenceNumber;
+
+          if (!checkoutUrl) {
+            throw new Error(
+              paymentData?.errorMessage ||
+                response?.errorMessage ||
+                response?.message ||
+                'Payment checkout URL was not returned.',
+            );
+          }
+
+          setState(prev => ({
+            ...prev,
+            paymongoLinkId:
+              paymongoLinkId ??
+              null,
+            referenceNumber:
+              referenceNumber ??
+              null,
+          }));
+
+          const canOpen =
+            await Linking.canOpenURL(
+              checkoutUrl,
+            );
+
+          if (!canOpen) {
+            throw new Error(
+              'Unable to open the payment checkout.',
+            );
+          }
+
+          await Linking.openURL(
+            checkoutUrl,
+          );
+
+          /*
+           * No polling starts here.
+           *
+           * final_bills realtime remains active while the customer
+           * completes payment.
+           */
+        } catch (error) {
+          console.error(
+            '[PaymentFlow] Payment creation error:',
+            error,
+          );
+
+          Alert.alert(
+            'Payment Error',
+            error?.message ||
+              'Could not initiate payment.',
+          );
+        } finally {
+          setState(prev => ({
+            ...prev,
+            paying: false,
+          }));
+        }
+      },
+      [
+        normalizedBillId,
+        grandTotal,
+        state.paying,
+      ],
+    );
+
+  /*
+   * ================================================================
+   * RETURN / FOCUS RECOVERY
+   * ================================================================
+   *
+   * When the customer returns from PayMongo, perform one status
+   * check. This covers the case where the application was suspended
+   * while the browser was open and a realtime event was missed.
+   *
+   * This is one request per focus event, NOT polling.
+   * ================================================================
+   */
+
+  useFocusEffect(
+    useCallback(() => {
+      if (
+        !normalizedBillId ||
+        state.verifiedPaid
+      ) {
         return;
       }
 
-      if (attemptsRef.current >= MAX_POLL_ATTEMPTS) {
-        clearInterval(pollingInterval.current);
-        pollingInterval.current = null;
-        setState(prev => ({ ...prev, verifying: false }));
-      }
-    }, 2000);
-  }, [verifyPayment]);
+      const verifyAfterReturn =
+        async () => {
+          await fetchCurrentStatus(
+            true,
+          );
+        };
 
-  const startPayment = async () => {
-    if (!billId || !grandTotal) return;
-    setState(prev => ({ ...prev, paying: true }));
-    try {
-      const amountInCentavos = Math.round(parseFloat(grandTotal) * 100);
-      const description = `Payment for invoice ${billId.slice(0, 8)}`;
-      const remarks = `Final bill ${billId}`;
-
-      const { checkoutUrl, paymongoLinkId } = await createPaymentLinkClient(
-        amountInCentavos,
-        description,
-        remarks
-      );
-
-      setState(prev => ({ ...prev, paymongoLinkId }));
-      await Linking.openURL(checkoutUrl);
-
-      // Start polling after the browser is opened – it will continue
-      // even if the user hasn't returned yet.
-      startPolling(paymongoLinkId);
-    } catch (err) {
-      Alert.alert('Payment Error', err.message || 'Could not initiate payment.');
-    } finally {
-      setState(prev => ({ ...prev, paying: false }));
-    }
-  };
-
-  // Also retry verification on every screen focus (fallback for deep link / later return)
-  useFocusEffect(
-    useCallback(() => {
-      if (state.paymongoLinkId && !state.verifiedPaid) {
-        // If polling is not already active, start it again
-        if (!pollingInterval.current) {
-          startPolling(state.paymongoLinkId);
-        }
-      }
-    }, [state.paymongoLinkId, state.verifiedPaid, startPolling])
+      verifyAfterReturn();
+    }, [
+      normalizedBillId,
+      state.verifiedPaid,
+      fetchCurrentStatus,
+    ]),
   );
+
+  /*
+   * ================================================================
+   * CLEAN RETURN API
+   * ================================================================
+   */
 
   return {
     startPayment,
-    paying: state.paying,
-    verifiedPaid: state.verifiedPaid,
-    verifying: state.verifying,
+
+    paying:
+      state.paying,
+
+    paymongoLinkId:
+      state.paymongoLinkId,
+
+    referenceNumber:
+      state.referenceNumber,
+
+    verifiedPaid:
+      state.verifiedPaid,
+
+    verifying:
+      state.verifying,
   };
 }

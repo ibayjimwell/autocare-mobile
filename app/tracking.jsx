@@ -71,6 +71,8 @@ import QueueSection from '../components/tracking/QueueSection';
 
 import WaitingCard from '../components/tracking/WaitingCard';
 
+import FinalCostCard from '../components/tracking/FinalCostCard';
+
 import {
   ApproveModal,
   RejectModal,
@@ -808,6 +810,10 @@ export default function TrackingScreen() {
     appointment?.status ===
     'IN_PROGRESS';
 
+  const isCompleted =
+    appointment?.status ===
+    'COMPLETED';
+
   const isCancelled =
     appointment?.status ===
     'CANCELLED';
@@ -858,19 +864,22 @@ export default function TrackingScreen() {
     !estimate;
 
   /*
-   * IN_PROGRESS WAITING STATE
+   * COMPLETED WAITING STATE
    *
-   * The customer has already approved the estimate and the
-   * service is now in progress.
+   * The appointment is now completed. The previous version showed
+   * the final-cost waiting card while IN_PROGRESS. That behavior is
+   * intentionally removed.
    *
-   * Until the final bill/costing arrives, show the waiting card.
+   * The final-cost waiting card now belongs to COMPLETED only:
    *
-   * Findings are displayed independently above the final
-   * costing state so that the customer can review the findings
-   * already recorded for the vehicle.
+   * COMPLETED
+   * + no Final Cost yet
+   *
+   * This gives the customer a clear waiting state while the final
+   * cost is still being prepared/loaded.
    */
   const showWaitingForFinalCosting =
-    isInProgress &&
+    isCompleted &&
     !finalBill;
 
   /* ==============================================================
@@ -1386,7 +1395,7 @@ export default function TrackingScreen() {
    * - Appointment status
    * - Tasks
    * - Estimate
-   * - Final bill
+   * - Final Cost
    * - In-progress findings
    */
   const handleTrackingRefresh =
@@ -1829,14 +1838,6 @@ export default function TrackingScreen() {
 
           {/* ====================================================
               IN-PROGRESS FINDINGS
-              
-              These findings are intentionally displayed during:
-              
-                IN_PROGRESS
-              
-              The customer can therefore see the diagnostic
-              findings recorded during inspection even after the
-              appointment has moved into active work.
           ===================================================== */}
 
           {isInProgress && (
@@ -2061,164 +2062,40 @@ export default function TrackingScreen() {
           {/* ====================================================
               WAITING FOR FINAL COSTING
 
-              IN_PROGRESS ONLY.
+              COMPLETED ONLY.
 
-              This card appears while the service is being
-              completed and the final bill has not arrived.
+              The previous implementation displayed this waiting
+              state during IN_PROGRESS. It has intentionally been
+              removed from IN_PROGRESS and moved to COMPLETED.
 
-              The Findings card is displayed before this card,
-              so customers can review their recorded findings
-              while the repair is still ongoing.
+              When the appointment is completed but the Final Cost
+              is not available yet, the customer sees a loading card.
           ===================================================== */}
 
           {showWaitingForFinalCosting && (
             <WaitingCard
-              message="Wait for Final Costing to show"
-              description="Your vehicle service is in progress. The final costing will appear once the completed service details are ready."
+              message="Wait for Final Cost to show"
+              description="Your service is complete. Please wait while the final cost is being prepared."
             />
           )}
 
           {/* ====================================================
-              FINAL BILL
+              FINAL COST
+
+              COMPLETED ONLY.
+
+              When a Final Cost is available, show the new simple
+              customer-facing cost card. Tapping it opens the
+              existing invoice/payment-detail screen.
           ===================================================== */}
 
-          {isInProgress &&
+          {isCompleted &&
             finalBill && (
-              <TouchableOpacity
-                onPress={() =>
-                  router.push(
-                    `/invoice/${finalBill.id}`,
-                  )
+              <FinalCostCard
+                finalBill={
+                  finalBill
                 }
-                activeOpacity={
-                  0.8
-                }
-                className="
-                  mb-6
-                  overflow-hidden
-                  rounded-xl
-                  border
-                  border-border
-                  bg-card
-                "
-                style={{
-                  shadowColor:
-                    '#000',
-
-                  shadowOpacity:
-                    0.05,
-
-                  shadowRadius:
-                    12,
-
-                  shadowOffset: {
-                    width: 0,
-                    height: 4,
-                  },
-
-                  elevation:
-                    2,
-                }}
-              >
-                <View
-                  className="
-                    flex-row
-                    items-center
-                    px-4
-                    py-4
-                  "
-                >
-                  <View
-                    className="
-                      mr-3
-                      h-11
-                      w-11
-                      items-center
-                      justify-center
-                      rounded-full
-                      bg-primary/10
-                    "
-                  >
-                    <ReceiptText
-                      size={
-                        21
-                      }
-                      color="#C1272D"
-                      strokeWidth={
-                        2
-                      }
-                    />
-                  </View>
-
-                  <View
-                    className="
-                      flex-1
-                    "
-                  >
-                    <Text
-                      className="
-                        text-lg
-                        font-semibold
-                        text-foreground
-                      "
-                    >
-                      Final Bill
-                    </Text>
-
-                    <Text
-                      className="
-                        mt-1
-                        text-sm
-                        text-muted-foreground
-                      "
-                    >
-                      View your completed service invoice
-                    </Text>
-                  </View>
-
-                  <ChevronRight
-                    size={
-                      20
-                    }
-                    color="#8E8E93"
-                  />
-                </View>
-
-                <View
-                  className="
-                    ml-4
-                    flex-row
-                    items-center
-                    justify-between
-                    border-t
-                    border-border
-                    px-4
-                    py-4
-                  "
-                >
-                  <Text
-                    className="
-                      text-sm
-                      text-muted-foreground
-                    "
-                  >
-                    Total
-                  </Text>
-
-                  <Text
-                    className="
-                      text-base
-                      font-semibold
-                      text-primary
-                    "
-                  >
-                    ₱
-                    {finalBillGrandTotal?.toFixed(
-                      2,
-                    )}
-                  </Text>
-                </View>
-              </TouchableOpacity>
+              />
             )}
 
           {/* ====================================================

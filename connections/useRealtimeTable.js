@@ -10,23 +10,23 @@ import {
 export function useRealtimeTable(
   table,
   filter,
-  onChange
+  onChange,
 ) {
   const uniqueId =
     useRef(
       Math.random()
         .toString(36)
-        .substring(2, 9)
+        .substring(2, 9),
     ).current;
 
   const onChangeRef =
-    useRef(
-      onChange
-    );
+    useRef(onChange);
 
-  // ---------------------------------------------------------------
-  // Keep callback reference current
-  // ---------------------------------------------------------------
+  /*
+   * ================================================================
+   * KEEP CALLBACK CURRENT
+   * ================================================================
+   */
 
   useEffect(() => {
     onChangeRef.current =
@@ -35,93 +35,138 @@ export function useRealtimeTable(
     onChange,
   ]);
 
-  // ---------------------------------------------------------------
-  // Realtime subscription
-  // ---------------------------------------------------------------
+  /*
+   * ================================================================
+   * SUBSCRIBE
+   * ================================================================
+   */
 
   useEffect(() => {
-    // -------------------------------------------------------------
-    // Do not subscribe without a valid table/filter
-    // -------------------------------------------------------------
-
-    if (
-      !table ||
-      !filter
-    ) {
+    if (!table) {
       return undefined;
     }
 
-    const channelName =
-      `${table}-${filter}-${uniqueId}`;
+    const channelName = filter
+      ? `${table}-${filter}-${uniqueId}`
+      : `${table}-all-${uniqueId}`;
 
     console.log(
       `📡 [Realtime] Subscribing to ${table}`,
-      {
-        filter,
-      }
+      filter
+        ? {
+            filter,
+          }
+        : {
+            filter: 'ALL',
+          },
     );
+
+    /*
+     * Supabase supports:
+     *
+     * 1. Table-wide subscription
+     * 2. Filtered subscription
+     *
+     * We construct the config separately so we do not send an
+     * invalid empty filter to Supabase.
+     */
+
+    const postgresChanges =
+      filter
+        ? {
+            event: '*',
+            schema: 'public',
+            table,
+            filter,
+          }
+        : {
+            event: '*',
+            schema: 'public',
+            table,
+          };
 
     const channel =
       supabase
         .channel(
-          channelName
+          channelName,
         )
         .on(
           'postgres_changes',
-          {
-            event: '*',
-
-            schema:
-              'public',
-
-            table,
-
-            filter,
-          },
+          postgresChanges,
           payload => {
             console.log(
               `🔄 [Realtime] ${table} change:`,
-              payload.eventType
+              payload.eventType,
+              filter
+                ? {
+                    filter,
+                  }
+                : '',
             );
 
             onChangeRef.current?.(
-              payload
+              payload,
             );
-          }
+          },
         )
         .subscribe(
-          status => {
+          subscribeStatus => {
             if (
-              status ===
+              subscribeStatus ===
               'SUBSCRIBED'
             ) {
               console.log(
                 `✅ [Realtime] Subscribed to ${table}`,
-                {
-                  filter,
-                }
+                filter
+                  ? {
+                      filter,
+                    }
+                  : {
+                      filter: 'ALL',
+                    },
               );
 
               return;
             }
 
             if (
-              status ===
+              subscribeStatus ===
               'CHANNEL_ERROR'
             ) {
               console.error(
-                `❌ [Realtime] Subscription error on ${table}`
+                `❌ [Realtime] Subscription error on ${table}`,
+                filter
+                  ? {
+                      filter,
+                    }
+                  : '',
               );
 
               return;
             }
 
             if (
-              status ===
+              subscribeStatus ===
               'TIMED_OUT'
             ) {
               console.warn(
-                `⏱️ [Realtime] Subscription timeout on ${table}`
+                `⏱️ [Realtime] Subscription timeout on ${table}`,
+                filter
+                  ? {
+                      filter,
+                    }
+                  : '',
+              );
+
+              return;
+            }
+
+            if (
+              subscribeStatus ===
+              'CLOSED'
+            ) {
+              console.log(
+                `🔒 [Realtime] Channel closed for ${table}`,
               );
 
               return;
@@ -129,25 +174,31 @@ export function useRealtimeTable(
 
             console.log(
               `ℹ️ [Realtime] ${table} status:`,
-              status
+              subscribeStatus,
             );
-          }
+          },
         );
 
-    // -------------------------------------------------------------
-    // Cleanup
-    // -------------------------------------------------------------
+    /*
+     * ==============================================================
+     * CLEANUP
+     * ==============================================================
+     */
 
     return () => {
       console.log(
         `🔌 [Realtime] Unsubscribing from ${table}`,
-        {
-          filter,
-        }
+        filter
+          ? {
+              filter,
+            }
+          : {
+              filter: 'ALL',
+            },
       );
 
       void supabase.removeChannel(
-        channel
+        channel,
       );
     };
   }, [

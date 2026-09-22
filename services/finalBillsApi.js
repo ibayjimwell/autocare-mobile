@@ -85,6 +85,7 @@ const finalBillsApi = {
    * Used for:
    * - initial state
    * - app-focus recovery
+   * - fallback after PayMongo verification
    *
    * It is NOT used for polling.
    */

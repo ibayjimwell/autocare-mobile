@@ -2,6 +2,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useRef,
 } from 'react';
 
 import {
@@ -89,6 +90,53 @@ function extractPaymentData(
   return response;
 }
 
+function extractVerificationData(
+  response,
+) {
+  if (!response) {
+    return null;
+  }
+
+  /*
+   * Support:
+   *
+   * {
+   *   paid: true
+   * }
+   *
+   * and:
+   *
+   * {
+   *   data: {
+   *     paid: true
+   *   }
+   * }
+   *
+   * and:
+   *
+   * {
+   *   data: {
+   *     data: {
+   *       paid: true
+   *     }
+   *   }
+   * }
+   */
+  const firstLevel =
+    response?.data ??
+    response;
+
+  if (
+    firstLevel?.data &&
+    typeof firstLevel.data ===
+      'object'
+  ) {
+    return firstLevel.data;
+  }
+
+  return firstLevel;
+}
+
 export function usePaymentFlow(
   billId,
   grandTotal,
@@ -108,6 +156,25 @@ export function usePaymentFlow(
   });
 
   /*
+   * Keep the PayMongo link ID outside of normal component
+   * state so the return/focus callback always has the latest
+   * value without causing the focus effect to execute
+   * immediately when the link is created.
+   */
+  const paymongoLinkIdRef =
+    useRef(null);
+
+  /*
+   * This becomes true only after the PayMongo checkout
+   * has actually been opened.
+   *
+   * Therefore the initial screen focus does not attempt
+   * payment verification.
+   */
+  const checkoutOpenedRef =
+    useRef(false);
+
+  /*
    * ================================================================
    * CHECK CURRENT BILL STATUS
    * ================================================================
@@ -116,7 +183,6 @@ export function usePaymentFlow(
    *
    * It is NOT polling.
    */
-
   const fetchCurrentStatus =
     useCallback(
       async showLoading => {
@@ -165,6 +231,111 @@ export function usePaymentFlow(
           );
 
           return null;
+        } finally {
+          if (showLoading) {
+            setState(prev => ({
+              ...prev,
+              verifying: false,
+            }));
+          }
+        }
+      },
+      [normalizedBillId],
+    );
+
+  /*
+   * ================================================================
+   * VERIFY PAYMONGO PAYMENT
+   * ================================================================
+   *
+   * This is the important return-from-checkout verification.
+   *
+   * Mobile
+   *   ↓
+   * PayMongo checkout
+   *   ↓
+   * Customer authorizes payment
+   *   ↓
+   * App becomes focused again
+   *   ↓
+   * /api/payments/final-bills/:id/verify-payment
+   *   ↓
+   * Server checks PayMongo
+   *   ↓
+   * FinalBill.status = PAID
+   * ================================================================
+   */
+  const verifyPayMongoPayment =
+    useCallback(
+      async (
+        paymongoLinkId,
+        showLoading = true,
+      ) => {
+        if (
+          !normalizedBillId ||
+          !paymongoLinkId
+        ) {
+          return false;
+        }
+
+        if (showLoading) {
+          setState(prev => ({
+            ...prev,
+            verifying: true,
+          }));
+        }
+
+        try {
+          const response =
+            await paymentsApi.verifyPayment(
+              normalizedBillId,
+              paymongoLinkId,
+            );
+
+          const verificationData =
+            extractVerificationData(
+              response,
+            );
+
+          const paid =
+            verificationData?.paid ===
+              true ||
+            response?.paid === true;
+
+          const referenceNumber =
+            verificationData?.referenceNumber ??
+            response?.referenceNumber ??
+            null;
+
+          if (paid) {
+            setState(prev => ({
+              ...prev,
+              verifiedPaid: true,
+              verifying: false,
+              referenceNumber:
+                referenceNumber ??
+                prev.referenceNumber,
+            }));
+
+            console.log(
+              '[PaymentFlow] PayMongo payment verified successfully.',
+            );
+
+            return true;
+          }
+
+          console.log(
+            '[PaymentFlow] PayMongo payment is not completed yet.',
+          );
+
+          return false;
+        } catch (error) {
+          console.error(
+            '[PaymentFlow] PayMongo verification failed:',
+            error,
+          );
+
+          return false;
         } finally {
           if (showLoading) {
             setState(prev => ({
@@ -252,7 +423,7 @@ export function usePaymentFlow(
    * PAY ONLINE
    * ================================================================
    *
-   * The mobile app no longer talks directly to PayMongo's API.
+   * The mobile app does not talk directly to PayMongo's API.
    *
    * Mobile
    *   ↓
@@ -260,10 +431,8 @@ export function usePaymentFlow(
    *   ↓
    * PayMongo
    *
-   * The backend creates the link and the server-side PayMongo
-   * webhook/verification changes final_bills.status to PAID.
-   *
-   * Realtime then updates this screen.
+   * The backend creates the link.
+   * The app then opens the checkout URL.
    * ================================================================
    */
 
@@ -373,11 +542,22 @@ export function usePaymentFlow(
             );
           }
 
+          if (!paymongoLinkId) {
+            throw new Error(
+              'PayMongo payment link ID was not returned by the server.',
+            );
+          }
+
+          /*
+           * Keep the link ID for the return-from-checkout verification.
+           */
+          paymongoLinkIdRef.current =
+            paymongoLinkId;
+
           setState(prev => ({
             ...prev,
             paymongoLinkId:
-              paymongoLinkId ??
-              null,
+              paymongoLinkId,
             referenceNumber:
               referenceNumber ??
               null,
@@ -394,17 +574,23 @@ export function usePaymentFlow(
             );
           }
 
+          /*
+           * Mark this as a real checkout session before leaving
+           * the application.
+           *
+           * The focus callback will use this flag when the customer
+           * returns from PayMongo.
+           */
+          checkoutOpenedRef.current =
+            true;
+
           await Linking.openURL(
             checkoutUrl,
           );
-
-          /*
-           * No polling starts here.
-           *
-           * final_bills realtime remains active while the customer
-           * completes payment.
-           */
         } catch (error) {
+          checkoutOpenedRef.current =
+            false;
+
           console.error(
             '[PaymentFlow] Payment creation error:',
             error,
@@ -431,37 +617,79 @@ export function usePaymentFlow(
 
   /*
    * ================================================================
-   * RETURN / FOCUS RECOVERY
+   * RETURN / FOCUS RECOVERY + PAYMONGO VERIFICATION
    * ================================================================
    *
-   * When the customer returns from PayMongo, perform one status
-   * check. This covers the case where the application was suspended
-   * while the browser was open and a realtime event was missed.
+   * When the customer returns from PayMongo:
    *
-   * This is one request per focus event, NOT polling.
-   * ================================================================
+   * 1. Verify the PayMongo payment directly.
+   * 2. The server changes final_bills.status to PAID.
+   * 3. If direct verification says not paid, perform one DB
+   *    snapshot check as a fallback.
+   *
+   * This is NOT polling.
    */
-
   useFocusEffect(
     useCallback(() => {
       if (
+        !checkoutOpenedRef.current ||
         !normalizedBillId ||
         state.verifiedPaid
       ) {
-        return;
+        return undefined;
       }
 
       const verifyAfterReturn =
         async () => {
+          /*
+           * Consume the flag immediately so the same checkout
+           * does not repeatedly verify during additional focus events.
+           */
+          checkoutOpenedRef.current =
+            false;
+
+          const paymongoLinkId =
+            paymongoLinkIdRef.current;
+
+          if (!paymongoLinkId) {
+            console.warn(
+              '[PaymentFlow] No PayMongo link ID available after return. Checking Final Cost status only.',
+            );
+
+            await fetchCurrentStatus(
+              true,
+            );
+
+            return;
+          }
+
+          const verified =
+            await verifyPayMongoPayment(
+              paymongoLinkId,
+              true,
+            );
+
+          if (verified) {
+            return;
+          }
+
+          /*
+           * PayMongo verification can legitimately return before the
+           * server-side state has propagated. Make one final database
+           * snapshot check, still without polling.
+           */
           await fetchCurrentStatus(
             true,
           );
         };
 
       verifyAfterReturn();
+
+      return undefined;
     }, [
       normalizedBillId,
       state.verifiedPaid,
+      verifyPayMongoPayment,
       fetchCurrentStatus,
     ]),
   );

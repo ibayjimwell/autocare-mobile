@@ -55,7 +55,7 @@ function extractApiError(response) {
 
   if (
     typeof response.errorMessage ===
-    'string' &&
+      'string' &&
     response.errorMessage.trim()
   ) {
     return response.errorMessage;
@@ -63,7 +63,7 @@ function extractApiError(response) {
 
   if (
     typeof response.message ===
-    'string' &&
+      'string' &&
     response.error === true
   ) {
     return response.message;

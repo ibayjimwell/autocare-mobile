@@ -16,6 +16,9 @@ const paymentsApi = {
 
   /*
    * Verify PayMongo payment status.
+   *
+   * This endpoint is now actively called by usePaymentFlow
+   * after the customer returns from the PayMongo checkout.
    */
   verifyPayment: (
     billId,

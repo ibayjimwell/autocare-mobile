@@ -192,7 +192,10 @@ export function useBookingForm(
     };
 
   const handleBook =
-    async () => {
+    async ({
+      duplicateAction = null,
+      existingAppointmentId = null,
+    } = {}) => {
       const validation =
         validateBooking();
 
@@ -230,7 +233,43 @@ export function useBookingForm(
             appointmentTime:
               selectedTime,
             notes,
+            duplicateAction,
+            existingAppointmentId,
           });
+
+        if (
+          response?.error &&
+          response?.errorCode === 'APPOINTMENT_DUPLICATE'
+        ) {
+          return {
+            success: false,
+            duplicate: true,
+            conflict: response,
+            appointment: null,
+            message:
+              response.errorMessage ||
+              'This appointment already exists.',
+          };
+        }
+
+        if (response?.error) {
+          const message =
+            response?.errorMessage ||
+            response?.message ||
+            'Booking failed.';
+
+          setAvailabilityModal({
+            visible: true,
+            available: false,
+            message,
+          });
+
+          return {
+            success: false,
+            appointment: null,
+            message,
+          };
+        }
 
         const appointment =
           response?.data?.data ||
@@ -282,11 +321,31 @@ export function useBookingForm(
           appointmentId,
         };
       } catch (err) {
+        const errorData =
+          err?.response?.data ||
+          err?.data ||
+          err?.response ||
+          null;
+
+        if (
+          errorData?.error &&
+          errorData?.errorCode ===
+            'APPOINTMENT_DUPLICATE'
+        ) {
+          return {
+            success: false,
+            duplicate: true,
+            conflict: errorData,
+            appointment: null,
+            message:
+              errorData.errorMessage ||
+              'This appointment already exists.',
+          };
+        }
+
         const message =
-          err?.response?.data
-            ?.message ||
-          err?.response?.data
-            ?.errorMessage ||
+          errorData?.message ||
+          errorData?.errorMessage ||
           err?.message ||
           'Booking failed.';
 
@@ -328,3 +387,4 @@ export function useBookingForm(
     setAvailabilityModal,
   };
 }
+

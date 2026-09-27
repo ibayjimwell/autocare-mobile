@@ -110,6 +110,20 @@ const appointmentsApi = {
       );
     }
 
+    if (data.duplicateAction) {
+      form.append(
+        'duplicateAction',
+        data.duplicateAction,
+      );
+    }
+
+    if (data.existingAppointmentId) {
+      form.append(
+        'existingAppointmentId',
+        data.existingAppointmentId,
+      );
+    }
+
     return api.request(
       '/appointments',
       'POST',

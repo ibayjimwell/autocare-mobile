@@ -38,6 +38,7 @@ import CalendarModal from '../components/booking/CalendarModal';
 import AvailabilityModal from '../components/booking/AvailabilityModal';
 import BookingSummaryModal from '../components/booking/BookingSummaryModal';
 import ConfirmButton from '../components/booking/ConfirmButton';
+import DoubleBookingModal from '../components/booking/DoubleBookingModal';
 
 import appointmentsApi from '../services/appointmentsApi';
 
@@ -130,6 +131,16 @@ export default function BookingScreen() {
   const [
     confirmationVisible,
     setConfirmationVisible,
+  ] = useState(false);
+
+  const [
+    doubleBookingConflict,
+    setDoubleBookingConflict,
+  ] = useState(null);
+
+  const [
+    mergingDoubleBooking,
+    setMergingDoubleBooking,
   ] = useState(false);
 
   const {
@@ -371,23 +382,19 @@ export default function BookingScreen() {
       const result =
         await handleBook();
 
-      if (
-        !result?.success
-      ) {
+      if (result?.duplicate) {
+        setConfirmationVisible(false);
+        setDoubleBookingConflict(result.conflict || null);
         return;
       }
 
-      setConfirmationVisible(
-        false
-      );
+      if (!result?.success) {
+        return;
+      }
 
-      /*
-       * The appointment id returned by the create API is required
-       * for the Tracking screen.
-       */
-      if (
-        result.appointmentId
-      ) {
+      setConfirmationVisible(false);
+
+      if (result.appointmentId) {
         router.replace(
           `/tracking?appointmentId=${result.appointmentId}`
         );
@@ -395,10 +402,6 @@ export default function BookingScreen() {
         return;
       }
 
-      /*
-       * Defensive fallback if the backend returned a success response
-       * without the created appointment id.
-       */
       Alert.alert(
         'Booking Successful',
         'Your appointment was created, but the tracking number could not be opened automatically.'
@@ -407,6 +410,43 @@ export default function BookingScreen() {
       router.replace(
         '/appointments'
       );
+    };
+
+  const handleMergeDoubleBooking =
+    async () => {
+      if (
+        !doubleBookingConflict?.existingAppointment?.id
+      ) {
+        return;
+      }
+
+      setMergingDoubleBooking(true);
+
+      try {
+        const result = await handleBook({
+          duplicateAction: 'MERGE_SERVICES',
+          existingAppointmentId:
+            doubleBookingConflict.existingAppointment.id,
+        });
+
+        if (!result?.success) {
+          return;
+        }
+
+        setDoubleBookingConflict(null);
+
+        if (result.appointmentId) {
+          router.replace(
+            `/tracking?appointmentId=${result.appointmentId}`
+          );
+
+          return;
+        }
+
+        router.replace('/appointments');
+      } finally {
+        setMergingDoubleBooking(false);
+      }
     };
 
   if (loading) {
@@ -592,6 +632,20 @@ export default function BookingScreen() {
         notes={notes}
       />
 
+
+      {/* Double booking resolution */}
+      <DoubleBookingModal
+        visible={Boolean(doubleBookingConflict)}
+        conflict={doubleBookingConflict}
+        merging={mergingDoubleBooking}
+        onClose={() => {
+          if (!mergingDoubleBooking) {
+            setDoubleBookingConflict(null);
+          }
+        }}
+        onMerge={handleMergeDoubleBooking}
+      />
+
       {/* Availability errors */}
       <AvailabilityModal
         visible={
@@ -613,3 +667,4 @@ export default function BookingScreen() {
     </SafeAreaView>
   );
 }
+

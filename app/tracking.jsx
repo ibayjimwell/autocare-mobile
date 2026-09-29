@@ -15,6 +15,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -599,6 +600,24 @@ export default function TrackingScreen() {
     false,
   );
 
+  const [
+    findingToggleLoadingId,
+    setFindingToggleLoadingId,
+  ] = useState(null);
+
+  const [
+    findingInclusionOverrides,
+    setFindingInclusionOverrides,
+  ] = useState({});
+
+  /* ==============================================================
+     RESET FINDING OVERRIDES WHEN THE SERVER ESTIMATE CHANGES
+  ============================================================== */
+
+  useEffect(() => {
+    setFindingInclusionOverrides({});
+  }, [estimate?.id, estimate?.updatedAt]);
+
   /* ==============================================================
      RESCHEDULE FORM
   ============================================================== */
@@ -1053,201 +1072,195 @@ export default function TrackingScreen() {
     );
 
   /* ==============================================================
-     GRAND TOTAL
+     FINDING SELECTION / DISPLAY ESTIMATE
   ============================================================== */
 
-  let grandTotal =
-    0;
+  const rawEstimateFindings = useMemo(
+    () =>
+      Array.isArray(estimate?.findings)
+        ? estimate.findings
+        : [],
+    [estimate?.findings],
+  );
 
-  if (
-    estimate?.grandTotal !==
-      undefined &&
-    estimate?.grandTotal !==
-      null
-  ) {
-    grandTotal =
-      parseFloat(
-        estimate.grandTotal,
-      ) || 0;
-  } else {
-    const serviceSubtotal =
-      parseFloat(
-        estimate?.serviceSubtotal,
-      ) || 0;
+  const effectiveFindings = useMemo(
+    () =>
+      rawEstimateFindings.map((finding) => ({
+        ...finding,
+        included:
+          Object.prototype.hasOwnProperty.call(
+            findingInclusionOverrides,
+            finding.id,
+          )
+            ? findingInclusionOverrides[finding.id]
+            : finding?.included !== false,
+      })),
+    [rawEstimateFindings, findingInclusionOverrides],
+  );
 
-    const partsTotalFallback =
-      tasks
-        .filter(
-          (
-            task,
-          ) =>
-            task.status ===
-              'DONE' &&
-            task.findings,
-        )
-        .reduce(
-          (
-            sum,
-            task,
-          ) =>
+  const effectiveFindingsSubtotal = useMemo(
+    () =>
+      effectiveFindings
+        .filter((finding) => finding.included !== false)
+        .reduce((sum, finding) => {
+          const explicit = Number(finding?.partsSubtotal);
+          if (Number.isFinite(explicit)) {
+            return sum + explicit;
+          }
+
+          const parts = Array.isArray(finding?.parts)
+            ? finding.parts
+            : [];
+
+          return (
             sum +
-            (
-              task.findings ||
-              []
-            ).reduce(
-              (
-                findingSum,
-                finding,
-              ) =>
-                findingSum +
-                (
-                  finding.products ||
-                  []
-                ).reduce(
-                  (
-                    productsSum,
-                    product,
-                  ) =>
-                    productsSum +
-                    (
-                      product.quantity ||
-                      1
-                    ) *
-                      (
-                        parseFloat(
-                          product.priceAtTime,
-                        ) ||
-                        0
-                      ),
-                  0,
-                ),
+            parts.reduce(
+              (partSum, part) =>
+                partSum +
+                Math.max(1, Number(part?.quantity) || 1) *
+                  Math.max(0, Number(part?.priceAtTime ?? part?.price) || 0),
               0,
-            ),
-          0,
-        );
+            )
+          );
+        }, 0),
+    [effectiveFindings],
+  );
 
-    const feesTotal =
-      parseFloat(
-        estimate?.feesTotal,
-      ) || 0;
+  const displayEstimate = useMemo(() => {
+    if (!estimate) {
+      return null;
+    }
 
-    const discountTotal =
-      parseFloat(
-        estimate?.discountTotal,
-      ) || 0;
-
-    grandTotal =
+    const serviceSubtotal = Number(estimate.serviceSubtotal) || 0;
+    const feesTotal = Number(estimate.feesTotal) || 0;
+    const discountTotal = Number(estimate.discountTotal) || 0;
+    const grandTotal =
       serviceSubtotal +
-      partsTotalFallback +
+      effectiveFindingsSubtotal +
       feesTotal -
       discountTotal;
-  }
 
-  /* ==============================================================
-     ESTIMATE BREAKDOWN
-  ============================================================== */
+    return {
+      ...estimate,
+      findings: effectiveFindings,
+      findingsSubtotal: grandTotal === Number(estimate.grandTotal)
+        ? estimate.findingsSubtotal
+        : effectiveFindingsSubtotal.toFixed(2),
+      grandTotal: grandTotal.toFixed(2),
+    };
+  }, [
+    estimate,
+    effectiveFindings,
+    effectiveFindingsSubtotal,
+  ]);
 
-  const servicePrice =
-    parseFloat(
-      estimate?.serviceSubtotal,
-    ) || 0;
+  const excludedFindingIds = useMemo(
+    () =>
+      effectiveFindings
+        .filter((finding) => finding.included === false)
+        .map((finding) => finding.id)
+        .filter(Boolean),
+    [effectiveFindings],
+  );
 
-  const partsTotal =
-    tasks
-      .filter(
-        (
-          task,
-        ) =>
-          task.status ===
-            'DONE' &&
-          task.findings,
-      )
-      .reduce(
-        (
-          sum,
-          task,
-        ) =>
-          sum +
-          (
-            task.findings ||
-            []
-          ).reduce(
-            (
-              findingSum,
-              finding,
-            ) =>
-              findingSum +
-              (
-                finding.products ||
-                []
-              ).reduce(
-                (
-                  productsSum,
-                  product,
-                ) =>
-                  productsSum +
-                  (
-                    product.quantity ||
-                    1
-                  ) *
-                    (
-                      parseFloat(
-                        product.priceAtTime,
-                      ) ||
-                      0
-                    ),
-                0,
-              ),
-            0,
-          ),
-        0,
-      );
+  const selectedFindingIds = useMemo(
+    () =>
+      effectiveFindings
+        .filter((finding) => finding.included !== false)
+        .map((finding) => finding.id)
+        .filter(Boolean),
+    [effectiveFindings],
+  );
 
-  const laborTotal =
-    parseFloat(
-      estimate?.feesTotal,
-    ) || 0;
-
-  const discountTotal =
-    parseFloat(
-      estimate?.discountTotal,
-    ) || 0;
-
-  const finalBillGrandTotal =
-    finalBill
-      ? parseFloat(
-          finalBill.grandTotal,
-        )
-      : null;
+  const servicePrice = Number(estimate?.serviceSubtotal) || 0;
+  const partsTotal = effectiveFindingsSubtotal;
+  const laborTotal = Number(estimate?.feesTotal) || 0;
+  const discountTotal = Number(estimate?.discountTotal) || 0;
+  const grandTotal = Number(displayEstimate?.grandTotal) || 0;
 
   /* ==============================================================
      TOGGLE FINDING
   ============================================================== */
 
-  const toggleExclude =
-    (
-      id,
-    ) => {
-      setExcludedFindingIds(
-        (
-          previous,
-        ) =>
-          previous.includes(
-            id,
-          )
-            ? previous.filter(
-                (
-                  item,
-                ) =>
-                  item !==
-                  id,
-              )
-            : [
-                ...previous,
-                id,
-              ],
+  const handleToggleEstimateFinding = useCallback(
+    async (findingId, included) => {
+      if (
+        !estimate?.id ||
+        !findingId ||
+        appointment?.status !== 'WAITING_FOR_APPROVAL' ||
+        findingToggleLoadingId
+      ) {
+        return;
+      }
+
+      setFindingInclusionOverrides((current) => ({
+        ...current,
+        [findingId]: Boolean(included),
+      }));
+
+      setFindingToggleLoadingId(findingId);
+
+      try {
+        const response = await estimateApi.toggleFinding(
+          estimate.id,
+          findingId,
+          Boolean(included),
+        );
+
+        if (response?.error) {
+          throw new Error(
+            response.errorMessage ||
+              'Unable to update finding selection.',
+          );
+        }
+
+        await refreshAll();
+      } catch (error) {
+        console.error(
+          '[TrackingScreen] Failed to toggle estimate finding:',
+          error,
+        );
+
+        setFindingInclusionOverrides((current) => {
+          const next = { ...current };
+          delete next[findingId];
+          return next;
+        });
+
+        Alert.alert(
+          'Unable to Update Estimate',
+          error?.message ||
+            'The finding selection could not be saved.',
+        );
+      } finally {
+        setFindingToggleLoadingId(null);
+      }
+    },
+    [
+      appointment?.status,
+      estimate?.id,
+      findingToggleLoadingId,
+      refreshAll,
+    ],
+  );
+
+  const toggleExclude = useCallback(
+    (findingId) => {
+      const finding = effectiveFindings.find(
+        (item) => item.id === findingId,
       );
-    };
+
+      if (!finding) {
+        return;
+      }
+
+      void handleToggleEstimateFinding(
+        findingId,
+        finding.included === false,
+      );
+    },
+    [effectiveFindings, handleToggleEstimateFinding],
+  );
 
   /* ==============================================================
      APPROVE ESTIMATE
@@ -1255,57 +1268,44 @@ export default function TrackingScreen() {
 
   const confirmApprove =
     async () => {
-      if (
-        !estimate
-      ) {
+      if (!estimate) {
         return;
       }
 
-      setApproveModalVisible(
-        false,
-      );
-
-      setActionLoading(
-        true,
-      );
+      setApproveModalVisible(false);
+      setActionLoading(true);
 
       try {
-        await estimateApi.approve(
+        const response = await estimateApi.approve(
           estimate.id,
+          selectedFindingIds,
         );
+
+        if (response?.error) {
+          throw new Error(
+            response.errorMessage ||
+              'Failed to approve estimate.',
+          );
+        }
 
         Alert.alert(
           'Approved!',
           'Work is now in progress.',
         );
 
+        setFindingInclusionOverrides({});
         await refreshAll();
-
-        /*
-         * Give the findings loader the new IN_PROGRESS state.
-         *
-         * refreshAll updates the appointment through the existing
-         * tracking hook. A second refresh is intentionally not
-         * forced here; the effect watching appointment.status will
-         * load findings when the new status is received.
-         */
-      } catch (
-        error
-      ) {
+      } catch (error) {
         Alert.alert(
           'Error',
-          error?.response
-            ?.data
-            ?.message ||
+          error?.response?.data?.message ||
             error?.message ||
             'Failed to approve',
         );
 
         await refreshAll();
       } finally {
-        setActionLoading(
-          false,
-        );
+        setActionLoading(false);
       }
     };
 
@@ -2054,7 +2054,13 @@ export default function TrackingScreen() {
                   )
                 }
                 estimate={
-                  estimate
+                  displayEstimate
+                }
+                onToggleFinding={
+                  handleToggleEstimateFinding
+                }
+                togglingFindingId={
+                  findingToggleLoadingId
                 }
               />
             )}
@@ -2233,6 +2239,15 @@ export default function TrackingScreen() {
         }
         excludedCount={
           excludedFindingIds.length
+        }
+        selectedFindings={
+          selectedFindingIds
+            .map((findingId) =>
+              effectiveFindings.find(
+                (finding) => finding.id === findingId,
+              ),
+            )
+            .filter(Boolean)
         }
         actionLoading={
           actionLoading

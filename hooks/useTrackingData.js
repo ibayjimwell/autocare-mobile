@@ -53,9 +53,20 @@ export function useTrackingData(appointmentId) {
     try {
       // First, get the list to find estimate ID
       const res = await estimateApi.getByAppointment(appointmentId);
-      const estimates = res.data || [];
-      if (estimates.length > 0) {
-        const estimateId = estimates[0].id;
+      const estimates = Array.isArray(res?.data) ? res.data : [];
+      const selected =
+        estimates.find(
+          (item) =>
+            String(item?.status || '').toUpperCase() === 'WAITING_FOR_APPROVAL',
+        ) ||
+        estimates.find(
+          (item) =>
+            String(item?.status || '').toUpperCase() === 'APPROVED',
+        ) ||
+        estimates[0];
+
+      if (selected?.id) {
+        const estimateId = selected.id;
         // Now fetch full details
         const detailRes = await estimateApi.get(estimateId);
         setEstimate(detailRes.data || null);

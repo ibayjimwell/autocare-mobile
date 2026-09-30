@@ -566,13 +566,6 @@ export default function TrackingScreen() {
   ============================================================== */
 
   const [
-    excludedFindingIds,
-    setExcludedFindingIds,
-  ] = useState(
-    [],
-  );
-
-  const [
     approveModalVisible,
     setApproveModalVisible,
   ] = useState(

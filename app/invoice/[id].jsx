@@ -1,296 +1,245 @@
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-} from 'react-native';
-
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Pressable, } from 'react-native';
+import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-import {
-  useLocalSearchParams,
-  useRouter,
-} from 'expo-router';
-
-import {
-  ArrowLeft,
-  Download,
-  ClipboardList,
-  FileText,
-  CalendarDays,
-  LockKeyhole,
-  ShieldCheck,
-  Banknote,
-  CreditCard,
-  ArrowRight,
-  CheckCircle2,
-  AlertCircle,
-  ChevronRight,
-} from 'lucide-react-native';
-
+import { useRouter, useLocalSearchParams, } from 'expo-router';
+import { ArrowLeft, Download, ClipboardList, FileText, CalendarDays, LockKeyhole, ShieldCheck, Banknote, CreditCard, ArrowRight, CheckCircle2, AlertCircle, ChevronRight, WalletCards, X, UserRound, Mail, Phone, Eye, EyeOff, ExternalLink, } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useInvoice } from '../../hooks/useInvoice';
 import { usePaymentFlow } from '../../hooks/usePaymentFlow';
 import FinalBillBreakdown from '../../components/billing/FinalBillBreakdown';
-
+function normalizeBillId(value) {
+    if (Array.isArray(value)) {
+        return value[0] ?? null;
+    }
+    return value ?? null;
+}
+function formatCurrency(value) {
+    const num = Number.parseFloat(String(value ?? 0)) || 0;
+    return num.toLocaleString('en-PH', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+}
+function normalizeCardNumber(value) {
+    return String(value ?? '').replace(/\D/g, '');
+}
+function formatCardNumber(value) {
+    const digits = normalizeCardNumber(value).slice(0, 19);
+    return digits.replace(/(.{4})/g, '$1 ').trim();
+}
+function normalizeExpiry(value) {
+    const digits = String(value ?? '').replace(/\D/g, '').slice(0, 4);
+    if (digits.length <= 2) {
+        return digits;
+    }
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+function splitExpiry(value) {
+    const digits = String(value ?? '').replace(/\D/g, '');
+    return {
+        month: digits.slice(0, 2),
+        year: digits.slice(2, 4),
+    };
+}
+function getCustomerName(invoice) {
+    return invoice?.appointment?.customer?.fullname || '';
+}
+function getCustomerEmail(invoice) {
+    return invoice?.appointment?.customer?.email || '';
+}
+function getCustomerPhone(invoice) {
+    return invoice?.appointment?.customer?.phone || '';
+}
 export default function InvoiceScreen() {
-  const params = useLocalSearchParams();
-  const router = useRouter();
-  const { theme } = useTheme();
-
-  const rawBillId = params?.id;
-
-  /*
-   * Expo Router can return a string or string[] depending on the route
-   * parameters. Normalize it once so the hook always receives a string.
-   */
-  const billId = Array.isArray(rawBillId)
-    ? rawBillId[0]
-    : rawBillId;
-
-  const {
-    invoice,
-    loading,
-    error,
-  } = useInvoice(billId);
-
-  const {
-    startPayment,
-    paying,
-    verifiedPaid,
-    verifying,
-  } = usePaymentFlow(
-    billId,
-    invoice?.grandTotal,
-  );
-
-  /* ================================================================
-     LOADING
-  ================================================================ */
-
-  if (loading) {
-    return (
-      <SafeAreaView
-        className="flex-1 bg-background items-center justify-center"
-        style={{
-          backgroundColor: theme.background,
-        }}
-      >
-        <ActivityIndicator
-          size="large"
-          color={theme.primary}
-        />
-      </SafeAreaView>
-    );
-  }
-
-  /* ================================================================
-     ERROR / NOT FOUND
-  ================================================================ */
-
-  if (error || !invoice) {
-    return (
-      <SafeAreaView
-        className="flex-1 bg-background"
-        style={{
-          backgroundColor: theme.background,
-        }}
-      >
+    const params = useLocalSearchParams();
+    const router = useRouter();
+    const { theme } = useTheme();
+    const billId = normalizeBillId(params?.id);
+    const { invoice, loading, error, } = useInvoice(billId);
+    const { startPayment, payWithCard, paying, verifiedPaid, verifying, selectedPaymentMethod, paymentError, } = usePaymentFlow(billId, invoice?.grandTotal, invoice?.appointment?.customer);
+    const [cardModalVisible, setCardModalVisible] = useState(false);
+    const [cardNumber, setCardNumber] = useState('');
+    const [expiry, setExpiry] = useState('');
+    const [cvc, setCvc] = useState('');
+    const [cardName, setCardName] = useState(getCustomerName(invoice));
+    const [showCvc, setShowCvc] = useState(false);
+    /* ================================================================
+       LOADING
+    ================================================================ */
+    if (loading) {
+        return (<SafeAreaView className="flex-1 bg-background items-center justify-center" style={{
+                backgroundColor: theme.background,
+            }}>
+        <ActivityIndicator size="large" color={theme.primary}/>
+      </SafeAreaView>);
+    }
+    /* ================================================================
+       ERROR / NOT FOUND
+    ================================================================ */
+    if (error || !invoice) {
+        return (<SafeAreaView className="flex-1 bg-background" style={{
+                backgroundColor: theme.background,
+            }}>
         <View className="flex-1 justify-center items-center px-5">
           <View className="bg-card rounded-3xl border border-border p-6 items-center w-full">
             <View className="w-16 h-16 rounded-full bg-primary/10 items-center justify-center">
-              <AlertCircle
-                size={34}
-                color={theme.primary}
-              />
+              <AlertCircle size={34} color={theme.primary}/>
             </View>
 
-            <Text
-              className="text-lg font-semibold mt-4 text-center"
-              style={{
+            <Text className="text-lg font-semibold mt-4 text-center" style={{
                 color: theme.text,
-              }}
-            >
+            }}>
               {error || 'Invoice not found'}
             </Text>
 
-            <TouchableOpacity
-              onPress={() => router.back()}
-              className="w-full min-h-[52px] rounded-xl bg-primary items-center justify-center mt-6"
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity onPress={() => router.back()} className="w-full min-h-[52px] rounded-xl bg-primary items-center justify-center mt-6" activeOpacity={0.8}>
               <Text className="text-base font-semibold text-white">
                 Go Back
               </Text>
             </TouchableOpacity>
           </View>
         </View>
-      </SafeAreaView>
-    );
-  }
-
-  const {
-    id,
-    status,
-    createdAt,
-    grandTotal,
-    estimateId,
-    estimate,
-    appointment,
-  } = invoice;
-
-  const displayTotal =
-    Number.parseFloat(
-      String(grandTotal ?? 0),
-    ) || 0;
-
-  /*
-   * A bill is considered paid either when the server says PAID
-   * or after the payment verification flow confirms payment.
-   */
-  const isPaid =
-    status === 'PAID' ||
-    verifiedPaid;
-
-  const isOfficial =
-    status === 'OFFICIAL';
-
-  const formatCurrency = value => {
-    const num =
-      Number.parseFloat(
-        String(value ?? 0),
-      ) || 0;
-
-    return num.toLocaleString(
-      'en-PH',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      },
-    );
-  };
-
-  /* ================================================================
-     PAID
-  ================================================================ */
-
-  if (isPaid) {
-    return (
-      <SafeAreaView
-        className="flex-1 bg-background"
-        style={{
-          backgroundColor: theme.background,
-        }}
-      >
+      </SafeAreaView>);
+    }
+    const { id, status, createdAt, grandTotal, estimateId, estimate, appointment, } = invoice;
+    const displayTotal = Number.parseFloat(String(grandTotal ?? 0)) || 0;
+    const isPaid = status === 'PAID' ||
+        verifiedPaid;
+    const isOfficial = status === 'OFFICIAL';
+    const customerName = getCustomerName(invoice);
+    const customerEmail = getCustomerEmail(invoice);
+    const customerPhone = getCustomerPhone(invoice);
+    const handleOpenCardPayment = () => {
+        if (paying || verifying) {
+            return;
+        }
+        setCardName(customerName);
+        setCardModalVisible(true);
+    };
+    const handleSubmitCardPayment = async () => {
+        const cardDigits = normalizeCardNumber(cardNumber);
+        const expiryParts = splitExpiry(expiry);
+        const month = Number.parseInt(expiryParts.month, 10);
+        const yearTwoDigits = Number.parseInt(expiryParts.year, 10);
+        if (cardDigits.length < 13 ||
+            cardDigits.length > 19) {
+            Alert.alert('Card details', 'Enter a valid debit or credit card number.');
+            return;
+        }
+        if (expiryParts.month.length !== 2 ||
+            expiryParts.year.length !== 2 ||
+            !Number.isInteger(month) ||
+            month < 1 ||
+            month > 12) {
+            Alert.alert('Card details', 'Enter the expiry date in MM/YY format.');
+            return;
+        }
+        if (!/^\d{3,4}$/.test(cvc)) {
+            Alert.alert('Card details', 'Enter the card security code.');
+            return;
+        }
+        if (!String(cardName ?? '').trim()) {
+            Alert.alert('Card details', 'Enter the cardholder name.');
+            return;
+        }
+        /*
+         * PayMongo uses a four-digit calendar year.
+         * The first payment implementation only exposes MM/YY to the user.
+         */
+        const expiryYear = yearTwoDigits < 50
+            ? 2000 + yearTwoDigits
+            : 1900 + yearTwoDigits;
+        try {
+            const success = await payWithCard({
+                cardNumber: cardDigits,
+                expMonth: month,
+                expYear: expiryYear,
+                cvc,
+                name: String(cardName).trim(),
+                email: customerEmail,
+                phone: customerPhone,
+            });
+            if (success) {
+                setCardModalVisible(false);
+                setCardNumber('');
+                setExpiry('');
+                setCvc('');
+                setShowCvc(false);
+            }
+        }
+        catch (paymentException) {
+            Alert.alert('Payment Error', paymentException?.message ||
+                'Could not process the card payment.');
+        }
+    };
+    /* ================================================================
+       PAID
+    ================================================================ */
+    if (isPaid) {
+        return (<SafeAreaView className="flex-1 bg-background" style={{
+                backgroundColor: theme.background,
+            }}>
         <View className="flex-1 justify-center px-4">
           <View className="bg-card rounded-3xl border border-border p-6 items-center">
             <View className="w-20 h-20 rounded-full bg-primary/10 items-center justify-center">
-              <CheckCircle2
-                size={52}
-                color={theme.primary}
-                strokeWidth={2.1}
-              />
+              <CheckCircle2 size={52} color={theme.primary} strokeWidth={2.1}/>
             </View>
 
-            <Text
-              className="text-2xl font-bold mt-5 text-center"
-              style={{
+            <Text className="text-2xl font-bold mt-5 text-center" style={{
                 color: theme.text,
-              }}
-            >
+            }}>
               Payment Successful
             </Text>
 
-            <Text
-              className="text-sm text-center mt-2 leading-5"
-              style={{
+            <Text className="text-sm text-center mt-2 leading-5" style={{
                 color: theme.textSecondary,
-              }}
-            >
+            }}>
               Your payment has been processed.
               {'\n'}
               A receipt has been generated.
             </Text>
 
-            <TouchableOpacity
-              onPress={() =>
-                router.push(
-                  `/receipt/${billId}`,
-                )
-              }
-              className="w-full min-h-[52px] rounded-xl bg-primary items-center justify-center mt-7 flex-row"
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity onPress={() => router.push(`/receipt/${billId}`)} className="w-full min-h-[52px] rounded-xl bg-primary items-center justify-center mt-7 flex-row" activeOpacity={0.8}>
               <Text className="text-base font-semibold text-white">
                 View Receipt
               </Text>
 
-              <ArrowRight
-                size={18}
-                color="#FFFFFF"
-                className="ml-2"
-              />
+              <ArrowRight size={18} color="#FFFFFF" className="ml-2"/>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() =>
-                router.replace('/billing')
-              }
-              className="min-h-[44px] px-4 items-center justify-center mt-2"
-              activeOpacity={0.7}
-            >
-              <Text
-                className="text-sm font-medium"
-                style={{
-                  color: theme.textSecondary,
-                }}
-              >
+            <TouchableOpacity onPress={() => router.replace('/billing')} className="min-h-[44px] px-4 items-center justify-center mt-2" activeOpacity={0.7}>
+              <Text className="text-sm font-medium" style={{
+                color: theme.textSecondary,
+            }}>
                 Go to Billing List
               </Text>
             </TouchableOpacity>
           </View>
         </View>
-      </SafeAreaView>
-    );
-  }
-
-  /* ================================================================
-     NOT OFFICIAL
-  ================================================================ */
-
-  if (!isOfficial) {
-    return (
-      <SafeAreaView
-        className="flex-1 bg-background"
-        style={{
-          backgroundColor: theme.background,
-        }}
-      >
+      </SafeAreaView>);
+    }
+    /* ================================================================
+       NOT OFFICIAL
+    ================================================================ */
+    if (!isOfficial) {
+        return (<SafeAreaView className="flex-1 bg-background" style={{
+                backgroundColor: theme.background,
+            }}>
         <View className="flex-1 justify-center px-4">
           <View className="bg-card rounded-3xl border border-border p-6 items-center">
             <View className="w-16 h-16 rounded-full bg-secondary items-center justify-center">
-              <LockKeyhole
-                size={30}
-                color={theme.textSecondary}
-              />
+              <LockKeyhole size={30} color={theme.textSecondary}/>
             </View>
 
-            <Text
-              className="text-xl font-bold mt-5 text-center"
-              style={{
+            <Text className="text-xl font-bold mt-5 text-center" style={{
                 color: theme.text,
-              }}
-            >
+            }}>
               Bill Not Ready
             </Text>
 
-            <Text
-              className="text-sm text-center mt-2 leading-5"
-              style={{
+            <Text className="text-sm text-center mt-2 leading-5" style={{
                 color: theme.textSecondary,
-              }}
-            >
+            }}>
               This bill is currently{' '}
               <Text className="font-semibold">
                 {status}
@@ -300,77 +249,48 @@ export default function InvoiceScreen() {
               Payment will be available once the bill is marked as Official.
             </Text>
 
-            <TouchableOpacity
-              onPress={() => router.back()}
-              className="min-h-[52px] w-full rounded-xl bg-primary items-center justify-center mt-7"
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity onPress={() => router.back()} className="min-h-[52px] w-full rounded-xl bg-primary items-center justify-center mt-7" activeOpacity={0.8}>
               <Text className="text-base font-semibold text-white">
                 Go Back
               </Text>
             </TouchableOpacity>
           </View>
         </View>
-      </SafeAreaView>
-    );
-  }
-
-  /* ================================================================
-     OFFICIAL / READY FOR PAYMENT
-  ================================================================ */
-
-  return (
-    <SafeAreaView
-      className="flex-1 bg-background"
-      style={{
-        backgroundColor: theme.background,
-      }}
-      edges={['top']}
-    >
-      <ScrollView
-        className="flex-1"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingBottom: 32,
-        }}
-      >
+      </SafeAreaView>);
+    }
+    /* ================================================================
+       OFFICIAL / READY FOR PAYMENT
+    ================================================================ */
+    return (<SafeAreaView className="flex-1 bg-background" style={{
+            backgroundColor: theme.background,
+        }} edges={['top']}>
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{
+            paddingBottom: 32,
+        }}>
         <View className="px-4 pt-3">
 
           {/* ==========================================================
-              NAVIGATION
-          =========================================================== */}
+            NAVIGATION
+        =========================================================== */}
 
           <View className="flex-row items-center justify-between mb-5">
-            <TouchableOpacity
-              onPress={() => router.back()}
-              className="w-11 h-11 rounded-full bg-card border border-border items-center justify-center"
-              activeOpacity={0.75}
-            >
-              <ArrowLeft
-                size={21}
-                color={theme.text}
-              />
+            <TouchableOpacity onPress={() => router.back()} className="w-11 h-11 rounded-full bg-card border border-border items-center justify-center" activeOpacity={0.75}>
+              <ArrowLeft size={21} color={theme.text}/>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              className="w-11 h-11 rounded-full bg-card border border-border items-center justify-center"
-              activeOpacity={0.75}
-            >
-              <Download
-                size={19}
-                color={theme.text}
-              />
+            <TouchableOpacity className="w-11 h-11 rounded-full bg-card border border-border items-center justify-center" activeOpacity={0.75}>
+              <Download size={19} color={theme.text}/>
             </TouchableOpacity>
           </View>
 
           {/* ==========================================================
-              HERO
-          =========================================================== */}
+            HERO
+        =========================================================== */}
 
           <View className="bg-primary rounded-3xl overflow-hidden mb-5 p-5">
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center">
-                <View className="w-2 h-2 rounded-full bg-white mr-2" />
+                <View className="w-2 h-2 rounded-full bg-white mr-2"/>
 
                 <Text className="text-xs font-semibold uppercase tracking-[1.4px] text-white">
                   Ready for Payment
@@ -402,10 +322,7 @@ export default function InvoiceScreen() {
               </Text>
 
               <View className="flex-row items-center mt-2">
-                <ShieldCheck
-                  size={15}
-                  color="#FFFFFF"
-                />
+                <ShieldCheck size={15} color="#FFFFFF"/>
 
                 <Text className="text-xs text-white/70 ml-1.5">
                   Secure AutoCare payment
@@ -415,8 +332,8 @@ export default function InvoiceScreen() {
           </View>
 
           {/* ==========================================================
-              INVOICE METADATA
-          =========================================================== */}
+            INVOICE METADATA
+        =========================================================== */}
 
           <View className="bg-card rounded-2xl border border-border overflow-hidden mb-5">
             <View className="px-4 py-4 border-b border-border">
@@ -427,10 +344,7 @@ export default function InvoiceScreen() {
 
             <View className="flex-row px-4 py-4 border-b border-border">
               <View className="w-10 h-10 rounded-xl bg-primary/10 items-center justify-center mr-3">
-                <FileText
-                  size={18}
-                  color={theme.primary}
-                />
+                <FileText size={18} color={theme.primary}/>
               </View>
 
               <View className="flex-1">
@@ -450,27 +364,19 @@ export default function InvoiceScreen() {
 
                 <Text className="text-sm font-semibold text-foreground mt-0.5">
                   {createdAt
-                    ? new Date(
-                        createdAt,
-                      ).toLocaleDateString(
-                        'en-PH',
-                        {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        },
-                      )
-                    : '—'}
+            ? new Date(createdAt).toLocaleDateString('en-PH', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+            })
+            : '—'}
                 </Text>
               </View>
             </View>
 
             <View className="flex-row px-4 py-4 border-b border-border">
               <View className="w-10 h-10 rounded-xl bg-background items-center justify-center mr-3">
-                <ClipboardList
-                  size={18}
-                  color={theme.textSecondary}
-                />
+                <ClipboardList size={18} color={theme.textSecondary}/>
               </View>
 
               <View className="flex-1">
@@ -484,13 +390,9 @@ export default function InvoiceScreen() {
               </View>
             </View>
 
-            {estimateId && (
-              <View className="flex-row px-4 py-4 border-b border-border">
+            {estimateId && (<View className="flex-row px-4 py-4 border-b border-border">
                 <View className="w-10 h-10 rounded-xl bg-background items-center justify-center mr-3">
-                  <FileText
-                    size={18}
-                    color={theme.textSecondary}
-                  />
+                  <FileText size={18} color={theme.textSecondary}/>
                 </View>
 
                 <View className="flex-1">
@@ -500,35 +402,23 @@ export default function InvoiceScreen() {
 
                   <Text className="text-sm font-semibold text-foreground mt-0.5">
                     {estimateId
-                      .slice(0, 8)
-                      .toUpperCase()}
+                .slice(0, 8)
+                .toUpperCase()}
                   </Text>
 
-                  {estimate?.createdAt && (
-                    <Text className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(
-                        estimate.createdAt,
-                      ).toLocaleDateString(
-                        'en-PH',
-                        {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        },
-                      )}
-                    </Text>
-                  )}
+                  {estimate?.createdAt && (<Text className="text-xs text-muted-foreground mt-0.5">
+                      {new Date(estimate.createdAt).toLocaleDateString('en-PH', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                })}
+                    </Text>)}
                 </View>
-              </View>
-            )}
+              </View>)}
 
-            {appointment?.trackingNumber && (
-              <View className="flex-row px-4 py-4">
+            {appointment?.trackingNumber && (<View className="flex-row px-4 py-4">
                 <View className="w-10 h-10 rounded-xl bg-background items-center justify-center mr-3">
-                  <CalendarDays
-                    size={18}
-                    color={theme.textSecondary}
-                  />
+                  <CalendarDays size={18} color={theme.textSecondary}/>
                 </View>
 
                 <View className="flex-1">
@@ -540,29 +430,24 @@ export default function InvoiceScreen() {
                     #{appointment.trackingNumber}
                   </Text>
 
-                  {appointment.appointmentDate && (
-                    <Text className="text-xs text-muted-foreground mt-0.5">
+                  {appointment.appointmentDate && (<Text className="text-xs text-muted-foreground mt-0.5">
                       {appointment.appointmentDate}{' '}
                       at{' '}
                       {appointment.appointmentTime}
-                    </Text>
-                  )}
+                    </Text>)}
                 </View>
-              </View>
-            )}
+              </View>)}
           </View>
 
           {/* ==========================================================
-              FULL BREAKDOWN
-          =========================================================== */}
+            FULL BREAKDOWN
+        =========================================================== */}
 
-          <FinalBillBreakdown
-            finalBill={invoice}
-          />
+          <FinalBillBreakdown finalBill={invoice}/>
 
           {/* ==========================================================
-              TOTAL
-          =========================================================== */}
+            TOTAL
+        =========================================================== */}
 
           <View className="bg-primary/5 rounded-2xl border border-primary/20 p-5 mt-5 mb-5">
             <View className="flex-row items-center justify-between">
@@ -577,36 +462,90 @@ export default function InvoiceScreen() {
               </View>
 
               <View className="w-11 h-11 rounded-full bg-primary/10 items-center justify-center">
-                <ShieldCheck
-                  size={21}
-                  color={theme.primary}
-                />
+                <ShieldCheck size={21} color={theme.primary}/>
               </View>
             </View>
           </View>
 
           {/* ==========================================================
-              PAYMENT METHODS
-          =========================================================== */}
+            PAYMENT METHODS
+        =========================================================== */}
 
           <Text className="text-xs font-semibold uppercase tracking-[1.4px] text-muted-foreground px-1 mb-3">
-            Select Secure Payment
+            Select Payment Method
           </Text>
 
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() =>
-              router.push(
-                `/cash-qr/${billId}`,
-              )
-            }
-            className="bg-card rounded-2xl border border-border min-h-[72px] px-4 flex-row items-center mb-3"
-          >
+          <View className="bg-card rounded-2xl border border-border overflow-hidden mb-3">
+            <TouchableOpacity activeOpacity={0.8} onPress={() => startPayment('gcash')} disabled={paying || verifying} className="min-h-[76px] px-4 flex-row items-center border-b border-border" style={{
+            opacity: paying || verifying
+                ? 0.6
+                : 1,
+        }}>
+              <View className="w-11 h-11 rounded-xl bg-[#007DFE]/10 items-center justify-center mr-3">
+                <WalletCards size={22} color="#007DFE"/>
+              </View>
+
+              <View className="flex-1">
+                <Text className="text-base font-semibold text-foreground">
+                  GCash
+                </Text>
+
+                <Text className="text-sm text-muted-foreground mt-0.5">
+                  Open GCash and authorize the payment
+                </Text>
+              </View>
+
+              {selectedPaymentMethod === 'gcash' && paying ? (<ActivityIndicator size="small" color={theme.primary}/>) : (<ChevronRight size={20} color={theme.textSecondary}/>)}
+            </TouchableOpacity>
+
+            <TouchableOpacity activeOpacity={0.8} onPress={() => startPayment('paymaya')} disabled={paying || verifying} className="min-h-[76px] px-4 flex-row items-center border-b border-border" style={{
+            opacity: paying || verifying
+                ? 0.6
+                : 1,
+        }}>
+              <View className="w-11 h-11 rounded-xl bg-[#00AEEF]/10 items-center justify-center mr-3">
+                <WalletCards size={22} color="#00AEEF"/>
+              </View>
+
+              <View className="flex-1">
+                <Text className="text-base font-semibold text-foreground">
+                  Maya
+                </Text>
+
+                <Text className="text-sm text-muted-foreground mt-0.5">
+                  Open Maya and authorize the payment
+                </Text>
+              </View>
+
+              {selectedPaymentMethod === 'paymaya' && paying ? (<ActivityIndicator size="small" color={theme.primary}/>) : (<ChevronRight size={20} color={theme.textSecondary}/>)}
+            </TouchableOpacity>
+
+            <TouchableOpacity activeOpacity={0.8} onPress={handleOpenCardPayment} disabled={paying || verifying} className="min-h-[76px] px-4 flex-row items-center" style={{
+            opacity: paying || verifying
+                ? 0.6
+                : 1,
+        }}>
+              <View className="w-11 h-11 rounded-xl bg-primary/10 items-center justify-center mr-3">
+                <CreditCard size={22} color={theme.primary}/>
+              </View>
+
+              <View className="flex-1">
+                <Text className="text-base font-semibold text-foreground">
+                  Debit / Credit Card
+                </Text>
+
+                <Text className="text-sm text-muted-foreground mt-0.5">
+                  Visa or Mastercard
+                </Text>
+              </View>
+
+              <ChevronRight size={20} color={theme.textSecondary}/>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity activeOpacity={0.8} onPress={() => router.push(`/cash-qr/${billId}`)} className="bg-card rounded-2xl border border-border min-h-[72px] px-4 flex-row items-center mb-3">
             <View className="w-11 h-11 rounded-xl bg-[#34A853]/10 items-center justify-center mr-3">
-              <Banknote
-                size={21}
-                color="#34A853"
-              />
+              <Banknote size={21} color="#34A853"/>
             </View>
 
             <View className="flex-1">
@@ -619,93 +558,224 @@ export default function InvoiceScreen() {
               </Text>
             </View>
 
-            <ChevronRight
-              size={20}
-              color={theme.textSecondary}
-            />
+            <ChevronRight size={20} color={theme.textSecondary}/>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={startPayment}
-            disabled={
-              paying ||
-              verifying
-            }
-            className="bg-primary rounded-2xl border border-primary min-h-[72px] px-4 flex-row items-center"
-            style={{
-              opacity:
-                paying ||
-                verifying
-                  ? 0.6
-                  : 1,
-            }}
-          >
-            <View className="w-11 h-11 rounded-full bg-white/15 border border-white/20 items-center justify-center mr-3">
-              {paying ? (
-                <ActivityIndicator
-                  size="small"
-                  color="#FFFFFF"
-                />
-              ) : (
-                <CreditCard
-                  size={21}
-                  color="#FFFFFF"
-                />
-              )}
-            </View>
+          {paymentError ? (<View className="bg-primary/5 border border-primary/20 rounded-2xl p-4 mb-2">
+              <View className="flex-row items-start">
+                <AlertCircle size={18} color={theme.primary}/>
 
-            <View className="flex-1">
-              <Text className="text-base font-semibold text-white">
-                {paying
-                  ? 'Redirecting...'
-                  : 'Pay Online'}
+                <Text className="flex-1 text-sm ml-2 leading-5" style={{
+                color: theme.text,
+            }}>
+                  {paymentError}
+                </Text>
+              </View>
+            </View>) : null}
+
+          {paying ? (<View className="items-center py-3">
+              <ActivityIndicator size="small" color={theme.primary}/>
+
+              <Text className="text-sm mt-2" style={{
+                color: theme.textSecondary,
+            }}>
+                Connecting to the selected payment method...
               </Text>
+            </View>) : null}
 
-              <Text className="text-sm text-white/70 mt-0.5">
-                Credit Card, GCash, Maya
-              </Text>
-            </View>
+          {verifying && (<View className="items-center py-4">
+              <ActivityIndicator size="small" color={theme.primary}/>
 
-            <ArrowRight
-              size={20}
-              color="#FFFFFF"
-            />
-          </TouchableOpacity>
-
-          {verifying && (
-            <View className="items-center py-4">
-              <ActivityIndicator
-                size="small"
-                color={theme.primary}
-              />
-
-              <Text
-                className="text-sm mt-2"
-                style={{
-                  color:
-                    theme.textSecondary,
-                }}
-              >
+              <Text className="text-sm mt-2" style={{
+                color: theme.textSecondary,
+            }}>
                 Verifying payment...
               </Text>
-            </View>
-          )}
+            </View>)}
 
-          <Text
-            className="text-xs text-center leading-5 mt-6 px-4"
-            style={{
-              color:
-                theme.textSecondary,
-              opacity: 0.55,
-            }}
-          >
+          <View className="flex-row items-center justify-center px-4 mt-4">
+            <ShieldCheck size={14} color={theme.textSecondary}/>
+
+            <Text className="text-xs ml-1.5 text-center" style={{
+            color: theme.textSecondary,
+            opacity: 0.65,
+        }}>
+              Payments are securely processed by PayMongo.
+            </Text>
+          </View>
+
+          <Text className="text-xs text-center leading-5 mt-4 px-4" style={{
+            color: theme.textSecondary,
+            opacity: 0.55,
+        }}>
             Electronic Receipt generated by AutoCare System.
             {'\n'}
             Thank you for trusting us with your vehicle.
           </Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
-  );
+
+      {/* ================================================================
+            CARD PAYMENT MODAL
+        ================================================================ */}
+
+      <Modal visible={cardModalVisible} transparent animationType="slide" onRequestClose={() => {
+            if (!paying && !verifying) {
+                setCardModalVisible(false);
+            }
+        }}>
+        <KeyboardAvoidingView className="flex-1 justify-end" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <Pressable className="absolute inset-0 bg-black/40" onPress={() => {
+            if (!paying && !verifying) {
+                setCardModalVisible(false);
+            }
+        }}/>
+
+          <View className="bg-card rounded-t-3xl px-4 pt-4 pb-8 border-t border-border" style={{
+            maxHeight: '92%',
+        }}>
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{
+            paddingBottom: 8,
+        }}>
+              <View className="flex-row items-center justify-between mb-4">
+                <View className="flex-row items-center flex-1">
+                  <View className="w-11 h-11 rounded-xl bg-primary/10 items-center justify-center mr-3">
+                    <CreditCard size={22} color={theme.primary}/>
+                  </View>
+
+                  <View className="flex-1">
+                    <Text className="text-xl font-bold text-foreground">
+                      Pay by Card
+                    </Text>
+
+                    <Text className="text-sm text-muted-foreground mt-0.5">
+                      Visa or Mastercard
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity onPress={() => {
+            if (!paying && !verifying) {
+                setCardModalVisible(false);
+            }
+        }} className="w-11 h-11 rounded-full bg-background border border-border items-center justify-center" activeOpacity={0.75}>
+                  <X size={20} color={theme.text}/>
+                </TouchableOpacity>
+              </View>
+
+              <View className="bg-primary/5 rounded-2xl border border-primary/15 p-4 mb-4">
+                <Text className="text-xs uppercase tracking-[1.2px] text-primary font-semibold">
+                  Amount to charge
+                </Text>
+
+                <Text className="text-2xl font-bold text-foreground mt-1">
+                  ₱{formatCurrency(displayTotal)}
+                </Text>
+              </View>
+
+              <View className="mb-4">
+                <View className="flex-row items-center mb-2">
+                  <CreditCard size={15} color={theme.textSecondary}/>
+
+                  <Text className="text-sm font-semibold text-foreground ml-2">
+                    Card information
+                  </Text>
+                </View>
+
+                <TextInput value={formatCardNumber(cardNumber)} onChangeText={value => setCardNumber(normalizeCardNumber(value))} placeholder="Card number" placeholderTextColor={theme.textSecondary} keyboardType="number-pad" autoCorrect={false} autoCapitalize="none" editable={!paying && !verifying} className="min-h-[52px] rounded-xl border border-border bg-background px-4 text-base text-foreground mb-3" style={{
+            color: theme.text,
+        }} maxLength={23}/>
+
+                <View className="flex-row">
+                  <TextInput value={normalizeExpiry(expiry)} onChangeText={value => setExpiry(value.replace(/\D/g, '').slice(0, 4))} placeholder="MM/YY" placeholderTextColor={theme.textSecondary} keyboardType="number-pad" autoCorrect={false} editable={!paying && !verifying} className="flex-1 min-h-[52px] rounded-xl border border-border bg-background px-4 text-base text-foreground mr-2" style={{
+            color: theme.text,
+        }} maxLength={5}/>
+
+                  <View className="flex-1 relative">
+                    <TextInput value={cvc} onChangeText={value => setCvc(value.replace(/\D/g, '').slice(0, 4))} placeholder="CVC" placeholderTextColor={theme.textSecondary} keyboardType="number-pad" secureTextEntry={!showCvc} autoCorrect={false} editable={!paying && !verifying} className="min-h-[52px] rounded-xl border border-border bg-background pl-4 pr-12 text-base text-foreground" style={{
+            color: theme.text,
+        }} maxLength={4}/>
+
+                    <TouchableOpacity onPress={() => setShowCvc(value => !value)} className="absolute right-1 top-1 w-11 h-11 items-center justify-center" activeOpacity={0.75}>
+                      {showCvc ? (<EyeOff size={18} color={theme.textSecondary}/>) : (<Eye size={18} color={theme.textSecondary}/>)}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+
+              <View className="mb-4">
+                <View className="flex-row items-center mb-2">
+                  <UserRound size={15} color={theme.textSecondary}/>
+
+                  <Text className="text-sm font-semibold text-foreground ml-2">
+                    Cardholder information
+                  </Text>
+                </View>
+
+                <View className="relative mb-3">
+                  <TextInput value={cardName} onChangeText={setCardName} placeholder="Cardholder name" placeholderTextColor={theme.textSecondary} autoCorrect={false} autoCapitalize="words" editable={!paying && !verifying} className="min-h-[52px] rounded-xl border border-border bg-background px-4 text-base text-foreground" style={{
+            color: theme.text,
+        }}/>
+                </View>
+
+                <View className="flex-row items-center min-h-[44px] rounded-xl bg-background px-3 mb-2">
+                  <Mail size={15} color={theme.textSecondary}/>
+
+                  <Text className="flex-1 text-sm ml-2" style={{
+            color: theme.textSecondary,
+        }} numberOfLines={1}>
+                    {customerEmail || 'Customer email not available'}
+                  </Text>
+                </View>
+
+                <View className="flex-row items-center min-h-[44px] rounded-xl bg-background px-3">
+                  <Phone size={15} color={theme.textSecondary}/>
+
+                  <Text className="flex-1 text-sm ml-2" style={{
+            color: theme.textSecondary,
+        }} numberOfLines={1}>
+                    {customerPhone || 'Customer phone not available'}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-start bg-background rounded-xl border border-border p-3 mb-4">
+                <ShieldCheck size={17} color={theme.primary}/>
+
+                <Text className="flex-1 text-xs leading-5 ml-2" style={{
+            color: theme.textSecondary,
+        }}>
+                  Your card details are sent directly to PayMongo using your public key. AutoCare does not store the card number or CVC.
+                </Text>
+              </View>
+
+              <TouchableOpacity onPress={handleSubmitCardPayment} disabled={paying || verifying} className="min-h-[54px] rounded-xl bg-primary items-center justify-center flex-row" style={{
+            opacity: paying || verifying
+                ? 0.6
+                : 1,
+        }} activeOpacity={0.8}>
+                {paying ? (<ActivityIndicator size="small" color="#FFFFFF"/>) : (<CreditCard size={18} color="#FFFFFF"/>)}
+
+                <Text className="text-base font-semibold text-white ml-2">
+                  {paying
+            ? 'Processing...'
+            : `Pay ₱${formatCurrency(displayTotal)}`}
+                </Text>
+              </TouchableOpacity>
+
+              <View className="flex-row items-center justify-center mt-3">
+                <ExternalLink size={13} color={theme.textSecondary}/>
+
+                <Text className="text-xs ml-1" style={{
+            color: theme.textSecondary,
+            opacity: 0.65,
+        }}>
+                  3D Secure may open your bank's authentication page.
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </SafeAreaView>);
 }

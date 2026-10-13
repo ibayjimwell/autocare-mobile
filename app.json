@@ -50,12 +50,6 @@
       "eas": {
         "projectId": "b24409bc-a741-48e6-b3ec-bf5eee6fae0d"
       }
-    },
-    "notifications": {
-      "color": "#b22222",
-      "iosDisplayInForeground": true,
-      "androidMode": "default",
-      "androidCollapsedTitle": "AutoCare Update"
     }
   }
 }

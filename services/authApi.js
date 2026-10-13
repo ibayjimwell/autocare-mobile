@@ -1,3 +1,4 @@
+
 import api from './api';
 
 import {
@@ -9,167 +10,128 @@ import {
 } from '../utils/jwt';
 
 const authApi = {
-  // ------------------------------------------------------------------
   // REGISTER
-  //
-  // Backend expects FormData.
-  //
-  // Email is optional.
-  // ------------------------------------------------------------------
-
-  register(
-    userData
-  ) {
-    const form =
-      new FormData();
+  register(userData) {
+    const form = new FormData();
 
     form.append(
       'fullname',
-      userData.fullname
+      userData.fullname,
     );
 
-    /*
-     * FormData converts null into the string "null".
-     *
-     * Because email is optional, always send an empty string when
-     * there is no email. The backend converts the empty string to
-     * NULL.
-     */
     form.append(
       'email',
-      userData.email ||
-        ''
+      userData.email || '',
     );
 
     form.append(
       'phone',
-      userData.phone
+      userData.phone,
     );
 
     form.append(
       'password',
-      userData.password
+      userData.password,
     );
 
     form.append(
       'tempPassword',
-      false
+      'false',
     );
 
     return api.request(
       '/customers',
       'POST',
-      form
+      form,
     );
   },
 
-  // ------------------------------------------------------------------
   // LOGIN
-  //
-  // Backend expects:
-  //
-  // {
-  //   emailOrPhone,
-  //   password
-  // }
-  //
-  // The backend may return:
-  //
-  // 200
-  //   Login successful
-  //
-  // 200
-  //   Phone verification required
-  //
-  // 401
-  //   Invalid credentials
-  //
-  // 403
-  //   Account deactivated
-  //
-  // We intentionally return the API response directly so the auth
-  // context can handle each state.
-  // ------------------------------------------------------------------
-
-  login(
-    credentials
-  ) {
+  login(credentials) {
     return api.request(
       '/customers/login',
       'POST',
-      credentials
+      credentials,
     );
   },
 
-  // ------------------------------------------------------------------
-  // CURRENT CUSTOMER
-  // ------------------------------------------------------------------
+  // FIRST LOGIN — CHANGE TEMPORARY PASSWORD
+  //
+  // The login token is not persisted in normal
+  // session storage before the password is changed.
+  changeTemporaryPassword({
+    loginToken,
+    currentPassword,
+    newPassword,
+    confirmPassword,
+  }) {
+    return api.request(
+      '/customers/change-temporary-password',
+      'POST',
+      {
+        loginToken,
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      },
+    );
+  },
 
+  // GET CURRENT CUSTOMER
   async getMe() {
     const token =
       storage.getItem(
-        'auth_token'
+        'auth_token',
       );
 
     if (!token) {
       throw new Error(
-        'Not authenticated'
+        'Not authenticated',
       );
     }
 
     const decoded =
-      decodeToken(
-        token
-      );
+      decodeToken(token);
 
-    if (
-      !decoded ||
-      !decoded.id
-    ) {
+    if (!decoded?.id) {
       throw new Error(
-        'Invalid token'
+        'Invalid token',
       );
     }
 
     return api.request(
-      `/customers/${decoded.id}`,
-      'GET'
+      `/customers/${encodeURIComponent(
+        decoded.id,
+      )}`,
+      'GET',
     );
   },
 
-  // ------------------------------------------------------------------
   // FORGOT PASSWORD
-  // ------------------------------------------------------------------
-
-  requestOTP(
-    phone
-  ) {
+  requestOTP(phone) {
     return api.request(
       '/customers/forgot-password',
       'POST',
       {
         phone,
-      }
+      },
     );
   },
 
-  verifyOTP(
-    phone,
-    otp
-  ) {
+  verifyOTP(phone, otp) {
     return api.request(
       '/customers/verify-otp',
       'POST',
       {
         phone,
         otp,
-      }
+      },
     );
   },
 
   resetPassword(
     resetToken,
-    newPassword
+    newPassword,
   ) {
     return api.request(
       '/customers/reset-password',
@@ -177,17 +139,14 @@ const authApi = {
       {
         resetToken,
         newPassword,
-      }
+      },
     );
   },
 
-  // ------------------------------------------------------------------
   // PHONE VERIFICATION
-  // ------------------------------------------------------------------
-
   sendPhoneVerificationOTP(
     customerId,
-    newPhone
+    newPhone,
   ) {
     return api.request(
       '/customers/verify-phone/send-otp',
@@ -195,19 +154,15 @@ const authApi = {
       {
         customerId,
         newPhone,
-      }
+      },
     );
   },
 
-  // ------------------------------------------------------------------
-  // VERIFY PHONE OTP
-  // ------------------------------------------------------------------
-
-  verifyPhoneOTP: (
+  verifyPhoneOTP(
     customerId,
     otp,
-    newPhone
-  ) => {
+    newPhone,
+  ) {
     return api.request(
       '/customers/verify-phone',
       'POST',
@@ -215,7 +170,7 @@ const authApi = {
         customerId,
         otp,
         newPhone,
-      }
+      },
     );
   },
 };

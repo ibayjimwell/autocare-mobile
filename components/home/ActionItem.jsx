@@ -1,23 +1,61 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+
+import {
+  View,
+  Text,
+  TouchableOpacity,
+} from 'react-native';
+
 import { useRouter } from 'expo-router';
 
-export default function ActionItem({ icon: Icon, label, color, path, isLast }) {
+export default function ActionItem({
+  icon: Icon,
+  label,
+  color,
+  path,
+  onPress,
+  isLast = false,
+}) {
   const router = useRouter();
+
+  const handlePress = () => {
+    if (typeof onPress === 'function') {
+      onPress();
+      return;
+    }
+
+    if (path) {
+      router.push(path);
+    }
+  };
 
   return (
     <TouchableOpacity
       activeOpacity={0.7}
-      onPress={() => router.push(path)}
-      className={`flex-1 bg-card rounded-xl border border-border items-center justify-center py-4 min-h-[96px] ${!isLast ? 'mr-3' : ''}`}
+      onPress={handlePress}
+      disabled={!onPress && !path}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      className={`min-h-[96px] flex-1 items-center justify-center rounded-xl border border-border bg-card py-4 ${
+        !isLast ? 'mr-3' : ''
+      }`}
     >
       <View
-        className="w-11 h-11 rounded-xl items-center justify-center mb-2"
-        style={{ backgroundColor: color + '15' }}
+        className="mb-2 h-11 w-11 items-center justify-center rounded-xl"
+        style={{
+          backgroundColor: `${color}15`,
+        }}
       >
-        {/* Safely render the icon component */}
-        {Icon && <Icon size={22} color={color} />}
+        {Icon ? (
+          <Icon
+            size={22}
+            color={color}
+          />
+        ) : null}
       </View>
-      <Text className="text-sm font-medium text-foreground">{label}</Text>
+
+      <Text className="text-sm font-medium text-foreground">
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 }

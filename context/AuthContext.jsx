@@ -15,6 +15,7 @@ import {
 } from "../utils/storage";
 
 import authApi from "../services/authApi";
+import api from "../services/api";
 
 import customersApi from "../services/customersApi";
 
@@ -1380,6 +1381,19 @@ export const AuthProvider = ({
           "[Presence] Logout presence update failed:",
           error
         );
+      }
+
+      // Unregister this device before the login token is discarded.
+      // Other devices belonging to the customer remain subscribed.
+      const expoPushToken = storage.getItem('expo_push_token');
+      if (expoPushToken) {
+        try {
+          await api.request('/customers/push-subscriptions', 'DELETE',
+            { expoPushToken }, true);
+          storage.removeItem('expo_push_token');
+        } catch (error) {
+          console.warn('[Auth] Unable to unregister push token:', error?.message);
+        }
       }
 
       clearAuthentication();

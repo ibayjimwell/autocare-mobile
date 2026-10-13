@@ -1,3 +1,4 @@
+
 import {
   ScrollView,
   View,
@@ -10,7 +11,6 @@ import { Link, useRouter } from 'expo-router';
 import {
   PlusCircle,
   Search,
-  Navigation,
   CalendarClock,
 } from 'lucide-react-native';
 import { useEffect } from 'react';
@@ -72,6 +72,7 @@ export default function HomeScreen() {
           className="mx-4 mb-6 flex-row items-center rounded-lg bg-secondary px-4 min-h-[44px]"
         >
           <Search size={18} color="#8E8E93" />
+
           <Text className="ml-2 text-base font-normal text-muted-foreground">
             Search services...
           </Text>
@@ -79,7 +80,10 @@ export default function HomeScreen() {
 
         <HeroCard />
 
-        <QuickActions />
+        {/* Quick Actions */}
+        <QuickActions
+          activeTrackingAppointment={activeTrackingAppointment}
+        />
 
         {/* Schedule */}
         <View className="mb-8">
@@ -200,9 +204,19 @@ export default function HomeScreen() {
             >
               {vehicles.map((vehicle, index) => (
                 <VehicleCard
-                  key={vehicle.id || `${vehicle.make}-${vehicle.model}-${index}`}
-                  name={`${vehicle.make || ''} ${vehicle.model || ''}`.trim() || 'My Vehicle'}
-                  plate={vehicle.plateNumber || vehicle.plate || 'No plate'}
+                  key={
+                    vehicle.id ||
+                    `${vehicle.make}-${vehicle.model}-${index}`
+                  }
+                  name={
+                    `${vehicle.make || ''} ${vehicle.model || ''}`.trim() ||
+                    'My Vehicle'
+                  }
+                  plate={
+                    vehicle.plateNumber ||
+                    vehicle.plate ||
+                    'No plate'
+                  }
                   year={vehicle.year ? String(vehicle.year) : ''}
                   isLast={false}
                 />
@@ -235,9 +249,7 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Services
-            No "Services" heading and no "See All".
-        */}
+        {/* Trending Services */}
         <View className="pb-14">
           {trendingServices.length === 0 ? (
             <View className="mx-4 rounded-xl bg-card px-6 py-8 items-center">
@@ -246,48 +258,26 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <>
-              <View className="mx-4 overflow-hidden rounded-xl bg-card">
-                {trendingServices.map((service, index) => (
-                  <TrendingServiceCard
-                    key={service.id}
-                    name={service.name}
-                    duration={formatDuration(service.durationMinutes)}
-                    price={formatPrice(service.basePrice)}
-                    rank={index + 1}
-                    count={service.appointmentCount}
-                    isLast={index === trendingServices.length - 1}
-                    onPress={() =>
-                      router.push(`/booking?serviceId=${service.id}`)
-                    }
-                  />
-                ))}
-              </View>
-
-              {/* Working tracking CTA inside services section */}
-              {activeTrackingAppointment && (
-                <TouchableOpacity
-                  activeOpacity={0.85}
+            <View className="mx-4 overflow-hidden rounded-xl bg-card">
+              {trendingServices.map((service, index) => (
+                <TrendingServiceCard
+                  key={service.id}
+                  name={service.name}
+                  duration={formatDuration(service.durationMinutes)}
+                  price={formatPrice(service.basePrice)}
+                  rank={index + 1}
+                  count={service.appointmentCount}
+                  isLast={
+                    index === trendingServices.length - 1
+                  }
                   onPress={() =>
                     router.push(
-                      `/tracking?appointmentId=${activeTrackingAppointment.id}`
+                      `/booking?serviceId=${service.id}`
                     )
                   }
-                  className="mx-4 mt-3 min-h-[52px] flex-row items-center justify-center rounded-xl bg-primary px-4"
-                >
-                  <Navigation size={19} color="#FFFFFF" />
-                  <View className="ml-2">
-                    <Text className="text-sm font-semibold text-white">
-                      Track Your Booking
-                    </Text>
-                    <Text className="text-xs text-white/75">
-                      {activeTrackingAppointment.trackingNumber ||
-                        'Open current appointment'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </>
+                />
+              ))}
+            </View>
           )}
         </View>
       </ScrollView>

@@ -7,7 +7,8 @@ import { View, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
-// import { usePushNotifications } from '../hooks/usePushNotifications';
+import { usePushNotifications } from '../hooks/usePushNotifications';
+import ArrivalRequestOverlay from '../components/ArrivalRequestOverlay';
 import '../global.css';
 
 /**
@@ -65,7 +66,7 @@ function RootLayoutNav() {
   const url = Linking.useURL();
   const router = useRouter();
 
-  // usePushNotifications();
+  usePushNotifications();
 
   // Handle deep links (e.g., payment-success)
   useEffect(() => {
@@ -95,6 +96,7 @@ function RootLayoutNav() {
   }
 
   return (
+    <>
     <Stack
       screenOptions={{
         animation: "slide_from_right",
@@ -228,6 +230,8 @@ function RootLayoutNav() {
         </>
       )}
     </Stack>
+    <ArrivalRequestOverlay />
+    </>
   );
 }
 

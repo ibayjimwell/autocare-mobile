@@ -6,10 +6,13 @@ import Constants from 'expo-constants';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import api from '../services/api';
+import { storage } from '../utils/storage';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
     sound: 'notification_sound.wav',
@@ -18,6 +21,15 @@ Notifications.setNotificationHandler({
 
 async function registerForPushNotificationsAsync() {
   let token;
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('autocare-arrival', {
+      name: 'Arrival Questions',
+      importance: Notifications.AndroidImportance.MAX,
+      sound: 'notification_sound.wav',
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#C1272D',
+    });
+  }
   if (Device.isDevice) {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -52,13 +64,14 @@ export function usePushNotifications() {
     // Register token
     registerForPushNotificationsAsync().then(token => {
       if (!token) return;
+      storage.setItem('expo_push_token', token);
       api.request(
         '/customers/push-subscriptions',
         'POST',
         { customerId: user.id, expoPushToken: token },
         true
       ).catch(err => console.error('Failed to save push token:', err));
-    });
+    }).catch(err => console.error('Failed to register push notifications:', err));
 
     // Listener for incoming notifications while app is in foreground
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
@@ -91,7 +104,7 @@ export function usePushNotifications() {
         event: data.event || 'push',
       });
       // Navigate using Linking if url is present
-      if (url) {
+      if (url && data.type !== 'ARRIVAL_REQUEST') {
         Linking.openURL(url).catch(err => console.error('Failed to open URL:', err));
       }
     });

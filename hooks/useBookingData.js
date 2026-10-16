@@ -165,11 +165,31 @@ export function useBookingData() {
             servicesRes ||
             [];
 
+          // Keep the complete service object from AutoCare System.
+          // In particular, preserve category/subcategory and the
+          // isLaborInclude flag for the picker and confirmation modal.
+          // The API stores duration as estimatedDuration, while older
+          // Mobile components read durationMinutes.
           setServices(
-            Array.isArray(
-              serviceData
-            )
-              ? serviceData
+            Array.isArray(serviceData)
+              ? serviceData.map(service => ({
+                  ...service,
+                  durationMinutes:
+                    service.durationMinutes ??
+                    service.estimatedDuration ??
+                    0,
+                  type:
+                    service.type === 'CHECKUP'
+                      ? 'DIAGNOSTIC'
+                      : service.type,
+                  subcategory:
+                    (service.type === 'REPAIR')
+                      ? (service.subcategory || null)
+                      : null,
+                  isLaborInclude:
+                    service.isLaborInclude === true ||
+                    service.isLaborInclude === 'true',
+                }))
               : []
           );
 

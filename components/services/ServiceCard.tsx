@@ -66,6 +66,12 @@ export default function ServiceCard({ service, index }: ServiceCardProps) {
               {service.name}
             </Text>
             
+            {!!service.subcategory && (
+              <Text className="mb-1 text-xs font-semibold text-primary">{service.subcategory}</Text>
+            )}
+            <Text className="mb-2 text-xs text-muted-foreground">
+              {service.isLaborInclude ? 'Labor included in base price' : 'Labor not included in base price'}
+            </Text>
             {/* Meta Row */}
             <View className="flex-row items-center mb-2">
               <Clock size={12} color="#8E8E93" />

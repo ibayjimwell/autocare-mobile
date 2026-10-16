@@ -10,7 +10,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, useRouter } from 'expo-router';
 import {
   PlusCircle,
-  Search,
   CalendarClock,
 } from 'lucide-react-native';
 import { useEffect } from 'react';
@@ -65,19 +64,6 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerClassName="pt-6"
       >
-        {/* Search */}
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => router.push('/services')}
-          className="mx-4 mb-6 flex-row items-center rounded-lg bg-secondary px-4 min-h-[44px]"
-        >
-          <Search size={18} color="#8E8E93" />
-
-          <Text className="ml-2 text-base font-normal text-muted-foreground">
-            Search services...
-          </Text>
-        </TouchableOpacity>
-
         <HeroCard />
 
         {/* Quick Actions */}
@@ -263,10 +249,14 @@ export default function HomeScreen() {
                 <TrendingServiceCard
                   key={service.id}
                   name={service.name}
-                  duration={formatDuration(service.durationMinutes)}
+                  duration={formatDuration(
+                    service.durationMinutes ?? service.estimatedDuration
+                  )}
                   price={formatPrice(service.basePrice)}
                   rank={index + 1}
                   count={service.appointmentCount}
+                  subcategory={service.subcategory}
+                  isLaborInclude={service.isLaborInclude}
                   isLast={
                     index === trendingServices.length - 1
                   }

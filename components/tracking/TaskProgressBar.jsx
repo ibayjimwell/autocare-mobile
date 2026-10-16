@@ -1,83 +1,61 @@
 import { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
+import { Clock3 } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
+
+function timeRemaining(ms) {
+  if (ms <= 0) return '0m';
+  const minutes = Math.ceil(ms / 60000);
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!hours) return `${rest}m`;
+  return rest ? `${hours}h ${rest}m` : `${hours}h`;
+}
 
 export default function TaskProgressBar({ task }) {
   const { theme } = useTheme();
   const [elapsed, setElapsed] = useState(0);
-
-  const duration = task.durationMinutes;
-  const isActive =
-    task.status === 'IN_PROGRESS' &&
-    task.startedAt &&
-    duration;
+  const duration = Math.max(0, Number(task?.durationMinutes) || 0);
+  const startTime = task?.startedAt ? new Date(task.startedAt).getTime() : NaN;
+  const active = task?.status === 'IN_PROGRESS' && duration > 0 && Number.isFinite(startTime);
 
   useEffect(() => {
-    if (!isActive) {
+    if (!active) {
       setElapsed(0);
       return;
     }
-
-    const startTime = new Date(task.startedAt).getTime();
-    const durationMs = duration * 60 * 1000;
-
+    const maximum = duration * 60 * 1000;
     const update = () => {
-      const now = Date.now();
-      const diff = Math.min(durationMs, now - startTime);
+      const diff = Math.max(0, Math.min(maximum, Date.now() - startTime));
       setElapsed(diff);
     };
-
     update();
     const interval = setInterval(update, 1000);
-
     return () => clearInterval(interval);
-  }, [task.status, task.startedAt, duration, isActive]);
+  }, [active, duration, startTime]);
 
-  if (!isActive) return null;
+  if (!active) return null;
 
-  const percent = Math.min(
-    100,
-    Math.round((elapsed / (duration * 60 * 1000)) * 100)
-  );
-
-  const remainingMs = duration * 60 * 1000 - elapsed;
-  const remaining = formatMilliseconds(remainingMs);
+  const durationMs = duration * 60 * 1000;
+  const percent = Math.min(100, Math.max(0, Math.round((elapsed / durationMs) * 100)));
+  const remaining = timeRemaining(durationMs - elapsed);
 
   return (
-    <View className="px-4 pb-4">
-      <View className="flex-row justify-between items-center mb-2">
-        <Text className="text-xs font-medium text-muted-foreground">
-          {percent}%
-        </Text>
-
-        <Text className="text-xs font-medium text-muted-foreground">
-          {remaining} left
-        </Text>
+    <View className="mx-4 mt-4 border-t border-border pb-4 pt-3">
+      <View className="mb-2 flex-row items-center justify-between">
+        <View className="flex-row items-center">
+          <Clock3 size={13} color={theme.primary} />
+          <Text className="ml-1.5 text-xs font-medium text-muted-foreground">Time progress</Text>
+        </View>
+        <Text className="text-xs font-bold text-foreground">{percent}%</Text>
       </View>
-
-      <View
-        className="h-2 rounded-full overflow-hidden bg-secondary"
-      >
+      <View className="h-2 overflow-hidden rounded-full bg-secondary">
         <View
           className="h-full rounded-full"
-          style={{
-            width: `${percent}%`,
-            backgroundColor: theme.primary,
-          }}
+          style={{ width: `${percent}%`, backgroundColor: theme.primary }}
         />
       </View>
+      <Text className="mt-2 text-right text-xs text-muted-foreground">{remaining} estimated remaining</Text>
     </View>
   );
-}
-
-function formatMilliseconds(ms) {
-  if (ms <= 0) return '0m';
-
-  const totalMinutes = Math.round(ms / 60000);
-  const hrs = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-
-  if (hrs === 0) return `${mins}m`;
-
-  return `${hrs}h ${mins > 0 ? `${mins}m` : ''}`.trim();
 }

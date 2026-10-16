@@ -10,8 +10,6 @@ export default function VehicleCard({ name, plate, year, isLast }) {
       activeOpacity={0.7}
       className={`w-44 bg-card rounded-xl overflow-hidden border border-border ${!isLast ? 'mr-3' : ''}`}
     >
-      <Image source={{ uri: VEHICLE_IMAGE }} className="w-full h-24" resizeMode="cover" />
-
       <View className="p-3">
         <View className="flex-row items-center justify-between">
           <Text className="text-base font-medium text-foreground flex-1 mr-1" numberOfLines={1}>

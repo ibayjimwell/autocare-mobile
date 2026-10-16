@@ -22,13 +22,29 @@ Notifications.setNotificationHandler({
 async function registerForPushNotificationsAsync() {
   let token;
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('autocare-arrival', {
-      name: 'Arrival Questions',
-      importance: Notifications.AndroidImportance.MAX,
-      sound: 'notification_sound.wav',
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#C1272D',
-    });
+    // General AutoCare notifications
+    await Notifications.setNotificationChannelAsync(
+      'autocare-general',
+      {
+        name: 'AutoCare Updates',
+        importance: Notifications.AndroidImportance.MAX,
+        sound: 'notification_sound.wav',
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#C1272D',
+      }
+    );
+  
+    // Ask Arrival notifications
+    await Notifications.setNotificationChannelAsync(
+      'autocare-arrival',
+      {
+        name: 'Arrival Questions',
+        importance: Notifications.AndroidImportance.MAX,
+        sound: 'notification_sound.wav',
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#C1272D',
+      }
+    );
   }
   if (Device.isDevice) {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -62,16 +78,36 @@ export function usePushNotifications() {
     if (!user?.id) return;
 
     // Register token
-    registerForPushNotificationsAsync().then(token => {
-      if (!token) return;
-      storage.setItem('expo_push_token', token);
-      api.request(
-        '/customers/push-subscriptions',
-        'POST',
-        { customerId: user.id, expoPushToken: token },
-        true
-      ).catch(err => console.error('Failed to save push token:', err));
-    }).catch(err => console.error('Failed to register push notifications:', err));
+    registerForPushNotificationsAsync()
+      .then(async token => {
+        if (!token) {
+          console.warn('[Push] No Expo push token generated.');
+          return;
+        }
+    
+        console.log('[Push] Token generated:', token);
+    
+        const result = await api.request(
+          '/customers/push-subscriptions',
+          'POST',
+          {
+            customerId: user.id,
+            expoPushToken: token,
+          },
+          true
+        );
+    
+        if (result?.error) {
+          throw new Error(
+            result.errorMessage || 'Push token registration failed.'
+          );
+        }
+    
+        console.log('[Push] Token saved successfully:', result);
+      })
+      .catch(error => {
+        console.error('[Push] Registration failed:', error);
+      });
 
     // Listener for incoming notifications while app is in foreground
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {

@@ -1,3 +1,5 @@
+import React from 'react';
+
 import {
   View,
   Text,
@@ -14,7 +16,7 @@ import {
 const SERVICE_TYPE_LABELS = {
   PMS: 'PMS',
   REPAIR: 'Repair',
-  CHECKUP: 'Checkup',
+  DIAGNOSTIC: 'Diagnostic',
 };
 
 function formatServiceDuration(minutes) {
@@ -70,17 +72,16 @@ export default function ServiceSelector({
     ),
   ];
 
-  const selectedType =
-    selectedService?.type || 'ALL';
+  const [typeFilter, setTypeFilter] = React.useState('ALL');
+  const [subcategoryFilter, setSubcategoryFilter] = React.useState('ALL');
+  const selectedType = typeFilter;
 
-  const visibleServices =
-    selectedType === 'ALL'
-      ? services
-      : services.filter(
-          (service) =>
-            service?.type ===
-            selectedType
-        );
+  const visibleServices = services.filter((service) => {
+    if (selectedType !== 'ALL' && service?.type !== selectedType) return false;
+    if (subcategoryFilter !== 'ALL' && service?.subcategory !== subcategoryFilter) return false;
+    return true;
+  });
+  const repairCategories = [...new Set(services.filter((s) => s.type === 'REPAIR').map((s) => s.subcategory).filter(Boolean))];
 
   /*
    * Always keep the selected service visible.
@@ -130,12 +131,7 @@ export default function ServiceSelector({
             <TouchableOpacity
               key={type}
               activeOpacity={0.75}
-              onPress={() => {
-                /*
-                 * Tapping a type only changes the visible
-                 * list. It does not destroy the selected service.
-                 */
-              }}
+              onPress={() => { setTypeFilter(type); setSubcategoryFilter('ALL'); }}
               className={`mr-2 min-h-[44px] items-center justify-center rounded-full border px-5 ${
                 isActive
                   ? 'border-primary bg-primary'
@@ -158,6 +154,16 @@ export default function ServiceSelector({
         })}
       </ScrollView>
 
+      {selectedType === 'REPAIR' && repairCategories.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
+          {['ALL', ...repairCategories].map((category) => (
+            <TouchableOpacity key={category} onPress={() => setSubcategoryFilter(category)}
+              className={`mr-2 rounded-full border px-3 py-2 ${subcategoryFilter === category ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
+              <Text className="text-xs font-semibold text-foreground">{category}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
       <View className="overflow-hidden rounded-xl bg-card">
         {servicesToRender.map(
           (
@@ -214,13 +220,10 @@ export default function ServiceSelector({
                       </Text>
                     </View>
 
+                    <Text className="mt-1 text-xs text-muted-foreground">{service.isLaborInclude ? 'Labor included' : 'Labor not included'}</Text>
                     {!!service.type && (
                       <Text className="mt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        {SERVICE_TYPE_LABELS[
-                          service
-                            .type
-                        ] ||
-                          service.type}
+                        {SERVICE_TYPE_LABELS[service.type] || service.type}{service.subcategory ? ` • ${service.subcategory}` : ''}
                       </Text>
                     )}
                   </View>

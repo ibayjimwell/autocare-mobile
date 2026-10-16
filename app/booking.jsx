@@ -323,6 +323,42 @@ export default function BookingScreen() {
   ]);
 
   /*
+   * The service catalog is refreshed when Booking regains focus.
+   * Keep the selected service (and its labor-included flag, price,
+   * category and repair subcategory) synchronized with the backend.
+   * If the service is deactivated or removed, do not allow a stale
+   * selection to be submitted.
+   */
+  useEffect(() => {
+    if (!selectedService?.id || loading) return;
+
+    const latest = services.find(
+      service => String(service.id) === String(selectedService.id)
+    );
+
+    if (!latest || latest.active === false) {
+      setSelectedService(null);
+      setSelectedTime(null);
+      return;
+    }
+
+    const keys = [
+      'name',
+      'basePrice',
+      'durationMinutes',
+      'estimatedDuration',
+      'type',
+      'subcategory',
+      'isLaborInclude',
+      'active',
+    ];
+
+    if (keys.some(key => latest[key] !== selectedService[key])) {
+      setSelectedService(latest);
+    }
+  }, [services, selectedService, loading, setSelectedTime]);
+
+  /*
    * If a currently-selected date becomes disabled after
    * configuration refresh, clear it.
    */

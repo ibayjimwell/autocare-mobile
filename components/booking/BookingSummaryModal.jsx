@@ -154,6 +154,9 @@ export default function BookingSummaryModal({
     service?.name ||
     'Service';
 
+  const serviceDetails = [service?.type, service?.subcategory].filter(Boolean).join(' • ');
+  const laborDetails = service?.isLaborInclude ? 'Labor included in base price' : 'Labor not included in base price';
+
   const vehicleName =
     `${vehicle?.make || ''} ${
       vehicle?.model || ''
@@ -221,6 +224,12 @@ export default function BookingSummaryModal({
               paddingBottom: 24,
             }}
           >
+            {(serviceDetails || service?.isLaborInclude !== undefined) && (
+              <View className="mx-4 mt-3 rounded-lg border border-border bg-card p-3">
+                {!!serviceDetails && <Text className="text-xs font-semibold text-foreground">{serviceDetails}</Text>}
+                <Text className="mt-1 text-xs text-muted-foreground">{laborDetails}</Text>
+              </View>
+            )}
             {/* Booking card */}
             <View className="mx-4 mt-4 overflow-hidden rounded-2xl bg-card">
               <SummaryRow

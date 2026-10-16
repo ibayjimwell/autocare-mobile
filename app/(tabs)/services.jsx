@@ -20,7 +20,7 @@ import ServicesFooter from '../../components/services/ServicesFooter';
 const SERVICE_TYPE_LABELS = {
   PMS: 'PMS',
   REPAIR: 'Repair',
-  CHECKUP: 'Checkup',
+  DIAGNOSTIC: 'Diagnostic',
 };
 
 function formatServiceDuration(minutes) {
@@ -126,10 +126,10 @@ function ServiceListCard({
             </Text>
           </View>
 
+          <Text className="mt-1 text-xs text-muted-foreground">{service.isLaborInclude ? 'Labor included' : 'Labor not included'}</Text>
           {!!service.type && (
             <Text className="mt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {SERVICE_TYPE_LABELS[service.type] ||
-                service.type}
+              {SERVICE_TYPE_LABELS[service.type] || service.type}{service.subcategory ? ` • ${service.subcategory}` : ''}
             </Text>
           )}
         </View>
@@ -159,6 +159,7 @@ export default function ServicesScreen() {
   const { services, loading } = useServices();
 
   const [selectedType, setSelectedType] = useState('ALL');
+  const [selectedSubcategory, setSelectedSubcategory] = useState('ALL');
 
   const serviceTypes = useMemo(() => {
     const uniqueTypes = Array.from(
@@ -191,20 +192,17 @@ export default function ServicesScreen() {
   }, []);
 
   const filteredServices = useMemo(() => {
-    if (selectedType === 'ALL') {
-      return services;
-    }
+    if (selectedType === 'ALL') return services;
 
     const actualType =
       typeValueMap[selectedType] || selectedType;
 
-    return services.filter(
-      (service) => service?.type === actualType
-    );
+    return services.filter((service) => service?.type === actualType && (selectedSubcategory === 'ALL' || service.subcategory === selectedSubcategory));
   }, [
     services,
     selectedType,
     typeValueMap,
+    selectedSubcategory,
   ]);
 
   return (
@@ -243,9 +241,19 @@ export default function ServicesScreen() {
               <ServiceTypeTabs
                 types={serviceTypes}
                 selectedType={selectedType}
-                onSelect={setSelectedType}
+                onSelect={(next) => { setSelectedType(next); setSelectedSubcategory('ALL'); }}
               />
 
+              {selectedType === 'Repair' && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="px-4 pb-3">
+                  {['ALL', ...new Set(services.filter((s) => s.type === 'REPAIR').map((s) => s.subcategory).filter(Boolean))].map((sub) => (
+                    <TouchableOpacity key={sub} onPress={() => setSelectedSubcategory(sub)}
+                      className={`mr-2 rounded-full border px-3 py-2 ${selectedSubcategory === sub ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
+                      <Text className="text-xs font-semibold text-foreground">{sub}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
               {filteredServices.length === 0 ? (
                 <View className="mx-4 items-center rounded-xl bg-card px-6 py-12">
                   <Wrench size={28} color="#8E8E93" />

@@ -177,6 +177,13 @@ export function useBookingForm(
         };
       }
 
+      if (selectedService?.active === false) {
+        return {
+          valid: false,
+          message: 'This service is no longer available for booking. Please select another service.',
+        };
+      }
+
       if (!customerId) {
         return {
           valid: false,

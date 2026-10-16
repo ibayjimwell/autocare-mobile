@@ -11,7 +11,16 @@ export function useServices() {
     try {
       const res = await serviceTypesApi.listActive();
       const data = res.data?.data || res.data || res;
-      setServices(Array.isArray(data) ? data : []);
+      setServices(
+        Array.isArray(data)
+          ? data.map((service) => ({
+              ...service,
+              durationMinutes: Number(
+                service.durationMinutes ?? service.estimatedDuration ?? 0,
+              ),
+            }))
+          : [],
+      );
     } catch (err) {
       console.error("Failed to load services:", err);
     } finally {

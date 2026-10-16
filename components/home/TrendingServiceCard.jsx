@@ -3,7 +3,7 @@ import { Gauge, Droplets, Disc, Wrench, Fuel, CircleDashed, Wrench as Hammer, Se
 
 const SERVICE_ICONS = [Gauge, Droplets, Disc, Wrench, Fuel, CircleDashed, Hammer, Settings];
 
-export default function TrendingServiceCard({ name, duration, price, rank, count, onPress, isLast }) {
+export default function TrendingServiceCard({ name, duration, price, rank, count, onPress, isLast, subcategory, isLaborInclude }) {
   const IconComponent = SERVICE_ICONS[(rank - 1) % SERVICE_ICONS.length];
 
   return (
@@ -20,7 +20,10 @@ export default function TrendingServiceCard({ name, duration, price, rank, count
               {name}
             </Text>
             <Text className="text-sm font-normal text-muted-foreground mt-0.5">
-              {price} • {duration}
+              {price} • {duration}{subcategory ? ` • ${subcategory}` : ''}
+            </Text>
+            <Text className="text-xs text-muted-foreground mt-0.5">
+              {isLaborInclude ? 'Labor included' : 'Labor not included'}
             </Text>
           </View>
         </View>

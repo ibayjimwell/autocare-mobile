@@ -1,3 +1,4 @@
+
 import { useEffect, useRef } from 'react';
 import { Platform, Linking } from 'react-native';
 import * as Notifications from 'expo-notifications';
@@ -6,7 +7,6 @@ import Constants from 'expo-constants';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import api from '../services/api';
-import { storage } from '../utils/storage';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -15,143 +15,162 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
-    sound: 'notification_sound.wav',
   }),
 });
 
 async function registerForPushNotificationsAsync() {
-  let token;
   if (Platform.OS === 'android') {
-    // General AutoCare notifications
-    await Notifications.setNotificationChannelAsync(
-      'autocare-general',
-      {
-        name: 'AutoCare Updates',
-        importance: Notifications.AndroidImportance.MAX,
-        sound: 'notification_sound.wav',
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#C1272D',
-      }
-    );
-  
-    // Ask Arrival notifications
-    await Notifications.setNotificationChannelAsync(
-      'autocare-arrival',
-      {
-        name: 'Arrival Questions',
-        importance: Notifications.AndroidImportance.MAX,
-        sound: 'notification_sound.wav',
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#C1272D',
-      }
-    );
+    // General AutoCare notifications.
+    await Notifications.setNotificationChannelAsync('autocare-general', {
+      name: 'AutoCare Updates',
+      importance: Notifications.AndroidImportance.MAX,
+      sound: 'notification_sound.wav',
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#C1272D',
+    });
+
+    // Ask Arrival notifications.
+    await Notifications.setNotificationChannelAsync('autocare-arrival', {
+      name: 'Arrival Questions',
+      importance: Notifications.AndroidImportance.MAX,
+      sound: 'notification_sound.wav',
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#C1272D',
+    });
   }
-  if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    if (finalStatus !== 'granted') {
-      console.warn('Notification permission not granted');
-      return null;
-    }
-    token = (
-      await Notifications.getExpoPushTokenAsync({
-        projectId: Constants.expoConfig?.extra?.eas?.projectId,
-      })
-    ).data;
-  } else {
-    console.log('Must use physical device for push notifications');
+
+  if (!Device.isDevice) {
+    console.log('[Push] A physical device is required for push notifications.');
+    return null;
   }
-  return token;
+
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+
+  if (finalStatus !== 'granted') {
+    console.warn('[Push] Notification permission not granted.');
+    return null;
+  }
+
+  const projectId =
+    Constants.expoConfig?.extra?.eas?.projectId ||
+    Constants.easConfig?.projectId;
+
+  const result = await Notifications.getExpoPushTokenAsync({ projectId });
+  return result.data;
 }
 
 export function usePushNotifications() {
   const { user } = useAuth();
   const { addNotification } = useNotifications();
-  const notificationListener = useRef();
-  const responseListener = useRef();
+
+  // Keep the current callback without restarting the listener registration
+  // whenever NotificationContext rerenders.
+  const addNotificationRef = useRef(addNotification);
+  addNotificationRef.current = addNotification;
 
   useEffect(() => {
     if (!user?.id) return;
 
-    // Register token
+    const customerId = user.id;
+    let active = true;
+
+    // Register the push token for the signed-in customer.
     registerForPushNotificationsAsync()
-      .then(async token => {
+      .then(async (token) => {
+        // Logout or account switch may happen before permission/token lookup
+        // finishes. Don't register a token for an old session.
+        if (!active) return;
+
         if (!token) {
           console.warn('[Push] No Expo push token generated.');
           return;
         }
-    
-        console.log('[Push] Token generated:', token);
-    
+
         const result = await api.request(
           '/customers/push-subscriptions',
           'POST',
           {
-            customerId: user.id,
+            customerId,
             expoPushToken: token,
           },
           true
         );
-    
+
+        if (!active) return;
+
         if (result?.error) {
           throw new Error(
             result.errorMessage || 'Push token registration failed.'
           );
         }
-    
-        console.log('[Push] Token saved successfully:', result);
+
+        console.log('[Push] Token saved successfully.');
       })
-      .catch(error => {
-        console.error('[Push] Registration failed:', error);
+      .catch((error) => {
+        if (active) {
+          console.error('[Push] Registration failed:', error);
+        }
       });
 
-    // Listener for incoming notifications while app is in foreground
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      const data = notification.request.content.data || {};
-      const title = notification.request.content.title || 'AutoCare Notification';
-      const body = notification.request.content.body || '';
-      console.log('📱 Notification received:', title, body);
-      // Save to local DB
-      addNotification({
-        title,
-        body,
-        url: data.url || null,
-        module: data.module || 'app',
-        event: data.event || 'push',
-      });
-    });
+    // Listen for notifications received while the app is in the foreground.
+    const notificationSubscription =
+      Notifications.addNotificationReceivedListener((notification) => {
+        const data = notification.request.content.data || {};
+        const title =
+          notification.request.content.title || 'AutoCare Notification';
+        const body = notification.request.content.body || '';
 
-    // Listener for user tapping a notification (opens app)
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data || {};
-      const url = data.url || null;
-      const title = response.notification.request.content.title || 'AutoCare Notification';
-      const body = response.notification.request.content.body || '';
-      // Save to local DB (it may not have been saved if app was in background)
-      addNotification({
-        title,
-        body,
-        url,
-        module: data.module || 'app',
-        event: data.event || 'push',
+        console.log('[Push] Notification received:', title);
+
+        addNotificationRef.current({
+          title,
+          body,
+          url: data.url || null,
+          module: data.module || 'app',
+          event: data.event || 'push',
+        });
       });
-      // Navigate using Linking if url is present
-      if (url && data.type !== 'ARRIVAL_REQUEST') {
-        Linking.openURL(url).catch(err => console.error('Failed to open URL:', err));
-      }
-    });
+
+    // Listen for user interactions with push notifications.
+    const responseSubscription =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data || {};
+        const url = data.url || null;
+        const title =
+          response.notification.request.content.title ||
+          'AutoCare Notification';
+        const body = response.notification.request.content.body || '';
+
+        addNotificationRef.current({
+          title,
+          body,
+          url,
+          module: data.module || 'app',
+          event: data.event || 'push',
+        });
+
+        // Arrival requests are handled by the existing Ask Arrival overlay.
+        if (typeof url === 'string' && url && data.type !== 'ARRIVAL_REQUEST') {
+          Linking.openURL(url).catch((error) => {
+            console.error('[Push] Failed to open notification URL:', error);
+          });
+        }
+      });
 
     return () => {
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
-      }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
-      }
+      active = false;
+
+      // Modern expo-notifications listeners return EventSubscription objects.
+      // Each subscription removes itself; removeNotificationSubscription is
+      // not available in the installed Expo version.
+      notificationSubscription.remove();
+      responseSubscription.remove();
     };
   }, [user?.id]);
 

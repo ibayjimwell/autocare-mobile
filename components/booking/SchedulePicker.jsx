@@ -123,6 +123,7 @@ function SlotSkeleton() {
 
 export default function SchedulePicker({
   selectedDate,
+  selectedServices,
   selectedService,
   selectedTime,
   availableSlots,
@@ -130,6 +131,10 @@ export default function SchedulePicker({
   onSelectDate,
   onSelectTime,
 }) {
+  const hasServices = Array.isArray(selectedServices)
+    ? selectedServices.length > 0
+    : Boolean(selectedService);
+
   return (
     <View className="mb-6">
       {/* Date */}
@@ -191,9 +196,9 @@ export default function SchedulePicker({
             <Text className="mt-3 text-sm leading-5 text-muted-foreground">
               Select a date to see the available appointment times.
             </Text>
-          ) : !selectedService ? (
+          ) : !hasServices ? (
             <Text className="mt-3 text-sm leading-5 text-muted-foreground">
-              Select a service first to load available times.
+              Select one or more services first to load available times.
             </Text>
           ) : slotsLoading ? (
             <SlotSkeleton />

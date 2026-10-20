@@ -39,7 +39,7 @@ export default function ActiveAppointments({ appointments, onCancel }) {
               </TouchableOpacity>
             </View>
             <Text className="text-base font-semibold text-foreground">
-              Service #{apt.id?.toString().slice(-4)}
+              #{apt.trackingNumber}
             </Text>
             <Text className="text-sm font-normal text-muted-foreground mb-3">
               {apt.appointmentDate} • {formatTime12h(apt.appointmentTime)}

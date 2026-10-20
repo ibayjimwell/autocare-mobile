@@ -82,13 +82,19 @@ const appointmentsApi = {
       data.vehicleId,
     );
 
+    // The Web appointments API already accepts a JSON array of service IDs.
+    // Preserve support for old callers passing a single serviceId.
+    const serviceIds = Array.isArray(data.serviceIds)
+      ? data.serviceIds
+      : Array.isArray(data.services)
+        ? data.services
+        : data.serviceId
+          ? [data.serviceId]
+          : [];
+
     form.append(
       'services',
-      JSON.stringify(
-        [
-          data.serviceId,
-        ],
-      ),
+      JSON.stringify(Array.from(new Set(serviceIds.filter(Boolean)))),
     );
 
     form.append(
@@ -173,18 +179,25 @@ const appointmentsApi = {
 
   getAvailableSlots: (
     date,
-    serviceId,
-  ) =>
-    api.request(
-      `/appointments/available-slots?date=${encodeURIComponent(
-        date,
-      )}&serviceIds=${encodeURIComponent(
-        serviceId,
-      )}`,
+    selectedServiceIds = [],
+  ) => {
+    const ids = Array.isArray(selectedServiceIds)
+      ? selectedServiceIds
+      : selectedServiceIds
+        ? [selectedServiceIds]
+        : [];
+    const query = new URLSearchParams({ date: String(date) });
+    if (ids.length > 0) {
+      query.set('serviceIds', Array.from(new Set(ids.filter(Boolean))).join(','));
+    }
+
+    return api.request(
+      `/appointments/available-slots?${query.toString()}`,
       'GET',
       null,
       true,
-    ),
+    );
+  },
 
   /* ==============================================================
      CHECK AVAILABILITY
@@ -193,21 +206,25 @@ const appointmentsApi = {
   checkAvailability: (
     date,
     startTime,
-    serviceId,
-  ) =>
-    api.request(
+    selectedServiceIds,
+  ) => {
+    const serviceIds = Array.isArray(selectedServiceIds)
+      ? selectedServiceIds
+      : selectedServiceIds
+        ? [selectedServiceIds]
+        : [];
+
+    return api.request(
       '/appointments/check-availability',
       'POST',
       {
         date,
-
         startTime,
-
-        serviceIds:
-          serviceId,
+        serviceIds: Array.from(new Set(serviceIds.filter(Boolean))),
       },
       true,
-    ),
+    );
+  },
 
   /* ==============================================================
      DIRECT RESCHEDULE

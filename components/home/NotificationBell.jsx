@@ -5,14 +5,14 @@ import { useNotifications } from '../../context/NotificationContext';
 import NotificationModal from './NotificationModal';
 
 export default function NotificationBell() {
-  const { unreadCount } = useNotifications();
+  const { unreadCount, syncNotifications } = useNotifications();
   const [modalVisible, setModalVisible] = useState(false);
 
   return (
     <>
       <TouchableOpacity
         className="w-11 h-11 rounded-full bg-white/15 border border-white/20 items-center justify-center min-h-[44px] min-w-[44px] relative"
-        onPress={() => setModalVisible(true)}
+        onPress={() => { setModalVisible(true); void syncNotifications(); }}
       >
         <Bell size={20} color="#FFFFFF" />
         {unreadCount > 0 && (

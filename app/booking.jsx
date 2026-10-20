@@ -8,6 +8,7 @@ import {
 import {
   useState,
   useEffect,
+  useRef,
 } from 'react';
 
 import {
@@ -113,10 +114,26 @@ export default function BookingScreen() {
   const insets =
     useSafeAreaInsets();
 
+  // A booking may contain several PMS, REPAIR, and DIAGNOSTIC services.
+  // Each service is stored only once, using its database ID.
   const [
-    selectedService,
-    setSelectedService,
-  ] = useState(null);
+    selectedServices,
+    setSelectedServices,
+  ] = useState([]);
+
+  const toggleService = (service) => {
+    if (!service?.id || service.active === false) return;
+
+    setSelectedServices((previous) => {
+      const exists = previous.some(
+        (item) => String(item.id) === String(service.id),
+      );
+
+      return exists
+        ? previous.filter((item) => String(item.id) !== String(service.id))
+        : [...previous, service];
+    });
+  };
 
   const [
     selectedDate,
@@ -165,7 +182,7 @@ export default function BookingScreen() {
     setAvailabilityModal,
   } = useBookingForm(
     selectedDate,
-    selectedService
+    selectedServices
   );
 
   /*
@@ -293,70 +310,64 @@ export default function BookingScreen() {
     };
 
   /*
-   * Auto-select service from /booking?serviceId=...
+   * Pre-select a service opened from the Services catalog.
+   * Do not clear other services already chosen in this booking.
    */
+  const initializedDeepLinkRef = useRef(null);
+
   useEffect(() => {
-    if (
-      !serviceId ||
-      services.length === 0
-    ) {
-      return;
-    }
+    const requestedId = Array.isArray(serviceId) ? serviceId[0] : serviceId;
+    if (!requestedId || services.length === 0) return;
+    if (initializedDeepLinkRef.current === String(requestedId)) return;
 
-    const matched =
-      services.find(
-        (service) =>
-          String(
-            service.id
-          ) ===
-          String(serviceId)
-      );
-
-    if (matched) {
-      setSelectedService(
-        matched
-      );
-    }
-  }, [
-    serviceId,
-    services,
-  ]);
-
-  /*
-   * The service catalog is refreshed when Booking regains focus.
-   * Keep the selected service (and its labor-included flag, price,
-   * category and repair subcategory) synchronized with the backend.
-   * If the service is deactivated or removed, do not allow a stale
-   * selection to be submitted.
-   */
-  useEffect(() => {
-    if (!selectedService?.id || loading) return;
-
-    const latest = services.find(
-      service => String(service.id) === String(selectedService.id)
+    const matched = services.find(
+      (service) => String(service.id) === String(requestedId),
     );
 
-    if (!latest || latest.active === false) {
-      setSelectedService(null);
-      setSelectedTime(null);
-      return;
+    if (matched && matched.active !== false) {
+      initializedDeepLinkRef.current = String(requestedId);
+      setSelectedServices((previous) =>
+        previous.some((item) => String(item.id) === String(matched.id))
+          ? previous
+          : [...previous, matched],
+      );
     }
+  }, [serviceId, services]);
 
-    const keys = [
-      'name',
-      'basePrice',
-      'durationMinutes',
-      'estimatedDuration',
-      'type',
-      'subcategory',
-      'isLaborInclude',
-      'active',
-    ];
+  /*
+   * Keep every selected service synced with the latest catalog data.
+   * If a service was removed/deactivated, remove only that service.
+   * Return the previous array when nothing changed to avoid extra renders.
+   */
+  useEffect(() => {
+    if (loading) return;
 
-    if (keys.some(key => latest[key] !== selectedService[key])) {
-      setSelectedService(latest);
-    }
-  }, [services, selectedService, loading, setSelectedTime]);
+    setSelectedServices((previous) => {
+      const next = previous
+        .map((selected) =>
+          services.find((service) => String(service.id) === String(selected.id)),
+        )
+        .filter((service) => service && service.active !== false);
+
+      const hasChanged = next.length !== previous.length ||
+        next.some((service, index) => {
+          const selected = previous[index];
+          return [
+            'id',
+            'name',
+            'basePrice',
+            'durationMinutes',
+            'estimatedDuration',
+            'type',
+            'subcategory',
+            'isLaborInclude',
+            'active',
+          ].some((key) => service[key] !== selected[key]);
+        });
+
+      return hasChanged ? next : previous;
+    });
+  }, [services, loading]);
 
   /*
    * If a currently-selected date becomes disabled after
@@ -531,12 +542,8 @@ export default function BookingScreen() {
             services={
               services
             }
-            selectedService={
-              selectedService
-            }
-            onSelect={
-              setSelectedService
-            }
+            selectedServices={selectedServices}
+            onSelect={toggleService}
           />
 
           <VehicleSelector
@@ -562,9 +569,7 @@ export default function BookingScreen() {
             selectedDate={
               selectedDate
             }
-            selectedService={
-              selectedService
-            }
+            selectedServices={selectedServices}
             selectedTime={
               selectedTime
             }
@@ -601,7 +606,7 @@ export default function BookingScreen() {
           }
           disabled={
             submitting ||
-            !selectedService ||
+            selectedServices.length === 0 ||
             !selectedVehicle ||
             !selectedDate ||
             !selectedTime ||
@@ -653,9 +658,7 @@ export default function BookingScreen() {
         submitting={
           submitting
         }
-        service={
-          selectedService
-        }
+        services={selectedServices}
         vehicle={
           selectedVehicle
         }

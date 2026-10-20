@@ -32,7 +32,7 @@ function dateToLocalString(
 
 export function useBookingForm(
   selectedDate,
-  selectedService
+  selectedServices
 ) {
   const {
     user,
@@ -40,6 +40,15 @@ export function useBookingForm(
 
   const customerId =
     user?.id;
+
+  // Stable dependency: choosing another service should update available slots,
+  // without recreating the effect on unrelated renders.
+  const serviceIds = Array.isArray(selectedServices)
+    ? Array.from(new Set(selectedServices.map((service) => service?.id).filter(Boolean)))
+    : selectedServices?.id
+      ? [selectedServices.id]
+      : [];
+  const serviceIdsKey = serviceIds.join(',');
 
   const [
     selectedVehicle,
@@ -86,7 +95,7 @@ export function useBookingForm(
 
     if (
       !selectedDate ||
-      !selectedService
+      serviceIds.length === 0
     ) {
       setAvailableSlots([]);
       setSlotsLoading(false);
@@ -116,7 +125,7 @@ export function useBookingForm(
           const res =
             await appointmentsApi.getAvailableSlots(
               dateStr,
-              selectedService.id
+              serviceIds
             );
 
           const data =
@@ -159,13 +168,13 @@ export function useBookingForm(
     };
   }, [
     selectedDate,
-    selectedService,
+    serviceIdsKey,
   ]);
 
   const validateBooking =
     () => {
       if (
-        !selectedService ||
+        serviceIds.length === 0 ||
         !selectedVehicle ||
         !selectedDate ||
         !selectedTime
@@ -173,11 +182,12 @@ export function useBookingForm(
         return {
           valid: false,
           message:
-            'Please select a service, vehicle, date, and available time.',
+            'Please select at least one service, a vehicle, date, and available time.',
         };
       }
 
-      if (selectedService?.active === false) {
+      if (selectedServices?.some?.((service) => service?.active === false) ||
+          selectedServices?.active === false) {
         return {
           valid: false,
           message: 'This service is no longer available for booking. Please select another service.',
@@ -233,8 +243,7 @@ export function useBookingForm(
             customerId,
             vehicleId:
               selectedVehicle.id,
-            serviceId:
-              selectedService.id,
+            serviceIds,
             appointmentDate:
               dateStr,
             appointmentTime:

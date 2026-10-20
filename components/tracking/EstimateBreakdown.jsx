@@ -1,9 +1,12 @@
-import { View, Text } from 'react-native';
+import CustomerDiagnosticChecklist from '../billing/CustomerDiagnosticChecklist';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import {
   CheckCircle2,
+  Circle,
   ReceiptText,
   Wrench,
   Tag,
+  Check,
 } from 'lucide-react-native';
 
 function BreakdownRow({
@@ -34,20 +37,72 @@ function BreakdownRow({
   );
 }
 
-export default function EstimateBreakdown({ estimate }) {
+function findingPartsTotal(finding) {
+  const explicit = Number(finding?.partsSubtotal);
+  if (Number.isFinite(explicit)) {
+    return explicit;
+  }
+
+  const parts = Array.isArray(finding?.parts) ? finding.parts : [];
+
+  return parts.reduce(
+    (sum, part) =>
+      sum +
+      Math.max(1, Number(part?.quantity) || 1) *
+        Math.max(0, Number(part?.priceAtTime ?? part?.price) || 0),
+    0,
+  );
+}
+
+export default function EstimateBreakdown({
+  estimate,
+  onToggleFinding,
+  togglingFindingId,
+}) {
   if (!estimate) return null;
 
-  const services = estimate.appointment?.services || [];
-  const findings = estimate.findings || [];
+  // The tracking hook hydrates booked service details from the appointment,
+  // since the estimate detail API doesn't always return service line items.
+  const services = Array.isArray(estimate?.services)
+    ? estimate.services
+    : Array.isArray(estimate?.appointment?.services)
+      ? estimate.appointment.services
+      : [];
+  const findings = Array.isArray(estimate.findings)
+    ? estimate.findings
+    : [];
   const fees = estimate.fees || [];
   const discounts = estimate.discounts || [];
   const tasks = estimate.tasks || [];
 
-  const totalService = parseFloat(estimate.serviceSubtotal) || 0;
-  const totalFindings = parseFloat(estimate.findingsSubtotal) || 0;
-  const totalFees = parseFloat(estimate.feesTotal) || 0;
-  const totalDiscount = parseFloat(estimate.discountTotal) || 0;
-  const grandTotal = parseFloat(estimate.grandTotal) || 0;
+  const lineItemsSubtotal = services.reduce(
+    (sum, service) =>
+      sum + Math.max(0, Number(
+        service?.basePrice ?? service?.priceAtTime ?? service?.price ?? 0,
+      ) || 0),
+    0,
+  );
+  // Always prefer the stored estimate subtotal to live catalog prices.
+  const totalService = estimate.serviceSubtotal !== null &&
+    estimate.serviceSubtotal !== undefined
+      ? Math.max(0, Number(estimate.serviceSubtotal) || 0)
+      : lineItemsSubtotal;
+  const servicePricesDiffer =
+    services.length > 0 && Math.abs(lineItemsSubtotal - totalService) > 0.01;
+  const selectedFindings = findings.filter(
+    (finding) => finding?.included !== false,
+  );
+  const totalFindings = selectedFindings.reduce(
+    (sum, finding) => sum + findingPartsTotal(finding),
+    0,
+  );
+  const totalFees = Number(estimate.feesTotal) || 0;
+  const totalDiscount = Number(estimate.discountTotal) || 0;
+  const grandTotal =
+    totalService +
+    totalFindings +
+    totalFees -
+    totalDiscount;
 
   return (
     <View className="bg-card rounded-xl border border-border overflow-hidden mb-6">
@@ -63,96 +118,136 @@ export default function EstimateBreakdown({ estimate }) {
             </Text>
 
             <Text className="text-sm text-muted-foreground mt-1">
-              Review the proposed service costs
+              Review the findings you want AutoCare to perform.
             </Text>
           </View>
         </View>
       </View>
 
-      {services.length > 0 && (
-        <View className="ml-4 border-t border-border">
-          <View className="px-4 pt-4 pb-1 flex-row items-center">
-            <Wrench size={16} color="#8E8E93" />
-            <Text className="text-sm font-semibold text-foreground ml-2">
-              Services
-            </Text>
-          </View>
-
-          <View className="px-4 pb-3">
-            {services.map((s, i) => (
-              <BreakdownRow
-                key={i}
-                label={s.name}
-                value={parseFloat(s.basePrice).toFixed(2)}
-              />
-            ))}
-
-            <View className="flex-row justify-between pt-3">
-              <Text className="text-sm font-semibold text-foreground">
-                Subtotal
-              </Text>
-
-              <Text className="text-sm font-semibold text-primary">
-                ₱{totalService.toFixed(2)}
-              </Text>
-            </View>
-          </View>
-        </View>
-      )}
-
       {findings.length > 0 && (
         <View className="ml-4 border-t border-border">
           <View className="px-4 pt-4 pb-1">
-            <Text className="text-sm font-semibold text-foreground">
-              Findings
+            <View className="flex-row items-center justify-between gap-3">
+              <View className="flex-row items-center">
+                <CheckCircle2 size={16} color="#8E8E93" />
+                <Text className="text-sm font-semibold text-foreground ml-2">
+                  Findings
+                </Text>
+              </View>
+
+              <Text className="text-xs font-semibold text-primary">
+                {selectedFindings.length} of {findings.length} selected
+              </Text>
+            </View>
+
+            <Text className="mt-1 text-xs leading-5 text-muted-foreground">
+              All findings are selected by default. Uncheck one to remove it from the estimate.
             </Text>
           </View>
 
           <View className="px-4 pb-3">
-            {findings.map((f, fi) => (
-              <View
-                key={fi}
-                className="py-3 border-b border-border"
-              >
-                <Text className="text-sm text-foreground">
-                  {f.description}
-                </Text>
+            {findings.map((finding, fi) => {
+              const included = finding?.included !== false;
+              const findingSubtotal = included ? findingPartsTotal(finding) : 0;
+              const loading = togglingFindingId === finding?.id;
 
-                {f.parts && f.parts.length > 0 && (
-                  <View className="mt-2">
-                    {f.parts.map((p, pi) => (
-                      <View
-                        key={pi}
-                        className="flex-row items-center justify-between py-1"
+              return (
+                <View
+                  key={finding?.id || `finding-${fi}`}
+                  className={`py-3 ${fi < findings.length - 1 ? 'border-b border-border' : ''}`}
+                >
+                  <TouchableOpacity
+                    accessibilityRole="checkbox"
+                    accessibilityState={{
+                      checked: included,
+                      disabled: !onToggleFinding || Boolean(togglingFindingId),
+                    }}
+                    onPress={() =>
+                      onToggleFinding?.(
+                        finding.id,
+                        !included,
+                      )
+                    }
+                    disabled={
+                      !onToggleFinding || Boolean(togglingFindingId)
+                    }
+                    activeOpacity={0.75}
+                    className="min-h-[44px] flex-row items-start"
+                  >
+                    <View
+                      className={`mt-0.5 h-6 w-6 rounded-md border items-center justify-center ${
+                        included
+                          ? 'border-primary bg-primary'
+                          : 'border-border bg-background'
+                      }`}
+                    >
+                      {loading ? (
+                        <ActivityIndicator size="small" color={included ? '#FFFFFF' : '#8E8E93'} />
+                      ) : included ? (
+                        <Check size={16} color="#FFFFFF" strokeWidth={2.5} />
+                      ) : (
+                        <Circle size={14} color="#C6C6C8" strokeWidth={1.5} />
+                      )}
+                    </View>
+
+                    <View className="flex-1 ml-3 pr-2">
+                      <Text
+                        className={`text-sm font-medium ${
+                          included
+                            ? 'text-foreground'
+                            : 'text-muted-foreground line-through'
+                        }`}
                       >
-                        <Text className="flex-1 text-xs text-muted-foreground pr-2">
-                          {p.quantity}x {p.partName}{' '}
-                          {p.isPms ? '(PMS)' : ''}
-                        </Text>
-
-                        <Text className="text-xs font-semibold text-foreground">
-                          ₱{parseFloat(
-                            p.totalPrice
-                          ).toFixed(2)}
-                        </Text>
-                      </View>
-                    ))}
-
-                    <View className="flex-row justify-between mt-1">
-                      <Text className="text-xs font-medium text-muted-foreground">
-                        Finding subtotal
+                        {finding?.description || 'Finding'}
                       </Text>
 
-                      <Text className="text-xs font-semibold text-primary">
-                        ₱{parseFloat(
-                          f.partsSubtotal
-                        ).toFixed(2)}
+                      <Text
+                        className={`mt-1 text-xs font-medium ${
+                          included ? 'text-primary' : 'text-muted-foreground'
+                        }`}
+                      >
+                        {included
+                          ? 'Included in estimate'
+                          : 'Not selected — excluded from total'}
                       </Text>
                     </View>
-                  </View>
-                )}
-              </View>
-            ))}
+
+                    <Text className="text-xs font-semibold text-foreground">
+                      ₱{findingSubtotal.toFixed(2)}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {included && Array.isArray(finding?.parts) && finding.parts.length > 0 && (
+                    <View className="ml-9 mt-2">
+                      {finding.parts.map((part, pi) => (
+                        <View
+                          key={part?.id || `${finding?.id}-part-${pi}`}
+                          className="flex-row items-center justify-between py-1"
+                        >
+                          <Text className="flex-1 text-xs text-muted-foreground pr-2">
+                            {Math.max(1, Number(part?.quantity) || 1)}x {part?.partName || part?.name || part?.productName || 'Part'}{' '}
+                            {part?.isPms ? '(PMS)' : ''}
+                          </Text>
+
+                          <Text className="text-xs font-semibold text-foreground">
+                            ₱{(Number(part?.totalPrice) || Math.max(1, Number(part?.quantity) || 1) * Math.max(0, Number(part?.priceAtTime ?? part?.price) || 0)).toFixed(2)}
+                          </Text>
+                        </View>
+                      ))}
+
+                      <View className="flex-row justify-between mt-1">
+                        <Text className="text-xs font-medium text-muted-foreground">
+                          Finding subtotal
+                        </Text>
+                        <Text className="text-xs font-semibold text-primary">
+                          ₱{findingSubtotal.toFixed(2)}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
 
             <View className="flex-row justify-between pt-3">
               <Text className="text-sm font-semibold text-foreground">
@@ -167,6 +262,61 @@ export default function EstimateBreakdown({ estimate }) {
         </View>
       )}
 
+      {/* Always show the services section and the saved service subtotal,
+          including estimates that do not yet contain a service list. */}
+      <View className="ml-4 border-t border-border">
+        <View className="px-4 pt-4 pb-1 flex-row items-center">
+          <Wrench size={16} color="#8E8E93" />
+          <Text className="text-sm font-semibold text-foreground ml-2">
+            Booked Services
+          </Text>
+        </View>
+
+        <View className="px-4 pb-3">
+          {services.length > 0 ? (
+            services.map((service, index) => {
+              const serviceName =
+                typeof service === 'string'
+                  ? 'Booked service'
+                  : service?.name || service?.serviceName || service?.title || 'Booked service';
+              const price = Math.max(
+                0,
+                Number(service?.basePrice ?? service?.priceAtTime ?? service?.price ?? 0) || 0,
+              );
+
+              return (
+                <BreakdownRow
+                  key={service?.id || `booked-service-${index}`}
+                  label={serviceName}
+                  value={price.toFixed(2)}
+                  last={index === services.length - 1}
+                />
+              );
+            })
+          ) : (
+            <Text className="py-3 text-xs text-muted-foreground">
+              Service item details are not available for this estimate.
+            </Text>
+          )}
+
+          <View className="flex-row items-center justify-between pt-3 border-t border-border">
+            <Text className="text-sm font-semibold text-foreground">
+              Services Subtotal
+            </Text>
+            <Text className="text-sm font-semibold text-primary">
+              ₱{totalService.toFixed(2)}
+            </Text>
+          </View>
+
+          {servicePricesDiffer && (
+            <Text className="mt-2 text-xs leading-5 text-muted-foreground">
+              Individual service prices reflect the current catalog. The saved
+              estimate subtotal is used for billing.
+            </Text>
+          )}
+        </View>
+      </View>
+
       {tasks.length > 0 && (
         <View className="ml-4 border-t border-border">
           <View className="px-4 pt-4 pb-1">
@@ -176,26 +326,20 @@ export default function EstimateBreakdown({ estimate }) {
           </View>
 
           <View className="px-4 pb-3">
-            {tasks.map((t, i) => (
+            {tasks.map((task, index) => (
               <View
-                key={i}
-                className="flex-row items-center py-3 border-b border-border"
+                key={task?.id || index}
+                className={`flex-row items-center py-3 ${index < tasks.length - 1 ? 'border-b border-border' : ''}`}
               >
-                <CheckCircle2
-                  size={17}
-                  color="#10B981"
-                  strokeWidth={2}
-                />
-
+                <CheckCircle2 size={17} color="#8E8E93" strokeWidth={2} />
                 <Text className="flex-1 text-sm text-foreground ml-2">
-                  {t.title}
+                  {task?.title || 'Inspection Task'}
                 </Text>
-
-                {t.durationMinutes && (
+                {task?.durationMinutes ? (
                   <Text className="text-xs text-muted-foreground">
-                    {t.durationMinutes} min
+                    {task.durationMinutes} min
                   </Text>
-                )}
+                ) : null}
               </View>
             ))}
           </View>
@@ -211,11 +355,12 @@ export default function EstimateBreakdown({ estimate }) {
           </View>
 
           <View className="px-4 pb-3">
-            {fees.map((fee, i) => (
+            {fees.map((fee, index) => (
               <BreakdownRow
-                key={i}
-                label={fee.title}
-                value={parseFloat(fee.amount).toFixed(2)}
+                key={fee?.id || index}
+                label={fee?.title || 'Fee'}
+                value={(Number(fee?.amount) || 0).toFixed(2)}
+                last={index === fees.length - 1}
               />
             ))}
 
@@ -223,7 +368,6 @@ export default function EstimateBreakdown({ estimate }) {
               <Text className="text-sm font-semibold text-foreground">
                 Fees subtotal
               </Text>
-
               <Text className="text-sm font-semibold text-primary">
                 ₱{totalFees.toFixed(2)}
               </Text>
@@ -242,12 +386,13 @@ export default function EstimateBreakdown({ estimate }) {
           </View>
 
           <View className="px-4 pb-3">
-            {discounts.map((disc, i) => (
+            {discounts.map((discount, index) => (
               <BreakdownRow
-                key={i}
-                label={`${disc.title} (${disc.type})`}
-                value={parseFloat(disc.amount).toFixed(2)}
+                key={discount?.id || index}
+                label={`${discount?.title || 'Discount'} (${discount?.type || 'fixed'})`}
+                value={(Number(discount?.amount) || 0).toFixed(2)}
                 negative
+                last={index === discounts.length - 1}
               />
             ))}
 
@@ -255,7 +400,6 @@ export default function EstimateBreakdown({ estimate }) {
               <Text className="text-sm font-semibold text-foreground">
                 Discount total
               </Text>
-
               <Text className="text-sm font-semibold text-primary">
                 -₱{totalDiscount.toFixed(2)}
               </Text>
@@ -263,6 +407,8 @@ export default function EstimateBreakdown({ estimate }) {
           </View>
         </View>
       )}
+
+      <CustomerDiagnosticChecklist appointmentId={estimate?.appointmentId || estimate?.appointment?.id} />
 
       <View className="ml-4 border-t border-border bg-background px-4 py-5">
         <View className="flex-row items-center justify-between">

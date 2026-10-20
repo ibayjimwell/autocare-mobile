@@ -721,128 +721,8 @@ export default function InvoiceScreen() {
           </View>
 
           <Text className="text-xs font-semibold uppercase tracking-[1.4px] text-muted-foreground px-1 mb-3">
-            Select Payment Method
+            Payment Instructions
           </Text>
-
-          <View className="bg-card rounded-2xl border border-border overflow-hidden mb-3">
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() =>
-                startPayment('qrph')
-              }
-              disabled={
-                paying ||
-                verifying
-              }
-              className="min-h-[82px] px-4 flex-row items-center"
-              style={{
-                opacity:
-                  paying ||
-                  verifying
-                    ? 0.6
-                    : 1,
-              }}
-            >
-              <View className="w-11 h-11 rounded-xl bg-primary/10 items-center justify-center mr-3">
-                <ScanLine
-                  size={22}
-                  color={theme.primary}
-                />
-              </View>
-
-              <View className="flex-1">
-                <Text className="text-base font-semibold text-foreground">
-                  QRPh
-                </Text>
-
-                <Text className="text-sm text-muted-foreground mt-0.5">
-                  Scan with a QRPh / InstaPay banking or e-wallet app
-                </Text>
-              </View>
-
-              {selectedPaymentMethod ===
-                'qrph' &&
-              (paying ||
-                verifying) ? (
-                <ActivityIndicator
-                  size="small"
-                  color={
-                    theme.primary
-                  }
-                />
-              ) : (
-                <ChevronRight
-                  size={20}
-                  color={
-                    theme.textSecondary
-                  }
-                />
-              )}
-            </TouchableOpacity>
-
-            <View className="min-h-[76px] px-4 flex-row items-center border-t border-border opacity-50">
-              <View className="w-11 h-11 rounded-xl bg-[#007DFE]/10 items-center justify-center mr-3">
-                <WalletCards size={22} color="#007DFE" />
-              </View>
-
-              <View className="flex-1">
-                <Text className="text-base font-semibold text-foreground">
-                  GCash
-                </Text>
-                <Text className="text-sm text-muted-foreground mt-0.5">
-                  Unavailable — activation is still pending
-                </Text>
-              </View>
-
-              <View className="rounded-full border border-border bg-background px-2.5 py-1">
-                <Text className="text-[11px] font-semibold text-muted-foreground">
-                  Unavailable
-                </Text>
-              </View>
-            </View>
-
-            <View className="min-h-[76px] px-4 flex-row items-center border-t border-border opacity-50">
-              <View className="w-11 h-11 rounded-xl bg-[#00AEEF]/10 items-center justify-center mr-3">
-                <WalletCards size={22} color="#00AEEF" />
-              </View>
-
-              <View className="flex-1">
-                <Text className="text-base font-semibold text-foreground">
-                  Maya
-                </Text>
-                <Text className="text-sm text-muted-foreground mt-0.5">
-                  Unavailable — activation is still pending
-                </Text>
-              </View>
-
-              <View className="rounded-full border border-border bg-background px-2.5 py-1">
-                <Text className="text-[11px] font-semibold text-muted-foreground">
-                  Unavailable
-                </Text>
-              </View>
-            </View>
-
-            <View className="min-h-[76px] px-4 flex-row items-center border-t border-border opacity-50">
-              <View className="w-11 h-11 rounded-xl bg-primary/10 items-center justify-center mr-3">
-                <CreditCard size={22} color={theme.primary} />
-              </View>
-
-              <View className="flex-1">
-                <Text className="text-base font-semibold text-foreground">
-                  Debit / Credit Card
-                </Text>
-                <Text className="text-sm text-muted-foreground mt-0.5">
-                  Unavailable — QRPh is the enabled online method
-                </Text>
-              </View>
-
-              <View className="rounded-full border border-border bg-background px-2.5 py-1">
-                <Text className="text-[11px] font-semibold text-muted-foreground">
-                  Unavailable
-                </Text>
-              </View>
-            </View>
-          </View>
 
           <TouchableOpacity
             activeOpacity={0.8}
@@ -862,11 +742,11 @@ export default function InvoiceScreen() {
 
             <View className="flex-1">
               <Text className="text-base font-semibold text-foreground">
-                Cash Payment
+                Pay To Counter
               </Text>
 
               <Text className="text-sm text-muted-foreground mt-0.5">
-                Pay at the front desk
+                Show this invoice at the service counter and pay in cash
               </Text>
             </View>
 

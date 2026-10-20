@@ -23,12 +23,19 @@ export default function CostingSummary({
   onApprove,
   onReject,
   estimate,
+  onToggleFinding,
+  togglingFindingId,
 }) {
+  const services = Array.isArray(estimate?.services) ? estimate.services : [];
   // If we have the full estimate, render breakdown
-  if (estimate && estimate.findings) {
+  if (estimate && Array.isArray(estimate.findings)) {
     return (
       <View className="mb-6">
-        <EstimateBreakdown estimate={estimate} />
+        <EstimateBreakdown
+          estimate={estimate}
+          onToggleFinding={onToggleFinding}
+          togglingFindingId={togglingFindingId}
+        />
 
         {isWaitingForApproval && (
           <View className="bg-card rounded-xl border border-border p-3 flex-row">
@@ -96,14 +103,41 @@ export default function CostingSummary({
 
         <View className="ml-4 border-t border-border">
           <View className="px-4">
-            <View className="min-h-[52px] py-3 flex-row items-center justify-between border-b border-border">
-              <Text className="text-sm text-muted-foreground">
-                Service
+            <View className="py-3 border-b border-border">
+              <Text className="text-sm font-semibold text-foreground mb-2">
+                Booked Services
               </Text>
-
-              <Text className="text-sm font-semibold text-foreground">
-                ₱{servicePrice.toFixed(2)}
-              </Text>
+              {services.length > 0 ? (
+                services.map((service, index) => (
+                  <View
+                    key={service?.id || `service-${index}`}
+                    className="min-h-[44px] py-2 flex-row items-center justify-between"
+                  >
+                    <Text className="text-sm text-muted-foreground flex-1 pr-3">
+                      {typeof service === 'string'
+                        ? 'Booked service'
+                        : service?.name || service?.serviceName || service?.title || 'Booked service'}
+                    </Text>
+                    <Text className="text-sm font-medium text-foreground">
+                      ₱{Math.max(0, Number(
+                        service?.basePrice ?? service?.priceAtTime ?? service?.price ?? 0,
+                      ) || 0).toFixed(2)}
+                    </Text>
+                  </View>
+                ))
+              ) : (
+                <Text className="text-xs text-muted-foreground py-2">
+                  Booked service details are unavailable.
+                </Text>
+              )}
+              <View className="mt-2 pt-3 border-t border-border flex-row justify-between">
+                <Text className="text-sm font-semibold text-foreground">
+                  Services Subtotal
+                </Text>
+                <Text className="text-sm font-semibold text-primary">
+                  ₱{(Number(servicePrice) || 0).toFixed(2)}
+                </Text>
+              </View>
             </View>
 
             <View className="min-h-[52px] py-3 flex-row items-center justify-between border-b border-border">

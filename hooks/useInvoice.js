@@ -4,6 +4,7 @@ import {
 } from 'react';
 
 import finalBillsApi from '../services/finalBillsApi';
+import appointmentsApi from '../services/appointmentsApi';
 
 function normalizeBillId(value) {
   if (Array.isArray(value)) {
@@ -139,7 +140,83 @@ export function useInvoice(billId) {
             );
           }
 
-          setData(invoiceData);
+          /*
+           * The Final Cost detail endpoint includes the financial bill,
+           * findings, work tasks, fees and discounts, but not necessarily
+           * the complete appointment relationship or its booked services.
+           *
+           * Fetch the existing appointment detail ONLY for presentation.
+           * This does not update or recalculate any Final Cost amount,
+           * payment status, PayMongo state, or transaction data.
+           */
+          let hydratedInvoice = invoiceData;
+          const appointmentId =
+            invoiceData.appointmentId ||
+            invoiceData.appointment?.id ||
+            invoiceData.estimate?.appointmentId;
+
+          if (appointmentId) {
+            try {
+              const appointmentResponse =
+                await appointmentsApi.get(appointmentId);
+
+              if (cancelled) {
+                return;
+              }
+
+              const appointmentError =
+                extractApiError(appointmentResponse);
+
+              if (!appointmentError) {
+                const appointmentData =
+                  appointmentResponse?.data ?? appointmentResponse;
+                const resolvedAppointment = Array.isArray(appointmentData)
+                  ? appointmentData[0]
+                  : appointmentData;
+
+                if (resolvedAppointment?.id) {
+                  hydratedInvoice = {
+                    ...invoiceData,
+                    appointment: {
+                      ...(invoiceData.appointment || {}),
+                      ...resolvedAppointment,
+                      customer: {
+                        ...(invoiceData.appointment?.customer || {}),
+                        ...(resolvedAppointment.customer || {}),
+                      },
+                      vehicle: {
+                        ...(invoiceData.appointment?.vehicle || {}),
+                        ...(resolvedAppointment.vehicle || {}),
+                      },
+                      services:
+                        Array.isArray(resolvedAppointment.services) &&
+                        resolvedAppointment.services.length > 0
+                          ? resolvedAppointment.services
+                          : invoiceData.appointment?.services || [],
+                    },
+                  };
+                }
+              } else {
+                console.warn(
+                  '[useInvoice] Appointment detail was unavailable:',
+                  appointmentError,
+                );
+              }
+            } catch (appointmentError) {
+              // A temporary appointment lookup failure must not prevent
+              // customers from viewing or paying an otherwise valid bill.
+              console.warn(
+                '[useInvoice] Failed to hydrate booked services:',
+                appointmentError,
+              );
+            }
+          }
+
+          if (cancelled) {
+            return;
+          }
+
+          setData(hydratedInvoice);
           setError(null);
         } catch (err) {
           if (cancelled) {

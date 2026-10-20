@@ -1,3 +1,4 @@
+import CustomerDiagnosticChecklist from '../components/billing/CustomerDiagnosticChecklist';
 import {
   View,
   ScrollView,
@@ -69,6 +70,7 @@ import ProgressTimeline from '../components/tracking/ProgressTimeline';
 import CancellationNote from '../components/tracking/CancellationNote';
 
 import QueueSection from '../components/tracking/QueueSection';
+import useCustomerChangeWindow from '../hooks/useCustomerChangeWindow';
 
 import WaitingCard from '../components/tracking/WaitingCard';
 
@@ -521,6 +523,10 @@ export default function TrackingScreen() {
     appointment?.status ===
     'CONFIRMED';
 
+  const isQueueRelevant = isConfirmed || appointment?.status === 'IN_PROGRESS';
+
+  const bookingChangeWindow = useCustomerChangeWindow(appointmentId, appointment?.status);
+
   const {
     queue,
 
@@ -531,10 +537,9 @@ export default function TrackingScreen() {
       queueError,
   } =
     useQueue(
-      isConfirmed
-        ? appointmentDate
-        : null,
+      isConfirmed ? appointmentDate : null,
       appointmentId,
+      appointment?.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'CONFIRMED',
     );
 
   /* ==============================================================
@@ -903,7 +908,8 @@ export default function TrackingScreen() {
     canReschedule(
       appointment.status,
     ) &&
-    !pendingRequest;
+    !pendingRequest &&
+    (appointment.status !== 'CONFIRMED' || bookingChangeWindow.allowed);
 
   /* ==============================================================
      CAN CANCEL
@@ -922,8 +928,7 @@ export default function TrackingScreen() {
     (
       appointment.status ===
         'PENDING' ||
-      appointment.status ===
-        'CONFIRMED'
+      (appointment.status === 'CONFIRMED' && bookingChangeWindow.allowed)
     );
 
   /* ==============================================================
@@ -1650,7 +1655,7 @@ export default function TrackingScreen() {
               QUEUE
           ===================================================== */}
 
-          {isConfirmed && (
+          {isQueueRelevant && (
             <QueueSection
               queue={
                 queue
@@ -1665,6 +1670,20 @@ export default function TrackingScreen() {
                 appointmentId
               }
             />
+          )}
+
+          {/* Customer booking change deadline is enforced by the server. */}
+          {isConfirmed && !bookingChangeWindow.loading && (
+            <View className="mb-3 rounded-xl border border-border bg-card px-4 py-3">
+              <Text className="text-sm font-semibold text-foreground">
+                {bookingChangeWindow.allowed ? 'Booking Change Window' : 'Rescheduling / Cancellation Closed'}
+              </Text>
+              <Text className="mt-1 text-xs text-muted-foreground">
+                {bookingChangeWindow.allowed && bookingChangeWindow.deadline
+                  ? `You may request changes until ${new Date(bookingChangeWindow.deadline).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}.`
+                  : bookingChangeWindow.reason || 'Contact Auto Pro Tech for changes to this confirmed appointment.'}
+              </Text>
+            </View>
           )}
 
           {/* ====================================================
@@ -2088,14 +2107,12 @@ export default function TrackingScreen() {
               existing invoice/payment-detail screen.
           ===================================================== */}
 
-          {isCompleted &&
-            finalBill && (
-              <FinalCostCard
-                finalBill={
-                  finalBill
-                }
-              />
-            )}
+          {isCompleted && finalBill && (
+            <>
+              <FinalCostCard finalBill={finalBill} />
+              <CustomerDiagnosticChecklist appointmentId={appointment?.id} />
+            </>
+          )}
 
           {/* ====================================================
               CANCELLED NOTE

@@ -144,7 +144,7 @@ export default function InvoiceScreen() {
             <FontAwesome5 name="money-bill-wave" size={20} color="#10b981" />
           </View>
           <View className="flex-1">
-            <Text className="text-base font-black" style={{ color: theme.text }}>Cash Payment</Text>
+            <Text className="text-base font-black" style={{ color: theme.text }}>Pay To Counter</Text>
             <Text className="text-xs opacity-50" style={{ color: theme.textSecondary }}>Pay at the front desk</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={theme.border} />

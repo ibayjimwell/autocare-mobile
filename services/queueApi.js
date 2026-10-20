@@ -6,8 +6,10 @@ const queueApi = {
    * @param {string} date - YYYY-MM-DD
    * @returns {Promise}
    */
-  getQueue: (date) => {
-    return api.request(`/queue?date=${date}`, 'GET', null, true);
+  getQueue: (date, mode = 'CONFIRMED') => {
+    const query = new URLSearchParams({ mode });
+    if (mode === 'CONFIRMED' && date) query.set('date', date);
+    return api.request(`/queue?${query.toString()}`, 'GET', null, true);
   },
 };
 

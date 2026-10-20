@@ -235,7 +235,7 @@ export default function CashQRScreen() {
                 color: theme.text,
               }}
             >
-              Cash Payment
+              Pay To Counter
             </Text>
 
             <Text

@@ -8,7 +8,7 @@ import {
 export default function WaitingCard({
   message,
   description = 'The service information will appear here automatically when it is ready.',
-) {
+}) {
   return (
     <View
       className="mb-6 overflow-hidden rounded-xl border border-border bg-card"

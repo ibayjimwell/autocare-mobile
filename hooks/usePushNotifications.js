@@ -1,6 +1,6 @@
 
 import { useEffect, useRef } from 'react';
-import { Platform, Linking } from 'react-native';
+import { Platform, Linking, AppState } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
@@ -61,6 +61,7 @@ async function registerForPushNotificationsAsync() {
     Constants.expoConfig?.extra?.eas?.projectId ||
     Constants.easConfig?.projectId;
 
+  if (!projectId) throw new Error('Missing EAS projectId. Cannot register standalone push token.');
   const result = await Notifications.getExpoPushTokenAsync({ projectId });
   return result.data;
 }
@@ -80,43 +81,48 @@ export function usePushNotifications() {
     const customerId = user.id;
     let active = true;
 
-    // Register the push token for the signed-in customer.
-    registerForPushNotificationsAsync()
-      .then(async (token) => {
-        // Logout or account switch may happen before permission/token lookup
-        // finishes. Don't register a token for an old session.
+    // Push token sync is required for standalone Android builds too.
+    // A token can rotate, the network may be unavailable on launch, and
+    // notification permissions may change while the application is closed.
+    // Retry with bounded backoff and re-check whenever the app is foregrounded.
+    let retryTimer = null;
+    let attempt = 0;
+    let running = false;
+    let lastRegisteredToken = null;
+    const synchronizeToken = async () => {
+      if (!active || running) return;
+      running = true;
+      try {
+        const token = await registerForPushNotificationsAsync();
+        if (!active || !token) return;
+        // Always sync after app foreground to recover an expired backend record.
+        const result = await api.request('/customers/push-subscriptions', 'POST', {
+          customerId,
+          expoPushToken: token,
+        }, true);
+        if (result?.error) throw new Error(result.errorMessage || 'Unable to register push token.');
         if (!active) return;
-
-        if (!token) {
-          console.warn('[Push] No Expo push token generated.');
-          return;
-        }
-
-        const result = await api.request(
-          '/customers/push-subscriptions',
-          'POST',
-          {
-            customerId,
-            expoPushToken: token,
-          },
-          true
-        );
-
+        lastRegisteredToken = token;
+        attempt = 0;
+        console.log('[Push] Device subscription synchronized for standalone build.');
+      } catch (error) {
         if (!active) return;
-
-        if (result?.error) {
-          throw new Error(
-            result.errorMessage || 'Push token registration failed.'
-          );
-        }
-
-        console.log('[Push] Token saved successfully.');
-      })
-      .catch((error) => {
-        if (active) {
-          console.error('[Push] Registration failed:', error);
-        }
-      });
+        console.warn('[Push] Token sync failed; will retry:', error?.message || error);
+        attempt += 1;
+        const delay = Math.min(120000, 2500 * Math.pow(2, Math.min(attempt - 1, 6)));
+        if (retryTimer) clearTimeout(retryTimer);
+        retryTimer = setTimeout(() => { retryTimer = null; void synchronizeToken(); }, delay);
+      } finally {
+        running = false;
+      }
+    };
+    void synchronizeToken();
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && active) {
+        if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+        void synchronizeToken();
+      }
+    });
 
     // Listen for notifications received while the app is in the foreground.
     const notificationSubscription =
@@ -165,6 +171,8 @@ export function usePushNotifications() {
 
     return () => {
       active = false;
+      if (retryTimer) clearTimeout(retryTimer);
+      appStateSubscription.remove();
 
       // Modern expo-notifications listeners return EventSubscription objects.
       // Each subscription removes itself; removeNotificationSubscription is

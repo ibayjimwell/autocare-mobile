@@ -32,7 +32,18 @@ const getStatusIcon = (status) => {
 const getStatusLabel = (status) => {
   switch (status) {
     case 'IN_PROGRESS':
-      return 'In progress';
+    case 'WORKING':
+      return 'Working';
+    case 'INSPECTING':
+      return 'Under inspection';
+    case 'ARRIVED':
+      return 'Arrived';
+    case 'ARRIVING':
+      return 'Arriving today';
+    case 'NOT_ARRIVED':
+      return 'Not coming today — reschedule or cancel';
+    case 'PENDING':
+      return 'Waiting for arrival';
 
     case 'DONE':
       return 'Done';
@@ -120,6 +131,11 @@ export default function QueueSection({
             Service Queue
           </Text>
 
+          {myEntry && (
+            <Text className="text-xs font-semibold text-primary mt-1">
+              Status: {getStatusLabel(myEntry.queueStatus)}
+            </Text>
+          )}
           {myPosition !== null && (
             <Text className="text-sm text-muted-foreground mt-1">
               Your position:{' '}

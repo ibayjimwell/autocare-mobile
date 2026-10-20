@@ -1,3 +1,4 @@
+import CustomerDiagnosticChecklist from '../billing/CustomerDiagnosticChecklist';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import {
   CheckCircle2,
@@ -60,7 +61,13 @@ export default function EstimateBreakdown({
 }) {
   if (!estimate) return null;
 
-  const services = estimate.services || [];
+  // The tracking hook hydrates booked service details from the appointment,
+  // since the estimate detail API doesn't always return service line items.
+  const services = Array.isArray(estimate?.services)
+    ? estimate.services
+    : Array.isArray(estimate?.appointment?.services)
+      ? estimate.appointment.services
+      : [];
   const findings = Array.isArray(estimate.findings)
     ? estimate.findings
     : [];
@@ -68,7 +75,20 @@ export default function EstimateBreakdown({
   const discounts = estimate.discounts || [];
   const tasks = estimate.tasks || [];
 
-  const totalService = Number(estimate.serviceSubtotal) || 0;
+  const lineItemsSubtotal = services.reduce(
+    (sum, service) =>
+      sum + Math.max(0, Number(
+        service?.basePrice ?? service?.priceAtTime ?? service?.price ?? 0,
+      ) || 0),
+    0,
+  );
+  // Always prefer the stored estimate subtotal to live catalog prices.
+  const totalService = estimate.serviceSubtotal !== null &&
+    estimate.serviceSubtotal !== undefined
+      ? Math.max(0, Number(estimate.serviceSubtotal) || 0)
+      : lineItemsSubtotal;
+  const servicePricesDiffer =
+    services.length > 0 && Math.abs(lineItemsSubtotal - totalService) > 0.01;
   const selectedFindings = findings.filter(
     (finding) => finding?.included !== false,
   );
@@ -242,36 +262,60 @@ export default function EstimateBreakdown({
         </View>
       )}
 
-      {services.length > 0 && (
-        <View className="ml-4 border-t border-border">
-          <View className="px-4 pt-4 pb-1 flex-row items-center">
-            <Wrench size={16} color="#8E8E93" />
-            <Text className="text-sm font-semibold text-foreground ml-2">
-              Services
+      {/* Always show the services section and the saved service subtotal,
+          including estimates that do not yet contain a service list. */}
+      <View className="ml-4 border-t border-border">
+        <View className="px-4 pt-4 pb-1 flex-row items-center">
+          <Wrench size={16} color="#8E8E93" />
+          <Text className="text-sm font-semibold text-foreground ml-2">
+            Booked Services
+          </Text>
+        </View>
+
+        <View className="px-4 pb-3">
+          {services.length > 0 ? (
+            services.map((service, index) => {
+              const serviceName =
+                typeof service === 'string'
+                  ? 'Booked service'
+                  : service?.name || service?.serviceName || service?.title || 'Booked service';
+              const price = Math.max(
+                0,
+                Number(service?.basePrice ?? service?.priceAtTime ?? service?.price ?? 0) || 0,
+              );
+
+              return (
+                <BreakdownRow
+                  key={service?.id || `booked-service-${index}`}
+                  label={serviceName}
+                  value={price.toFixed(2)}
+                  last={index === services.length - 1}
+                />
+              );
+            })
+          ) : (
+            <Text className="py-3 text-xs text-muted-foreground">
+              Service item details are not available for this estimate.
+            </Text>
+          )}
+
+          <View className="flex-row items-center justify-between pt-3 border-t border-border">
+            <Text className="text-sm font-semibold text-foreground">
+              Services Subtotal
+            </Text>
+            <Text className="text-sm font-semibold text-primary">
+              ₱{totalService.toFixed(2)}
             </Text>
           </View>
 
-          <View className="px-4 pb-3">
-            {services.map((service, index) => (
-              <BreakdownRow
-                key={service?.id || index}
-                label={service?.name || 'Service'}
-                value={(Number(service?.basePrice) || 0).toFixed(2)}
-                last={index === services.length - 1}
-              />
-            ))}
-
-            <View className="flex-row justify-between pt-3">
-              <Text className="text-sm font-semibold text-foreground">
-                Subtotal
-              </Text>
-              <Text className="text-sm font-semibold text-primary">
-                ₱{totalService.toFixed(2)}
-              </Text>
-            </View>
-          </View>
+          {servicePricesDiffer && (
+            <Text className="mt-2 text-xs leading-5 text-muted-foreground">
+              Individual service prices reflect the current catalog. The saved
+              estimate subtotal is used for billing.
+            </Text>
+          )}
         </View>
-      )}
+      </View>
 
       {tasks.length > 0 && (
         <View className="ml-4 border-t border-border">
@@ -363,6 +407,8 @@ export default function EstimateBreakdown({
           </View>
         </View>
       )}
+
+      <CustomerDiagnosticChecklist appointmentId={estimate?.appointmentId || estimate?.appointment?.id} />
 
       <View className="ml-4 border-t border-border bg-background px-4 py-5">
         <View className="flex-row items-center justify-between">

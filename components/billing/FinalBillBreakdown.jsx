@@ -1,3 +1,4 @@
+import CustomerDiagnosticChecklist from './CustomerDiagnosticChecklist';
 import { View, Text } from 'react-native';
 
 import {
@@ -90,7 +91,7 @@ function getWorkTasksSubtotal(workTasks) {
 
 function getServicesSubtotal(services) {
   return services.reduce(
-    (sum, service) => sum + toNumber(service?.basePrice),
+    (sum, service) => sum + toNumber(service?.basePrice ?? service?.priceAtTime ?? service?.price),
     0,
   );
 }
@@ -138,9 +139,12 @@ export default function FinalBillBreakdown({ finalBill }) {
    * No costing section is intentionally omitted from the final-bill
    * presentation when the corresponding information exists.
    */
-  const services = Array.isArray(finalBill?.appointment?.services)
+  const services = Array.isArray(finalBill?.appointment?.services) &&
+    finalBill.appointment.services.length > 0
     ? finalBill.appointment.services
-    : [];
+    : Array.isArray(finalBill?.services)
+      ? finalBill.services
+      : [];
 
   const findings = Array.isArray(finalBill?.findings)
     ? finalBill.findings
@@ -242,7 +246,7 @@ export default function FinalBillBreakdown({ finalBill }) {
           SERVICES
       =========================================================== */}
 
-      {services.length > 0 && (
+      {(services.length > 0 || totalService !== 0) && (
         <View className="border-b border-border">
           <View className="px-4 py-3 flex-row items-center">
             <Wrench size={16} color="#8E8E93" />
@@ -252,20 +256,26 @@ export default function FinalBillBreakdown({ finalBill }) {
             </Text>
           </View>
 
-          {services.map((service, index) => (
-            <View
-              key={service?.id ?? `service-${index}`}
-              className="flex-row justify-between items-center min-h-[44px] px-4 ml-4 border-t border-border"
-            >
-              <Text className="flex-1 pr-4 text-sm text-foreground">
-                {service?.name || 'Service'}
-              </Text>
+          {services.length > 0 ? (
+            services.map((service, index) => (
+              <View
+                key={service?.id ?? `service-${index}`}
+                className="flex-row justify-between items-center min-h-[44px] px-4 ml-4 border-t border-border"
+              >
+                <Text className="flex-1 pr-4 text-sm text-foreground">
+                  {service?.name || service?.serviceName || service?.title || 'Booked service'}
+                </Text>
 
-              <Text className="text-sm font-semibold text-foreground">
-                ₱{formatCurrency(service?.basePrice)}
-              </Text>
-            </View>
-          ))}
+                <Text className="text-sm font-semibold text-foreground">
+                  ₱{formatCurrency(service?.basePrice ?? service?.priceAtTime ?? service?.price)}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text className="px-4 py-3 text-xs text-muted-foreground">
+              Booked service details are unavailable. The saved service subtotal is shown below.
+            </Text>
+          )}
 
           <View className="flex-row justify-between items-center px-4 py-3 bg-background">
             <Text className="text-sm font-semibold text-foreground">
@@ -495,6 +505,8 @@ export default function FinalBillBreakdown({ finalBill }) {
           </View>
         </View>
       )}
+
+      <CustomerDiagnosticChecklist appointmentId={finalBill?.appointmentId || finalBill?.appointment?.id} />
 
       {/* ==========================================================
           TOTAL

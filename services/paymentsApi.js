@@ -44,6 +44,17 @@ const paymentsApi = {
    * validates ownership/amount/currency/status, and only then marks
    * OFFICIAL -> PAID.
    */
+  getQrPhStatus: (billId, paymentIntentId = null) => {
+    const id = normalizeId(billId);
+    const query = paymentIntentId
+      ? `?paymentIntentId=${encodeURIComponent(paymentIntentId)}`
+      : '';
+    return api.request(
+      `/payments/final-bills/${encodeURIComponent(id)}/qrph-status${query}`,
+      'GET', null, true,
+    );
+  },
+
   verifyPayment: (
     billId,
     paymentIntentId,

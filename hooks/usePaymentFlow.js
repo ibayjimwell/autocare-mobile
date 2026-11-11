@@ -536,6 +536,8 @@ export function usePaymentFlow(
     paymentError:
       null,
 
+    paymentAttemptStatus: 'NONE',
+
     qrImageUrl:
       null,
 
@@ -956,6 +958,8 @@ export function usePaymentFlow(
         paymentError:
           null,
 
+        paymentAttemptStatus: 'NONE',
+
         qrImageUrl:
           null,
 
@@ -1011,19 +1015,40 @@ export function usePaymentFlow(
           async () => {
             attempts += 1;
 
-            const paid =
-              await verifyPaymentIntent(
-                paymentIntentId,
-                false,
-                true,
+            // Read shared PayMongo status from the backend. It is the only
+            // authority for success/failure; screenshots and client flags are not.
+            let providerStatus = null;
+            try {
+              const response = await paymentsApi.getQrPhStatus(
+                normalizedBillId, paymentIntentId,
               );
+              providerStatus = String(response?.data?.status ?? '').toUpperCase();
+              setState(prev => ({ ...prev, paymentAttemptStatus: providerStatus }));
+            } catch (error) {
+              console.warn('[PaymentFlow] QRPh status unavailable; retrying:', error);
+            }
 
-            if (
-              paid
-            ) {
+            if (providerStatus === 'FAILED' || providerStatus === 'EXPIRED') {
               stopQrMonitoring();
-
+              qrPaymentFlowStartedRef.current = false;
+              setState(prev => ({
+                ...prev,
+                qrImageUrl: null,
+                qrTestUrl: null,
+                paymentAttemptStatus: providerStatus,
+                paymentError: providerStatus === 'EXPIRED'
+                  ? 'This QRPh code expired. Your bill has not been marked paid. Generate a new code.'
+                  : 'Your QRPh payment was unsuccessful. No receipt has been issued. Please try again.',
+              }));
               return;
+            }
+
+            if (providerStatus === 'SUCCEEDED') {
+              const paid = await verifyPaymentIntent(paymentIntentId, false, true);
+              if (paid) {
+                stopQrMonitoring();
+                return;
+              }
             }
 
             const currentStatus =
@@ -1182,6 +1207,8 @@ export function usePaymentFlow(
 
             selectedPaymentMethod:
               'qrph',
+
+            paymentAttemptStatus: 'INITIATED',
           }),
         );
 
@@ -1235,7 +1262,7 @@ export function usePaymentFlow(
 
           if (
             !paymentIntentId ||
-            !clientKey
+            !clientKey && !paymentIntentData?.qrImageUrl
           ) {
             throw new Error(
               'PayMongo did not return the credentials needed to create the QRPh payment.',
@@ -1255,6 +1282,21 @@ export function usePaymentFlow(
                 null,
             }),
           );
+
+          // Web cashier and Mobile resume the SAME PayMongo QR attempt.
+          if (paymentIntentData?.existing && paymentIntentData?.qrImageUrl) {
+            const rawImage = String(paymentIntentData.qrImageUrl);
+            const existingImage = rawImage.startsWith('data:image/') || rawImage.startsWith('https://')
+              ? rawImage : `data:image/png;base64,${rawImage}`;
+            qrPaymentFlowStartedRef.current = true;
+            setState(prev => ({ ...prev, paying: false, qrImageUrl: existingImage,
+              qrTestUrl: paymentIntentData.qrTestUrl ?? null,
+              qrExpiresAt: paymentIntentData.expiresAt ? Date.parse(paymentIntentData.expiresAt) : Date.now() + QRPH_EXPIRY_SECONDS * 1000,
+              paymentAttemptStatus: 'PENDING', qrPaymentVisible: true, paymentError: null,
+            }));
+            startQrMonitoring(paymentIntentId);
+            return true;
+          }
 
           const paymentMethodResource =
             await paymongoCreateQrPhPaymentMethod();
@@ -1341,6 +1383,8 @@ export function usePaymentFlow(
                 false,
 
               qrImageUrl,
+
+              paymentAttemptStatus: 'PENDING',
 
               qrTestUrl,
 
@@ -1621,6 +1665,9 @@ export function usePaymentFlow(
 
     paymentError:
       state.paymentError,
+
+    paymentAttemptStatus:
+      state.paymentAttemptStatus,
 
     qrImageUrl:
       state.qrImageUrl,

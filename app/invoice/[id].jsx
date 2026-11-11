@@ -8,7 +8,11 @@ import {
   Image,
   AppState,
   Linking,
+  Alert,
 } from 'react-native';
+
+import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
 
 import {
   useEffect,
@@ -38,6 +42,7 @@ import {
   AlertCircle,
   ChevronRight,
   ScanLine,
+  RefreshCw,
   WalletCards,
   CreditCard,
   X,
@@ -56,6 +61,7 @@ import {
 } from '../../hooks/usePaymentFlow';
 
 import FinalBillBreakdown from '../../components/billing/FinalBillBreakdown';
+import ManualTransferCard from '../../components/billing/ManualTransferCard';
 
 function normalizeBillId(
   value,
@@ -123,6 +129,7 @@ export default function InvoiceScreen() {
     verifying,
     selectedPaymentMethod,
     paymentError,
+    paymentAttemptStatus,
     qrImageUrl,
     qrTestUrl,
     qrExpiresAt,
@@ -215,6 +222,29 @@ export default function InvoiceScreen() {
     qrPaymentVisible,
     checkPaymentNow,
   ]);
+
+  const saveQrToGallery = async () => {
+    const match = typeof qrImageUrl === 'string'
+      ? /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(qrImageUrl.trim())
+      : null;
+    if (!match || !billId) {
+      Alert.alert('QR not available', 'Generate a valid QR Ph code before saving.');
+      return;
+    }
+    try {
+      const permission = await MediaLibrary.requestPermissionsAsync(true);
+      if (!permission.granted) {
+        Alert.alert('Permission required', 'Allow photo saving to save your QR for GCash or another QR Ph wallet.');
+        return;
+      }
+      const path = `${FileSystem.cacheDirectory}autocare-qrph-${String(billId).slice(0, 12)}.png`;
+      await FileSystem.writeAsStringAsync(path, match[1], { encoding: FileSystem.EncodingType.Base64 });
+      await MediaLibrary.saveToLibraryAsync(path);
+      Alert.alert('QR saved to Photos', 'Open GCash, Maya, or your bank app. Choose Scan QR and select the saved image from your gallery. Return to AutoCare to check your payment.');
+    } catch (cause) {
+      Alert.alert('Could not save QR', cause?.message || 'Please retry, or scan the QR with another device.');
+    }
+  };
 
   if (loading) {
     return (
@@ -724,39 +754,39 @@ export default function InvoiceScreen() {
             Payment Instructions
           </Text>
 
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() =>
-              router.push(
-                `/cash-qr/${billId}`,
-              )
-            }
-            className="bg-card rounded-2xl border border-border min-h-[72px] px-4 flex-row items-center mb-3"
-          >
+          <View className="rounded-2xl border border-border bg-card px-4 py-4 mb-3 flex-row items-center">
             <View className="w-11 h-11 rounded-xl bg-[#34A853]/10 items-center justify-center mr-3">
-              <Banknote
-                size={21}
-                color="#34A853"
-              />
+              <Banknote size={21} color="#34A853" />
             </View>
-
             <View className="flex-1">
-              <Text className="text-base font-semibold text-foreground">
-                Pay To Counter
-              </Text>
-
-              <Text className="text-sm text-muted-foreground mt-0.5">
-                Show this invoice at the service counter and pay in cash
+              <Text className="text-base font-semibold text-foreground">Cash at the counter</Text>
+              <Text className="text-xs text-muted-foreground mt-1 leading-5">
+                Tell the cashier your tracking number and pay directly in cash. No QR scanning or check-in is needed.
               </Text>
             </View>
+          </View>
 
-            <ChevronRight
-              size={20}
-              color={
-                theme.textSecondary
-              }
-            />
-          </TouchableOpacity>
+          <ManualTransferCard billId={billId} />
+
+          {/* Optional online payment uses the existing server PayMongo QRPh
+              verification flow. It never marks a bill paid locally. */}
+          {!isPaid && process.env.EXPO_PUBLIC_ENABLE_PAYMONGO_QRPH === 'true' && (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              disabled={paying || verifying}
+              onPress={() => void startPayment('qrph')}
+              className="bg-card rounded-2xl border border-border min-h-[72px] px-4 flex-row items-center mb-3"
+            >
+              <View className="w-11 h-11 rounded-xl bg-primary/10 items-center justify-center mr-3">
+                <CreditCard size={21} color={theme.primary} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-base font-semibold text-foreground">Pay securely with QR Ph</Text>
+                <Text className="text-xs text-muted-foreground mt-0.5">Use GCash, Maya, or a QR Ph-enabled bank. Save the QR for same-phone payment.</Text>
+              </View>
+              <ChevronRight size={20} color={theme.textSecondary}/>
+            </TouchableOpacity>
+          )}
 
           {paymentError ? (
             <View className="bg-primary/5 border border-primary/20 rounded-2xl p-4 mb-2">
@@ -836,7 +866,7 @@ export default function InvoiceScreen() {
                 opacity: 0.65,
               }}
             >
-              Payments are securely processed by PayMongo.
+              Electronic transfers require cashier verification before a receipt is issued.
             </Text>
           </View>
 
@@ -955,7 +985,7 @@ export default function InvoiceScreen() {
               )}
 
               <Text className="text-sm font-semibold text-foreground text-center mt-4">
-                Open your bank or e-wallet app and scan this QR code.
+                Scan using your e-wallet on another phone, or save the QR image to your gallery for same-phone payment.
               </Text>
 
               <Text
@@ -970,6 +1000,34 @@ export default function InvoiceScreen() {
                 Keep this screen open while your payment is being confirmed.
               </Text>
             </View>
+
+            {qrImageUrl && paymentAttemptStatus !== 'EXPIRED' && paymentAttemptStatus !== 'FAILED' ? (
+              <TouchableOpacity
+                onPress={() => { void saveQrToGallery(); }}
+                className="min-h-[48px] rounded-xl border border-primary/30 bg-primary/5 mt-4 flex-row items-center justify-center"
+                activeOpacity={0.8}
+              >
+                <Download size={18} color={theme.primary}/>
+                <Text className="text-primary font-semibold ml-2">Save QR to Photos</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {(paymentAttemptStatus === 'FAILED' || paymentAttemptStatus === 'EXPIRED') ? (
+              <View className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4">
+                <View className="flex-row items-center">
+                  <AlertCircle size={20} color="#b91c1c"/>
+                  <Text className="ml-2 font-semibold text-red-800">
+                    {paymentAttemptStatus === 'FAILED' ? 'Payment Unsuccessful' : 'QR Ph Expired'}
+                  </Text>
+                </View>
+                <Text className="text-xs text-red-700 mt-2">{paymentError || 'The bill is still unpaid. You may generate a new QR code.'}</Text>
+                <TouchableOpacity onPress={() => void startPayment('qrph')}
+                  className="min-h-[46px] flex-row items-center justify-center rounded-xl bg-primary mt-3">
+                  <RefreshCw size={16} color="#fff"/>
+                  <Text className="font-semibold text-white ml-2">Generate new QR Ph</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
 
             {qrTestUrl ? (
               <View className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">

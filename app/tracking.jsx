@@ -70,6 +70,7 @@ import ProgressTimeline from '../components/tracking/ProgressTimeline';
 import CancellationNote from '../components/tracking/CancellationNote';
 
 import QueueSection from '../components/tracking/QueueSection';
+import ServiceJourneyCard from '../components/tracking/ServiceJourneyCard';
 import useCustomerChangeWindow from '../hooks/useCustomerChangeWindow';
 
 import WaitingCard from '../components/tracking/WaitingCard';
@@ -1586,6 +1587,19 @@ export default function TrackingScreen() {
           "
         >
           {/* ====================================================
+              APPOINTMENT PROGRESS
+
+              Keep the vertical progress timeline at the very top
+              so customers can immediately see the current stage.
+          ===================================================== */}
+
+          <ProgressTimeline
+            currentStage={
+              currentStage
+            }
+          />
+
+          {/* ====================================================
               TRACKING HEADER
           ===================================================== */}
 
@@ -1604,6 +1618,8 @@ export default function TrackingScreen() {
               appointment
             }
           />
+
+          <ServiceJourneyCard appointmentId={appointmentId} />
 
           {/* ====================================================
               RESCHEDULE HISTORY
@@ -1824,14 +1840,7 @@ export default function TrackingScreen() {
               TASKS
           ===================================================== */}
 
-          {[
-            'UNDER_INSPECTION',
-            'WAITING_FOR_APPROVAL',
-            'IN_PROGRESS',
-            'COMPLETED',
-          ].includes(
-            appointment.status,
-          ) && (
+          {(isUnderInspection || isInProgress) && (
             <TaskList
               tasks={
                 tasks
@@ -2125,16 +2134,6 @@ export default function TrackingScreen() {
               }
             />
           )}
-
-          {/* ====================================================
-              PROGRESS
-          ===================================================== */}
-
-          <ProgressTimeline
-            currentStage={
-              currentStage
-            }
-          />
 
           {/* ====================================================
               CANCEL APPOINTMENT

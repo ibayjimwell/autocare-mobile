@@ -21,6 +21,7 @@ export default function ReceiptContent({ receipt }) {
 
   const { referenceNumber, createdAt, details } = receipt;
   const { customer, vehicle, appointment, services, inspection, estimate, finalBill, payment } = details || {};
+  const isDemo = payment?.simulated === true;
 
   const paidDate = payment?.paidAt
     ? new Date(payment.paidAt).toLocaleDateString('en-PH', {
@@ -70,9 +71,16 @@ export default function ReceiptContent({ receipt }) {
             by AutoProTech
           </Text>
           <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 4 }}>
-            Official Receipt
+            {isDemo ? 'Demonstration Receipt' : 'Official Receipt'}
           </Text>
         </View>
+
+        {isDemo && (
+          <View style={{ marginBottom: 16, padding: 14, backgroundColor: '#FEF3C7', borderColor: '#F59E0B', borderWidth: 1, borderRadius: 12 }}>
+            <Text style={{ color: '#92400E', fontSize: 14, fontWeight: '800', textAlign: 'center' }}>CAPSTONE DEMONSTRATION</Text>
+            <Text style={{ color: '#92400E', fontSize: 12, marginTop: 5, textAlign: 'center' }}>NO ACTUAL PAYMENT RECEIVED. This document is not a tax or official sales receipt.</Text>
+          </View>
+        )}
 
         {/* Dashed line */}
         <View style={{ borderBottomWidth: 1, borderStyle: 'dashed', borderColor: theme.border, marginBottom: 16 }} />
@@ -225,11 +233,11 @@ export default function ReceiptContent({ receipt }) {
             <Text style={{ fontSize: 20, fontWeight: '900', color: theme.primary }}>₱{formatCurrency(finalBill?.grandTotal)}</Text>
           </View>
           <Text style={{ fontSize: 12, color: theme.textSecondary }}>
-            Amount Paid: ₱{formatCurrency(payment?.totalAmount)}
+            {isDemo ? 'Simulated Amount' : 'Amount Paid'}: ₱{formatCurrency(payment?.totalAmount)}
           </Text>
           {payment?.paidAt && (
             <Text style={{ fontSize: 12, color: theme.textSecondary }}>
-              Paid on {paidDate} at {paidTime}
+              {isDemo ? 'Simulated on' : 'Paid on'} {paidDate} at {paidTime}
             </Text>
           )}
         </View>
@@ -248,7 +256,7 @@ export default function ReceiptContent({ receipt }) {
             Thank you for your business!
           </Text>
           <Text style={{ fontSize: 10, color: theme.textSecondary, marginTop: 4 }}>
-            This is an electronic receipt.
+            {isDemo ? 'For capstone demonstration only. No funds collected.' : 'This is an electronic receipt.'}
           </Text>
         </View>
       </View>

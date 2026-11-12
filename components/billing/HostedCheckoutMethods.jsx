@@ -1,193 +1,433 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Image, Linking, Text, TouchableOpacity, View } from 'react-native';
-import { CheckCircle2, ChevronRight, CreditCard, RotateCw, ShieldCheck, XCircle } from 'lucide-react-native';
-import paymentsApi from '../../services/paymentsApi';
-import { useTheme } from '../../context/ThemeContext';
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  AppState,
+  Image,
+  Linking,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import {
+  ChevronRight,
+  CreditCard,
+  RotateCw,
+  ShieldCheck,
+} from 'lucide-react-native';
 
-// Bundled artwork is available offline and matches AutoCare's payment choices.
+import { useTheme } from '../../context/ThemeContext';
+import paymentsApi from '../../services/paymentsApi';
+
+// These are the only three hosted-checkout choices. QR Ph is already
+// implemented separately in the Final Cost screen and remains unchanged.
+// Payment method IDs must match the Web API / PayMongo Checkout API.
 const METHODS = [
   { id: 'gcash', label: 'GCash', logo: require('../../assets/gcash.png') },
   { id: 'paymaya', label: 'Maya', logo: require('../../assets/maya.png') },
   { id: 'card', label: 'Credit / Debit Card', logo: require('../../assets/card.png') },
 ];
 
-function PaymentLogo({ method }) {
+const REFRESH_INTERVAL_MS = 8000;
+const OPEN_STATUSES = new Set([
+  'PENDING',
+  'ACTIVE',
+  'CREATING',
+  'CREATE_UNKNOWN',
+  'PROCESSING',
+]);
+const SETTLED_STATUSES = new Set(['PAID', 'DEMO_PAID']);
+
+function firstId(value) {
+  if (Array.isArray(value)) return value[0] || null;
+  return value || null;
+}
+
+function money(value) {
+  const number = Number(value);
+  return `₱${(Number.isFinite(number) ? number : 0).toLocaleString('en-PH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function extractError(error, fallback) {
+  const message = String(
+    error?.errorMessage || error?.responseData?.errorMessage || error?.message || '',
+  ).trim();
+  if (error?.status === 404 && /route does not exist/i.test(message)) {
+    return 'PayMongo checkout is not available on the deployed Web API. Please contact AutoCare.';
+  }
+  return message || fallback;
+}
+
+function isTrustedCheckoutUrl(url) {
+  if (typeof url !== 'string') return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' &&
+      parsed.hostname === 'checkout.paymongo.com' &&
+      parsed.username === '' && parsed.password === '';
+  } catch {
+    return false;
+  }
+}
+
+async function openPayMongoCheckout(url) {
+  if (!isTrustedCheckoutUrl(url)) {
+    throw new Error('PayMongo did not provide a valid secure checkout link.');
+  }
+  await Linking.openURL(url);
+}
+
+function PaymentLogo({ item }) {
   return (
-    <View className="w-20 h-12 rounded-xl items-center justify-center border border-[#e8ebf0] bg-white px-2">
+    <View className="h-12 w-20 items-center justify-center rounded-xl border border-[#e8ebf0] bg-white px-2">
       <Image
-        source={method.logo}
+        source={item.logo}
         resizeMode="contain"
         style={{ width: 70, height: 34 }}
-        accessibilityLabel={`${method.label} payment logo`}
+        accessibilityLabel={`${item.label} logo`}
       />
     </View>
   );
 }
 
-function checkoutErrorMessage(cause, fallback) {
-  const detail = String(cause?.message || '').trim();
-  if (cause?.status === 404 || /requested route does not exist/i.test(detail)) {
-    return 'Online payment is temporarily unavailable. Please try again later or pay at the counter.';
-  }
-  return detail || fallback;
-}
-
-export default function HostedCheckoutMethods({ billId, amount, onConfirmedPayment, returnFlag }) {
+/**
+ * AutoCare Mobile only creates and resumes genuine PayMongo Hosted Checkout
+ * sessions through the authenticated AutoCare Web API. The mobile app never
+ * creates, authorizes, or marks a payment paid on its own.
+ *
+ * In capstone mode the Web API can settle a PayMongo-verified sandbox
+ * payment as a labeled demo transaction; no separate Mobile simulator exists.
+ */
+export default function HostedCheckoutMethods({
+  billId: rawBillId,
+  amount,
+  onConfirmedPayment,
+  returnFlag,
+}) {
+  const billId = firstId(rawBillId);
+  const router = useRouter();
   const { theme } = useTheme();
-  const [loading, setLoading] = useState(false);
+
+  const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [selected, setSelected] = useState(null);
   const [status, setStatus] = useState('NONE');
-  const [method, setMethod] = useState(null);
+  const [activeMethod, setActiveMethod] = useState(null);
   const [checkoutUrl, setCheckoutUrl] = useState(null);
-  const [liveMode, setLiveMode] = useState(null);
+  const [settlementReady, setSettlementReady] = useState(null);
   const [error, setError] = useState('');
+
+  const mountedRef = useRef(false);
   const checkingRef = useRef(false);
-  const mountedRef = useRef(true);
-  const notifiedRef = useRef(false);
+  const successShownRef = useRef(false);
+  const activeAppRef = useRef(AppState.currentState);
+  const requestSequenceRef = useRef(0);
+
+  const showVerifiedSuccess = useCallback(() => {
+    if (!billId || successShownRef.current || !mountedRef.current) return;
+    successShownRef.current = true;
+    // Update any parent Final Cost cache before showing the receipt screen.
+    onConfirmedPayment?.();
+    router.replace({
+      pathname: '/payment-success',
+      params: { billId: String(billId) },
+    });
+  }, [billId, onConfirmedPayment, router]);
 
   const refresh = useCallback(async () => {
-    if (!billId || checkingRef.current) return;
+    if (!billId || checkingRef.current || !mountedRef.current) return;
     checkingRef.current = true;
+    const sequence = requestSequenceRef.current;
     setChecking(true);
     try {
       const response = await paymentsApi.getHostedCheckout(billId);
       const data = response?.data || {};
-      if (!mountedRef.current) return;
-      setStatus(data.status || 'NONE');
-      setMethod(data.paymentMethod || null);
+      if (!mountedRef.current || sequence !== requestSequenceRef.current) return;
+
+      const nextStatus = String(data.status || 'NONE').toUpperCase();
+      setStatus(nextStatus);
+      setActiveMethod(data.paymentMethod || null);
       setCheckoutUrl(data.checkoutUrl || null);
-      if (typeof data.livemode === 'boolean') setLiveMode(data.livemode);
-      setError('');
-      if (data.paid && !notifiedRef.current) {
-        notifiedRef.current = true;
-        onConfirmedPayment?.();
+      if (typeof data.settlementReady === 'boolean') {
+        setSettlementReady(data.settlementReady);
       }
+      setError('');
+
+      // Only the authenticated server's PAID result authorizes navigation.
+      // The success screen separately checks the persisted Final Cost + receipt.
+      if (data.paid === true) showVerifiedSuccess();
     } catch (cause) {
-      if (mountedRef.current) setError(checkoutErrorMessage(cause, 'Could not check your payment.'));
+      if (mountedRef.current && sequence === requestSequenceRef.current) {
+        setError(extractError(cause, 'Unable to verify the payment status.'));
+      }
     } finally {
-      checkingRef.current = false;
-      if (mountedRef.current) setChecking(false);
+      if (sequence === requestSequenceRef.current) checkingRef.current = false;
+      if (mountedRef.current && sequence === requestSequenceRef.current) {
+        setChecking(false);
+      }
     }
-  }, [billId, onConfirmedPayment]);
+  }, [billId, showVerifiedSuccess]);
 
   useEffect(() => {
     mountedRef.current = true;
+    successShownRef.current = false;
+    requestSequenceRef.current += 1;
+    checkingRef.current = false;
+    setStatus('NONE');
+    setActiveMethod(null);
+    setCheckoutUrl(null);
+    setSettlementReady(null);
+    setError('');
     void refresh();
-    const appState = AppState.addEventListener('change', next => {
-      if (next === 'active') void refresh();
+
+    const subscription = AppState.addEventListener('change', nextState => {
+      const wasAway = activeAppRef.current !== 'active';
+      activeAppRef.current = nextState;
+      if (nextState === 'active' && wasAway) {
+        void refresh();
+      }
     });
-    return () => { mountedRef.current = false; appState.remove(); };
-  }, [refresh]);
+
+    return () => {
+      mountedRef.current = false;
+      requestSequenceRef.current += 1;
+      subscription.remove();
+    };
+  }, [billId, refresh]);
 
   useEffect(() => {
-    if (returnFlag) void refresh();
+    if (returnFlag && mountedRef.current) void refresh();
   }, [returnFlag, refresh]);
 
+  // Webhooks can arrive after the browser redirects back to the app. Retain
+  // a light polling fallback for open checkouts and sandbox reconciliation.
   useEffect(() => {
-    if (status !== 'PENDING' && status !== 'ACTIVE' && status !== 'CREATING') return undefined;
-    const timer = setInterval(() => void refresh(), 8000);
+    if (!OPEN_STATUSES.has(status) && status !== 'SIMULATED') return undefined;
+    const timer = setInterval(() => {
+      if (AppState.currentState === 'active') void refresh();
+    }, REFRESH_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [refresh, status]);
+  }, [status, refresh]);
 
-  const openCheckout = async url => {
-    if (!url || !/^https:\/\/checkout\.paymongo\.com\//.test(url)) {
-      throw new Error('The checkout link is not valid. Please try again.');
+  const chooseMethod = useCallback(async paymentMethod => {
+    if (!billId || busy || checking || successShownRef.current) return;
+    if (!METHODS.some(item => item.id === paymentMethod)) return;
+
+    // Resume the existing session instead of issuing an overlapping request.
+    if (OPEN_STATUSES.has(status)) {
+      if (paymentMethod === activeMethod && checkoutUrl) {
+        try {
+          await openPayMongoCheckout(checkoutUrl);
+        } catch (cause) {
+          const message = extractError(cause, 'Unable to reopen PayMongo checkout.');
+          setError(message);
+          Alert.alert('Checkout unavailable', message);
+        }
+      }
+      return;
     }
-    await Linking.openURL(url);
-  };
 
-  const choosePayment = async selected => {
-    if (loading || checking) return;
-    setError('');
-    setLoading(true);
-    try {
-      const response = await paymentsApi.createHostedCheckout(billId, selected);
-      const data = response?.data || {};
-      setStatus('PENDING');
-      setMethod(selected);
-      setCheckoutUrl(data.checkoutUrl);
-      if (typeof data.livemode === 'boolean') setLiveMode(data.livemode);
-      await openCheckout(data.checkoutUrl);
-    } catch (cause) {
-      const message = checkoutErrorMessage(cause, 'We could not prepare the payment.');
-      setError(message);
-      Alert.alert('Unable to start payment', message);
+    // PayMongo has already confirmed a sandbox transaction. Never encourage
+    // the customer to make a second checkout while settlement is pending.
+    if (status === 'SIMULATED' || SETTLED_STATUSES.has(status)) {
       void refresh();
-    } finally { setLoading(false); }
-  };
+      return;
+    }
 
-  const cancelCheckout = () => {
-    Alert.alert('Cancel current checkout?', 'This will close the current PayMongo payment session. You can choose another method after it is cancelled.', [
-      { text: 'Keep checkout', style: 'cancel' },
-      { text: 'Cancel checkout', style: 'destructive', onPress: async () => {
-        setLoading(true);
-        try { await paymentsApi.cancelHostedCheckout(billId); setCheckoutUrl(null); setMethod(null); setStatus('EXPIRED'); setError(''); }
-        catch (cause) { Alert.alert('Cannot cancel payment', checkoutErrorMessage(cause, 'Please check whether the payment has already been processed.')); }
-        finally { setLoading(false); void refresh(); }
-      } },
-    ]);
-  };
+    setBusy(true);
+    setSelected(paymentMethod);
+    setError('');
+    try {
+      // These methods map to ['gcash','paymaya','card'] on the Web API.
+      // PayMongo generates the actual hosted checkout page in test or live mode
+      // based on the server-side secret key. No Mobile-simulated authorization.
+      const response = await paymentsApi.createHostedCheckout(billId, paymentMethod);
+      const data = response?.data || {};
+      if (!data.checkoutUrl || !isTrustedCheckoutUrl(data.checkoutUrl)) {
+        throw new Error('PayMongo did not return a valid checkout link.');
+      }
+      if (!mountedRef.current) return;
+      setStatus('PENDING');
+      setActiveMethod(paymentMethod);
+      setCheckoutUrl(data.checkoutUrl);
+      await openPayMongoCheckout(data.checkoutUrl);
+    } catch (cause) {
+      const message = extractError(cause, 'Unable to start your PayMongo payment.');
+      if (mountedRef.current) {
+        setError(message);
+        Alert.alert('Unable to start checkout', message);
+      }
+      void refresh();
+    } finally {
+      if (mountedRef.current) {
+        setBusy(false);
+        setSelected(null);
+      }
+    }
+  }, [billId, busy, checking, status, activeMethod, checkoutUrl, refresh]);
+
+  const cancelCurrentCheckout = useCallback(() => {
+    if (busy || checking) return;
+    Alert.alert(
+      'Cancel PayMongo checkout?',
+      'Only cancel if you have not completed the payment. AutoCare will ask PayMongo to expire the checkout before allowing a different method.',
+      [
+        { text: 'Keep checkout', style: 'cancel' },
+        {
+          text: 'Cancel checkout',
+          style: 'destructive',
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await paymentsApi.cancelHostedCheckout(billId);
+              if (mountedRef.current) {
+                setStatus('EXPIRED');
+                setActiveMethod(null);
+                setCheckoutUrl(null);
+                setError('');
+              }
+            } catch (cause) {
+              const message = extractError(cause, 'Unable to cancel the checkout.');
+              if (mountedRef.current) Alert.alert('Could not cancel checkout', message);
+            } finally {
+              if (mountedRef.current) setBusy(false);
+              void refresh();
+            }
+          },
+        },
+      ],
+    );
+  }, [billId, busy, checking, refresh]);
+
+  const isOpen = OPEN_STATUSES.has(status);
+  const awaitingSettlement = status === 'SIMULATED';
+  const hasCompletedPayment = SETTLED_STATUSES.has(status);
+  const locked = isOpen || awaitingSettlement || hasCompletedPayment;
 
   return (
     <View className="mb-4">
-      <View className="flex-row items-center justify-between px-1 mb-3">
-        <View className="flex-row items-center flex-1">
-          <CreditCard size={18} color={theme.primary} />
-          <Text className="text-sm font-bold text-foreground ml-2">Pay Online</Text>
+      <View className="mb-3 flex-row items-center justify-between px-1">
+        <View className="flex-row items-center">
+          <CreditCard color={theme.primary} size={18} />
+          <Text className="ml-2 text-sm font-bold text-foreground">Pay Online</Text>
         </View>
         <View className="flex-row items-center">
-          <ShieldCheck size={13} color="#16a34a" />
-          <Text className="text-xs text-muted-foreground ml-1">PayMongo checkout</Text>
+          <ShieldCheck size={14} color="#16a34a" />
+          <Text className="ml-1 text-xs text-muted-foreground">Secure checkout</Text>
         </View>
       </View>
-      <View className="rounded-2xl bg-card border border-border overflow-hidden">
-        <View className="px-4 pt-4 pb-3 border-b border-border">
-          <Text className="text-base font-bold text-foreground">Choose a payment method</Text>
-        </View>
+
+      <View className="overflow-hidden rounded-2xl border border-border bg-card">
+        <Text className="border-b border-border px-4 py-4 text-base font-bold text-foreground">
+          Choose a payment method
+        </Text>
         {METHODS.map((item, index) => {
-          const otherOpen = ['PENDING','ACTIVE','CREATING','CREATE_UNKNOWN','PROCESSING'].includes(status) && method !== item.id;
-          const isWorking = loading || checking;
+          const active = isOpen && activeMethod === item.id && Boolean(checkoutUrl);
+          const disabled = busy || checking || successShownRef.current ||
+            awaitingSettlement || hasCompletedPayment || (isOpen && !active);
           return (
             <TouchableOpacity
-              key={item.id} activeOpacity={0.75} disabled={isWorking || otherOpen || status === 'PAID'}
-              accessibilityRole="button" accessibilityLabel={`Pay ₱${Number(amount || 0).toLocaleString('en-PH', {minimumFractionDigits:2})} with ${item.label}`}
-              className={`flex-row items-center px-4 min-h-[80px] ${index < METHODS.length - 1 ? 'border-b border-border' : ''}`}
-              style={{ opacity: otherOpen ? 0.42 : 1 }}
-              onPress={() => { void (method === item.id && checkoutUrl ? openCheckout(checkoutUrl).catch(cause => Alert.alert('Checkout unavailable', cause.message)) : choosePayment(item.id)); }}
+              key={item.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Pay ${money(amount)} using ${item.label}`}
+              accessibilityHint={active ? 'Resume your PayMongo checkout' : 'Open PayMongo secure checkout'}
+              activeOpacity={0.78}
+              disabled={disabled}
+              onPress={() => void chooseMethod(item.id)}
+              className={`min-h-[80px] flex-row items-center px-4 ${index < METHODS.length - 1 ? 'border-b border-border' : ''}`}
+              style={{ opacity: disabled && !active ? 0.55 : 1 }}
             >
-              <PaymentLogo method={item} />
-              <View className="flex-1 pl-3">
-                <Text className="text-base font-semibold text-foreground">{item.label}</Text>
-              </View>
-              {loading && method === item.id ? <ActivityIndicator size="small" color={theme.primary}/> : <ChevronRight size={20} color={theme.textSecondary} />}
+              <PaymentLogo item={item} />
+              <Text className="ml-3 flex-1 text-base font-semibold text-foreground">{item.label}</Text>
+              {busy && selected === item.id
+                ? <ActivityIndicator color={theme.primary} />
+                : <ChevronRight color={theme.textSecondary} size={20} />}
             </TouchableOpacity>
           );
         })}
       </View>
-      {liveMode === false && (
-        <View className="mt-3 px-3 py-3 rounded-xl bg-[#eff6ff] border border-[#bfd9fa]">
-          <Text className="text-sm font-semibold text-[#174a83]">Demo checkout • No charge</Text>
-          <Text className="text-xs leading-5 text-[#315d88] mt-1">This payment does not settle your Final Cost.</Text>
-        </View>
-      )}
-      {['PENDING','ACTIVE','CREATING','PROCESSING'].includes(status) && (
-        <View className="rounded-xl bg-[#f8f9fb] border border-[#e3e6eb] p-4 mt-3">
-          <View className="flex-row items-center"><ActivityIndicator size="small" color={theme.primary}/>
-            <Text className="font-semibold text-sm text-foreground ml-2">Checkout awaiting confirmation</Text></View>
-          <Text className="text-xs text-muted-foreground mt-2 leading-5">Complete the payment in PayMongo, then return to AutoCare. We'll check the status.</Text>
-          <View className="flex-row mt-3 gap-2">
-            {!!checkoutUrl && <TouchableOpacity onPress={() => void openCheckout(checkoutUrl).catch(cause => Alert.alert('Checkout unavailable', cause.message))} className="flex-1 min-h-[44px] bg-primary rounded-xl items-center justify-center"><Text className="text-white font-semibold text-sm">Resume payment</Text></TouchableOpacity>}
-            <TouchableOpacity onPress={cancelCheckout} disabled={loading} className="flex-1 min-h-[44px] border border-border bg-card rounded-xl items-center justify-center"><Text className="text-foreground font-semibold text-sm">Cancel checkout</Text></TouchableOpacity>
+
+      {isOpen && (
+        <View className="mt-3 rounded-xl border border-border bg-card p-4">
+          <View className="flex-row items-center">
+            <ActivityIndicator size="small" color={theme.primary} />
+            <Text className="ml-2 flex-1 text-sm font-semibold text-foreground">
+              Waiting for PayMongo confirmation
+            </Text>
+          </View>
+          <Text className="mt-2 text-xs leading-5 text-muted-foreground">
+            Complete the checkout in your browser and return to AutoCare.
+          </Text>
+          <View className="mt-3 flex-row gap-2">
+            {checkoutUrl && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => void openPayMongoCheckout(checkoutUrl).catch(cause => {
+                  Alert.alert('Checkout unavailable', extractError(cause, 'Unable to open checkout.'));
+                })}
+                className="min-h-[44px] flex-1 items-center justify-center rounded-xl bg-primary"
+              >
+                <Text className="text-sm font-semibold text-white">Resume checkout</Text>
+              </TouchableOpacity>
+            )}
+            {checkoutUrl && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={cancelCurrentCheckout}
+                disabled={busy || checking}
+                className="min-h-[44px] flex-1 items-center justify-center rounded-xl border border-border bg-card"
+              >
+                <Text className="text-sm font-semibold text-foreground">Cancel checkout</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
-      {status === 'SIMULATED' && <View className="mt-3 p-4 rounded-xl border border-[#b6d7c3] bg-[#f0faf3] flex-row items-start"><CheckCircle2 size={20} color="#198650"/><View className="ml-2 flex-1"><Text className="text-sm font-semibold text-[#166a3d]">Demo payment completed</Text><Text className="text-xs leading-5 text-[#166a3d] mt-1">Your transaction was completed in PayMongo's demonstration environment. Your actual Final Cost remains unpaid.</Text></View></View>}
-      {status === 'PAID' && <View className="mt-3 p-4 rounded-xl bg-[#f0faf3] border border-[#b6d7c3] flex-row items-center"><CheckCircle2 size={20} color="#198650"/><Text className="font-semibold text-[#166a3d] ml-2">Payment confirmed. Your receipt is ready.</Text></View>}
-      {status === 'CREATE_UNKNOWN' && <View className="mt-3 p-4 rounded-xl bg-[#fff7ed] border border-[#fed7aa] flex-row items-start"><XCircle size={20} color="#9a3412"/><Text className="ml-2 text-xs text-[#9a3412] flex-1">Checkout setup could not be confirmed. Contact AutoCare before attempting another payment.</Text></View>}
-      {!!error && <View className="mt-3 p-3 rounded-xl border border-red-200 bg-red-50"><Text className="text-xs text-red-800">{error}</Text></View>}
-      <TouchableOpacity onPress={() => void refresh()} disabled={checking || loading} className="min-h-[44px] flex-row items-center justify-center mt-2" accessibilityRole="button">
-        {checking ? <ActivityIndicator size="small" color={theme.primary}/> : <RotateCw size={15} color={theme.primary}/>}
-        <Text className="font-semibold text-sm text-primary ml-2">{checking ? 'Checking payment...' : 'Check payment status'}</Text>
+
+      {awaitingSettlement && (
+        <View className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <Text className="text-sm font-bold text-amber-900">PayMongo payment verified</Text>
+          <Text className="mt-1 text-xs leading-5 text-amber-800">
+            {settlementReady === false
+              ? 'The sandbox payment is confirmed, but this Final Cost is awaiting settlement in AutoCare. Please contact the project administrator.'
+              : 'The PayMongo payment is confirmed. AutoCare is finalizing the Final Cost and receipt.'}
+          </Text>
+        </View>
+      )}
+
+      {status === 'CREATE_UNKNOWN' && (
+        <View className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <Text className="text-sm text-amber-900">
+            PayMongo is reviewing the checkout request. Check the status before trying again.
+          </Text>
+        </View>
+      )}
+
+      {!!error && (
+        <View className="mt-3 rounded-xl border border-red-200 bg-red-50 p-4">
+          <Text className="text-sm text-red-800">{error}</Text>
+        </View>
+      )}
+
+      <TouchableOpacity
+        accessibilityRole="button"
+        onPress={() => void refresh()}
+        disabled={checking || busy}
+        className="mt-2 min-h-[44px] flex-row items-center justify-center"
+      >
+        {checking ? <ActivityIndicator size="small" color={theme.primary} /> : <RotateCw size={16} color={theme.primary} />}
+        <Text className="ml-2 text-sm font-semibold text-primary">
+          {checking ? 'Checking payment...' : 'Check payment status'}
+        </Text>
       </TouchableOpacity>
     </View>
   );

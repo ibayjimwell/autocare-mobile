@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { CarFront, Check, Circle } from 'lucide-react-native';
 
 export default function VehicleSelector({ vehicles, selectedVehicle, onSelect }) {
@@ -31,8 +31,12 @@ export default function VehicleSelector({ vehicles, selectedVehicle, onSelect })
                   }`}
                   onPress={() => onSelect(vehicle)}
                 >
-                  <View className="w-10 h-10 rounded-xl bg-background items-center justify-center mr-3">
-                    <CarFront size={22} color={isSelected ? '#C1272D' : '#8E8E93'} />
+                  <View className="mr-3 h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-background">
+                    {vehicle.imageUrl ? (
+                      <Image source={{ uri: vehicle.imageUrl }} className="h-full w-full" resizeMode="cover" />
+                    ) : (
+                      <CarFront size={22} color={isSelected ? '#C1272D' : '#8E8E93'} />
+                    )}
                   </View>
                   <View className="flex-1 mr-3">
                     <Text className="text-base font-normal text-foreground">

@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { Alert } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { useAuth } from "../context/AuthContext";
 import vehiclesApi from "../services/vehiclesApi";
 
@@ -26,40 +27,62 @@ export function useVehicles() {
     setLoading(false);
   }, [customerId]);
 
-  useEffect(() => {
-    loadVehicles();
-  }, [loadVehicles]);
+  useFocusEffect(useCallback(() => {
+    void loadVehicles();
+  }, [loadVehicles]));
 
-  // Add vehicle
-  const addVehicle = async (payload) => {
+  const persistPhoto = async (vehicleId, photoAsset, removePhoto) => {
+    if (photoAsset) {
+      await vehiclesApi.uploadPhoto(customerId, vehicleId, photoAsset);
+    } else if (removePhoto) {
+      await vehiclesApi.removePhoto(customerId, vehicleId);
+    }
+  };
+
+  // A vehicle is saved first so photos can be attached to a real, owned record.
+  const addVehicle = async ({ photoAsset, removePhoto: _removePhoto, ...payload }) => {
     if (!customerId) return false;
     setSubmitting(true);
     try {
-      await vehiclesApi.create(customerId, payload);
-      Alert.alert("Success", "Vehicle added");
+      const response = await vehiclesApi.create(customerId, payload);
+      const created = response?.data;
+      if (photoAsset && created?.id) {
+        try {
+          await persistPhoto(created.id, photoAsset, false);
+        } catch (photoError) {
+          Alert.alert('Vehicle saved', `Your vehicle was added, but the photo could not be uploaded: ${photoError.message}`);
+          await loadVehicles();
+          return true;
+        }
+      }
+      Alert.alert('Success', 'Vehicle added to your garage.');
       await loadVehicles();
       return true;
     } catch (err) {
-      const message = err?.response?.data?.message || err.message || "Failed to add vehicle";
-      Alert.alert("Error", message);
+      Alert.alert('Unable to save vehicle', err?.message || 'Please try again.');
       return false;
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Update vehicle
-  const updateVehicle = async (vehicleId, payload) => {
+  const updateVehicle = async (vehicleId, { photoAsset, removePhoto, ...payload }) => {
     if (!customerId) return false;
     setSubmitting(true);
     try {
       await vehiclesApi.update(customerId, vehicleId, payload);
-      Alert.alert("Success", "Vehicle updated");
+      try {
+        await persistPhoto(vehicleId, photoAsset, removePhoto);
+      } catch (photoError) {
+        Alert.alert('Vehicle updated', `Vehicle details were saved, but the photo could not be updated: ${photoError.message}`);
+        await loadVehicles();
+        return true;
+      }
+      Alert.alert('Success', 'Vehicle updated.');
       await loadVehicles();
       return true;
     } catch (err) {
-      const message = err?.response?.data?.message || err.message || "Failed to update vehicle";
-      Alert.alert("Error", message);
+      Alert.alert('Unable to update vehicle', err?.message || 'Please try again.');
       return false;
     } finally {
       setSubmitting(false);

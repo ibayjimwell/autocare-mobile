@@ -1,4 +1,4 @@
-import { View, Text } from 'react-native';
+import { View, Text, Image } from 'react-native';
 import {
   CalendarDays,
   CarFront,
@@ -25,8 +25,12 @@ export default function VehicleInfoCard({ appointment }) {
     >
       <View className="px-4 py-4">
         <View className="flex-row items-center">
-          <View className="w-11 h-11 rounded-full bg-primary/10 items-center justify-center mr-3">
-            <CarFront size={21} color="#C1272D" strokeWidth={2} />
+          <View className="mr-3 h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-primary/10">
+            {appointment?.vehicle?.imageUrl ? (
+              <Image source={{ uri: appointment.vehicle.imageUrl }} className="h-full w-full" resizeMode="cover" />
+            ) : (
+              <CarFront size={21} color="#C1272D" strokeWidth={2} />
+            )}
           </View>
 
           <View className="flex-1">

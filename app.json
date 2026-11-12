@@ -45,6 +45,12 @@
           ]
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow AutoCare to select photos of your vehicles."
+        }
+      ],
       "expo-font",
       "expo-secure-store",
       "expo-sqlite"

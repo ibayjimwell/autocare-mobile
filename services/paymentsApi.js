@@ -1,96 +1,65 @@
 import api from './api';
 
-function normalizeId(
-  value,
-) {
-  if (Array.isArray(value)) {
-    return value[0] ?? '';
-  }
+function normalizeId(value) {
+  return Array.isArray(value) ? value[0] ?? '' : value ?? '';
+}
 
-  return value ?? '';
+function billPath(billId) {
+  return `/payments/final-bills/${encodeURIComponent(normalizeId(billId))}`;
 }
 
 const paymentsApi = {
-  /*
-   * Create a PayMongo Payment Intent for exactly one payment method.
-   *
-   * The backend calculates the amount from the Final Cost.
-   */
-  createPaymentIntent: (
-    billId,
-    paymentMethod,
-  ) => {
-    const id =
-      normalizeId(
-        billId,
-      );
-
-    return api.request(
-      `/payments/final-bills/${encodeURIComponent(
-        id,
-      )}/pay-online`,
-      'POST',
-      {
-        paymentMethod,
-      },
-      true,
-    );
-  },
-
-  // Hosted checkout for GCash, Maya and Credit/Debit Cards.
-  createHostedCheckout: (billId, paymentMethod) => api.request(
-    `/payments/final-bills/${encodeURIComponent(normalizeId(billId))}/checkout`,
-    'POST', { paymentMethod }, true,
+  // Existing QR Ph Payment Intent flow. Do not remove or alter this API.
+  createPaymentIntent: (billId, paymentMethod) => api.request(
+    `${billPath(billId)}/pay-online`,
+    'POST',
+    { paymentMethod },
+    true,
   ),
 
+  // PayMongo Hosted Checkout Sessions for GCash, Maya, and Cards.
+  // The Web API holds PayMongo credentials and creates the real checkout URL.
+  createHostedCheckout: (billId, paymentMethod) => api.request(
+    `${billPath(billId)}/checkout`,
+    'POST',
+    { paymentMethod },
+    true,
+  ),
+
+  // The authenticated server verifies PayMongo and performs settlement.
   getHostedCheckout: billId => api.request(
-    `/payments/final-bills/${encodeURIComponent(normalizeId(billId))}/checkout`,
-    'GET', null, true,
+    `${billPath(billId)}/checkout`,
+    'GET',
+    null,
+    true,
   ),
 
   cancelHostedCheckout: billId => api.request(
-    `/payments/final-bills/${encodeURIComponent(normalizeId(billId))}/checkout`,
-    'DELETE', null, true,
+    `${billPath(billId)}/checkout`,
+    'DELETE',
+    null,
+    true,
   ),
 
-  /*
-   * Verify the Payment Intent server-side.
-   *
-   * The backend retrieves the Payment Intent using the PayMongo secret key,
-   * validates ownership/amount/currency/status, and only then marks
-   * OFFICIAL -> PAID.
-   */
+  // Preserve the original QR Ph polling and verification calls.
   getQrPhStatus: (billId, paymentIntentId = null) => {
-    const id = normalizeId(billId);
     const query = paymentIntentId
       ? `?paymentIntentId=${encodeURIComponent(paymentIntentId)}`
       : '';
     return api.request(
-      `/payments/final-bills/${encodeURIComponent(id)}/qrph-status${query}`,
-      'GET', null, true,
-    );
-  },
-
-  verifyPayment: (
-    billId,
-    paymentIntentId,
-  ) => {
-    const id =
-      normalizeId(
-        billId,
-      );
-
-    return api.request(
-      `/payments/final-bills/${encodeURIComponent(
-        id,
-      )}/verify-payment`,
-      'POST',
-      {
-        paymentIntentId,
-      },
+      `${billPath(billId)}/qrph-status${query}`,
+      'GET',
+      null,
       true,
     );
   },
+
+  verifyPayment: (billId, paymentIntentId) => api.request(
+    `${billPath(billId)}/verify-payment`,
+    'POST',
+    { paymentIntentId },
+    true,
+  ),
 };
 
 export default paymentsApi;

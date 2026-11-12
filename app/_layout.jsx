@@ -153,7 +153,7 @@ function RootLayoutNav() {
             name="invoice" 
             options={{ 
               headerShown: true,
-              title: "Settlement Invoice",
+              title: "Final Cost",
               header: ({ options, navigation }) => (
                 <CustomStackHeader 
                   title={options.title} 

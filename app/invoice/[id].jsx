@@ -14,7 +14,7 @@ import {
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 
-import {
+import React, {
   useEffect,
   useState,
 } from 'react';
@@ -61,7 +61,7 @@ import {
 } from '../../hooks/usePaymentFlow';
 
 import FinalBillBreakdown from '../../components/billing/FinalBillBreakdown';
-import ManualTransferCard from '../../components/billing/ManualTransferCard';
+import HostedCheckoutMethods from '../../components/billing/HostedCheckoutMethods';
 
 function normalizeBillId(
   value,
@@ -114,12 +114,14 @@ export default function InvoiceScreen() {
       params?.id,
     );
 
+  const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0);
+  const refreshConfirmedInvoice = React.useCallback(() => setInvoiceRefreshKey(current => current + 1), []);
   const {
     invoice,
     loading,
     error,
   } = useInvoice(
-    billId,
+    billId, invoiceRefreshKey,
   );
 
   const {
@@ -444,7 +446,7 @@ export default function InvoiceScreen() {
                 color: theme.text,
               }}
             >
-              Bill Not Ready
+              Final Cost Not Ready
             </Text>
 
             <Text
@@ -509,7 +511,7 @@ export default function InvoiceScreen() {
         }}
       >
         <View className="px-4 pt-3">
-          <View className="flex-row items-center justify-between mb-5">
+          <View className="flex-row items-center mb-5">
             <TouchableOpacity
               onPress={() =>
                 router.back()
@@ -523,15 +525,7 @@ export default function InvoiceScreen() {
               />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              className="w-11 h-11 rounded-full bg-card border border-border items-center justify-center"
-              activeOpacity={0.75}
-            >
-              <Download
-                size={19}
-                color={theme.text}
-              />
-            </TouchableOpacity>
+
           </View>
 
           <View className="bg-primary rounded-3xl overflow-hidden mb-5 p-5">
@@ -552,7 +546,7 @@ export default function InvoiceScreen() {
             </View>
 
             <Text className="text-3xl font-bold tracking-tight text-white mt-4">
-              Final Invoice
+              Final Cost
             </Text>
 
             <Text className="text-sm text-white/70 mt-1">
@@ -561,7 +555,7 @@ export default function InvoiceScreen() {
 
             <View className="bg-white/15 border border-white/20 rounded-2xl p-4 mt-5">
               <Text className="text-xs font-medium uppercase tracking-[1.2px] text-white/70">
-                Amount Due
+                Final Amount
               </Text>
 
               <Text className="text-3xl font-bold text-white mt-1">
@@ -586,7 +580,7 @@ export default function InvoiceScreen() {
           <View className="bg-card rounded-2xl border border-border overflow-hidden mb-5">
             <View className="px-4 py-4 border-b border-border">
               <Text className="text-xs font-semibold uppercase tracking-[1.2px] text-muted-foreground">
-                Invoice details
+                Final Cost Details
               </Text>
             </View>
 
@@ -600,7 +594,7 @@ export default function InvoiceScreen() {
 
               <View className="flex-1">
                 <Text className="text-xs text-muted-foreground">
-                  Invoice ID
+                  Final Cost ID
                 </Text>
 
                 <Text className="text-sm font-semibold text-foreground mt-0.5">
@@ -731,7 +725,7 @@ export default function InvoiceScreen() {
             <View className="flex-row items-center justify-between">
               <View>
                 <Text className="text-xs font-semibold uppercase tracking-[1.2px] text-primary">
-                  Total Amount Due
+                  Final Amount
                 </Text>
 
                 <Text className="text-3xl font-bold text-foreground mt-1">
@@ -750,23 +744,13 @@ export default function InvoiceScreen() {
             </View>
           </View>
 
-          <Text className="text-xs font-semibold uppercase tracking-[1.4px] text-muted-foreground px-1 mb-3">
-            Payment Instructions
-          </Text>
+          {isOfficial && <HostedCheckoutMethods
+            billId={billId}
+            amount={displayTotal}
+            onConfirmedPayment={refreshConfirmedInvoice}
+            returnFlag={params?.paymentReturn}
+          />}
 
-          <View className="rounded-2xl border border-border bg-card px-4 py-4 mb-3 flex-row items-center">
-            <View className="w-11 h-11 rounded-xl bg-[#34A853]/10 items-center justify-center mr-3">
-              <Banknote size={21} color="#34A853" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-base font-semibold text-foreground">Cash at the counter</Text>
-              <Text className="text-xs text-muted-foreground mt-1 leading-5">
-                Tell the cashier your tracking number and pay directly in cash. No QR scanning or check-in is needed.
-              </Text>
-            </View>
-          </View>
-
-          <ManualTransferCard billId={billId} />
 
           {/* Optional online payment uses the existing server PayMongo QRPh
               verification flow. It never marks a bill paid locally. */}
@@ -787,6 +771,23 @@ export default function InvoiceScreen() {
               <ChevronRight size={20} color={theme.textSecondary}/>
             </TouchableOpacity>
           )}
+
+          <Text className="text-xs font-semibold uppercase tracking-[1.4px] text-muted-foreground px-1 mb-3">
+            Cash Payment
+          </Text>
+
+          <View className="rounded-2xl border border-border bg-card px-4 py-4 mb-3 flex-row items-center">
+            <View className="w-11 h-11 rounded-xl bg-[#34A853]/10 items-center justify-center mr-3">
+              <Banknote size={21} color="#34A853" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-semibold text-foreground">Cash at the Counter</Text>
+              <Text className="text-xs text-muted-foreground mt-1 leading-5">
+                Provide your appointment tracking number at the service counter and settle the final amount with the cashier.
+              </Text>
+            </View>
+          </View>
+
 
           {paymentError ? (
             <View className="bg-primary/5 border border-primary/20 rounded-2xl p-4 mb-2">
@@ -850,38 +851,6 @@ export default function InvoiceScreen() {
             </View>
           ) : null}
 
-          <View className="flex-row items-center justify-center px-4 mt-4">
-            <ShieldCheck
-              size={14}
-              color={
-                theme.textSecondary
-              }
-            />
-
-            <Text
-              className="text-xs ml-1.5 text-center"
-              style={{
-                color:
-                  theme.textSecondary,
-                opacity: 0.65,
-              }}
-            >
-              Electronic transfers require cashier verification before a receipt is issued.
-            </Text>
-          </View>
-
-          <Text
-            className="text-xs text-center leading-5 mt-4 px-4"
-            style={{
-              color:
-                theme.textSecondary,
-              opacity: 0.55,
-            }}
-          >
-            Electronic Receipt generated by AutoCare System.
-            {'\n'}
-            Thank you for trusting us with your vehicle.
-          </Text>
         </View>
       </ScrollView>
 

@@ -37,6 +37,22 @@ const paymentsApi = {
     );
   },
 
+  // Hosted checkout for GCash, Maya and Credit/Debit Cards.
+  createHostedCheckout: (billId, paymentMethod) => api.request(
+    `/payments/final-bills/${encodeURIComponent(normalizeId(billId))}/checkout`,
+    'POST', { paymentMethod }, true,
+  ),
+
+  getHostedCheckout: billId => api.request(
+    `/payments/final-bills/${encodeURIComponent(normalizeId(billId))}/checkout`,
+    'GET', null, true,
+  ),
+
+  cancelHostedCheckout: billId => api.request(
+    `/payments/final-bills/${encodeURIComponent(normalizeId(billId))}/checkout`,
+    'DELETE', null, true,
+  ),
+
   /*
    * Verify the Payment Intent server-side.
    *

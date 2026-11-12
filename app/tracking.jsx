@@ -51,10 +51,6 @@ import {
   useRescheduleRequests,
 } from '../hooks/useRescheduleRequests';
 
-import {
-  statusToStage,
-} from '../utils/constants';
-
 import TrackingHeader from '../components/tracking/TrackingHeader';
 
 import VehicleInfoCard from '../components/tracking/VehicleInfoCard';
@@ -64,8 +60,6 @@ import TaskList from '../components/tracking/TaskList';
 import FindingsCard from '../components/tracking/FindingsCard';
 
 import CostingSummary from '../components/tracking/CostingSummary';
-
-import ProgressTimeline from '../components/tracking/ProgressTimeline';
 
 import CancellationNote from '../components/tracking/CancellationNote';
 
@@ -810,11 +804,6 @@ export default function TrackingScreen() {
   /* ==============================================================
      STATUS
   ============================================================== */
-
-  const currentStage =
-    statusToStage[
-      appointment?.status
-    ] ?? 0;
 
   const isUnderInspection =
     appointment?.status ===
@@ -1586,18 +1575,6 @@ export default function TrackingScreen() {
             pt-2
           "
         >
-          {/* ====================================================
-              APPOINTMENT PROGRESS
-
-              Keep the vertical progress timeline at the very top
-              so customers can immediately see the current stage.
-          ===================================================== */}
-
-          <ProgressTimeline
-            currentStage={
-              currentStage
-            }
-          />
 
           {/* ====================================================
               TRACKING HEADER

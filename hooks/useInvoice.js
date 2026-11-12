@@ -73,7 +73,7 @@ function extractApiError(response) {
   return null;
 }
 
-export function useInvoice(billId) {
+export function useInvoice(billId, refreshKey = 0) {
   const [data, setData] =
     useState(null);
 
@@ -250,7 +250,7 @@ export function useInvoice(billId) {
     return () => {
       cancelled = true;
     };
-  }, [billId]);
+  }, [billId, refreshKey]);
 
   return {
     invoice: data,

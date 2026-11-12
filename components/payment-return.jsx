@@ -53,7 +53,7 @@ export default function PaymentReturnScreen() {
                     return;
                 }
                 setFailed(false);
-                setMessage('Payment is not confirmed yet. Returning to your Final Invoice…');
+                setMessage('Payment is not confirmed yet. Returning to your Final Cost…');
                 setTimeout(() => {
                     router.replace(`/invoice/${billId}?payment=pending`);
                 }, 900);

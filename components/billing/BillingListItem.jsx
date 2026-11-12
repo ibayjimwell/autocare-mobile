@@ -139,7 +139,7 @@ export function FinalBillListItem({ item, onPress }) {
             className="text-sm font-semibold mt-1"
             style={{ color: theme.text }}
           >
-            Invoice #{item.id?.slice(0, 8).toUpperCase()}
+            Final Cost #{item.id?.slice(0, 8).toUpperCase()}
           </Text>
 
           <View className="flex-row items-center mt-1">

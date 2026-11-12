@@ -261,7 +261,7 @@ export default function BillingScreen() {
                   theme.textSecondary,
               }}
             >
-              Review estimates, invoices, and completed payments.
+              Review estimates, final costs, and completed payments.
             </Text>
           </View>
 

@@ -205,7 +205,7 @@ export default function FinalBillCard({
                   color: theme.textSecondary,
                 }}
               >
-                Invoice
+                Final Cost
               </Text>
 
               <Text

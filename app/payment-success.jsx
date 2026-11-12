@@ -81,7 +81,7 @@ export default function PaymentSuccessScreen() {
             activeOpacity={0.8}
           >
             <Text className="text-base font-semibold text-white">
-              {billId ? 'View Invoice' : 'Back to Billing'}
+              {billId ? 'View Final Cost' : 'Back to Billing'}
             </Text>
 
             <ArrowRight size={18} color="#FFFFFF" className="ml-2" />

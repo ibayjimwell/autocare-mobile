@@ -57,12 +57,12 @@ export default function PaymentSuccessScreen() {
       let lastError = '';
 
       try {
-        // This endpoint can recover and finalize an earlier SIMULATED
-        // PayMongo checkout once capstone settlement is enabled on the server.
+        // This endpoint reconciles a PayPal sandbox capture and finalizes a verified
+        // capstone receipt on the server.
         // A cash settlement or QR Ph payment may not have a hosted
         // checkout attempt; that is safe to ignore here.
         try {
-          await paymentsApi.getHostedCheckout(billId);
+          await paymentsApi.getPaypalCheckout(billId);
         } catch (checkoutError) {
           lastError = checkoutError?.message || '';
         }

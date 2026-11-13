@@ -4,15 +4,8 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Modal,
-  Image,
-  AppState,
-  Linking,
-  Alert,
 } from 'react-native';
 
-import * as FileSystem from 'expo-file-system/legacy';
-import * as MediaLibrary from 'expo-media-library';
 
 import React, {
   useEffect,
@@ -30,7 +23,6 @@ import {
 
 import {
   ArrowLeft,
-  Download,
   ClipboardList,
   FileText,
   CalendarDays,
@@ -40,12 +32,6 @@ import {
   ArrowRight,
   CheckCircle2,
   AlertCircle,
-  ChevronRight,
-  ScanLine,
-  RefreshCw,
-  WalletCards,
-  CreditCard,
-  X,
 } from 'lucide-react-native';
 
 import {
@@ -56,12 +42,9 @@ import {
   useInvoice,
 } from '../../hooks/useInvoice';
 
-import {
-  usePaymentFlow,
-} from '../../hooks/usePaymentFlow';
 
 import FinalBillBreakdown from '../../components/billing/FinalBillBreakdown';
-import HostedCheckoutMethods from '../../components/billing/HostedCheckoutMethods';
+import PaypalCheckoutMethods from '../../components/billing/PaypalCheckoutMethods';
 
 function normalizeBillId(
   value,
@@ -123,130 +106,6 @@ export default function InvoiceScreen() {
   } = useInvoice(
     billId, invoiceRefreshKey,
   );
-
-  const {
-    startPayment,
-    paying,
-    verifiedPaid,
-    verifying,
-    selectedPaymentMethod,
-    paymentError,
-    paymentAttemptStatus,
-    qrImageUrl,
-    qrTestUrl,
-    qrExpiresAt,
-    qrPaymentVisible,
-    closeQrPayment,
-    checkPaymentNow,
-  } =
-    usePaymentFlow(
-      billId,
-      invoice?.grandTotal,
-      invoice?.appointment?.customer,
-    );
-
-  const [qrSecondsRemaining, setQrSecondsRemaining] =
-    useState(null);
-
-  /*
-   * Keep the QR expiry indicator current while the QR modal is open.
-   * The server-side Payment Intent remains the source of truth for
-   * successful payment.
-   */
-  useEffect(() => {
-    if (
-      !qrPaymentVisible ||
-      !qrExpiresAt
-    ) {
-      setQrSecondsRemaining(null);
-      return undefined;
-    }
-
-    const updateRemaining = () => {
-      const seconds =
-        Math.max(
-          0,
-          Math.ceil(
-            (qrExpiresAt -
-              Date.now()) /
-              1000,
-          ),
-        );
-
-      setQrSecondsRemaining(
-        seconds,
-      );
-    };
-
-    updateRemaining();
-
-    const intervalId =
-      setInterval(
-        updateRemaining,
-        1000,
-      );
-
-    return () => {
-      clearInterval(
-        intervalId,
-      );
-    };
-  }, [
-    qrPaymentVisible,
-    qrExpiresAt,
-  ]);
-
-  /*
-   * When the app becomes active after the customer scans the QR code
-   * from another banking/e-wallet app, ask the server for the current
-   * payment status immediately.
-   */
-  useEffect(() => {
-    const subscription =
-      AppState.addEventListener(
-        'change',
-        nextState => {
-          if (
-            nextState !== 'active' ||
-            !qrPaymentVisible
-          ) {
-            return;
-          }
-
-          void checkPaymentNow();
-        },
-      );
-
-    return () => {
-      subscription.remove();
-    };
-  }, [
-    qrPaymentVisible,
-    checkPaymentNow,
-  ]);
-
-  const saveQrToGallery = async () => {
-    const match = typeof qrImageUrl === 'string'
-      ? /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(qrImageUrl.trim())
-      : null;
-    if (!match || !billId) {
-      Alert.alert('QR not available', 'Generate a valid QR Ph code before saving.');
-      return;
-    }
-    try {
-      const permission = await MediaLibrary.requestPermissionsAsync(true);
-      if (!permission.granted) {
-        Alert.alert('Permission required', 'Allow photo saving to save your QR for GCash or another QR Ph wallet.');
-        return;
-      }
-      const path = `${FileSystem.cacheDirectory}autocare-qrph-${String(billId).slice(0, 12)}.png`;
-      await FileSystem.writeAsStringAsync(path, match[1], { encoding: FileSystem.EncodingType.Base64 });
-      await MediaLibrary.saveToLibraryAsync(path);
-      Alert.alert('QR saved to Photos', 'Open GCash, Maya, or your bank app. Choose Scan QR and select the saved image from your gallery. Return to AutoCare to check your payment.');
-    } catch (cause) {
-      Alert.alert('Could not save QR', cause?.message || 'Please retry, or scan the QR with another device.');
-    }
-  };
 
   if (loading) {
     return (
@@ -326,8 +185,7 @@ export default function InvoiceScreen() {
     ) || 0;
 
   const isPaid =
-    status === 'PAID' ||
-    verifiedPaid;
+    status === 'PAID';
 
   const isOfficial =
     status === 'OFFICIAL';
@@ -481,16 +339,6 @@ export default function InvoiceScreen() {
       </SafeAreaView>
     );
   }
-
-  const formattedExpiry =
-    qrSecondsRemaining === null
-      ? 'QR code expires after a limited time.'
-      : qrSecondsRemaining <= 0
-        ? 'QR code expired. Start a new payment.'
-        : `QR code expires in ${Math.floor(
-            qrSecondsRemaining /
-              60,
-          )}m ${qrSecondsRemaining % 60}s.`;
 
   return (
     <SafeAreaView
@@ -744,33 +592,13 @@ export default function InvoiceScreen() {
             </View>
           </View>
 
-          {isOfficial && <HostedCheckoutMethods
+          {isOfficial && <PaypalCheckoutMethods
             billId={billId}
             amount={displayTotal}
             onConfirmedPayment={refreshConfirmedInvoice}
             returnFlag={params?.paymentReturn}
           />}
 
-
-          {/* Optional online payment uses the existing server PayMongo QRPh
-              verification flow. It never marks a bill paid locally. */}
-          {!isPaid && process.env.EXPO_PUBLIC_ENABLE_PAYMONGO_QRPH === 'true' && (
-            <TouchableOpacity
-              activeOpacity={0.8}
-              disabled={paying || verifying}
-              onPress={() => void startPayment('qrph')}
-              className="bg-card rounded-2xl border border-border min-h-[72px] px-4 flex-row items-center mb-3"
-            >
-              <View className="w-11 h-11 rounded-xl bg-primary/10 items-center justify-center mr-3">
-                <CreditCard size={21} color={theme.primary} />
-              </View>
-              <View className="flex-1">
-                <Text className="text-base font-semibold text-foreground">Pay securely with QR Ph</Text>
-                <Text className="text-xs text-muted-foreground mt-0.5">Use GCash, Maya, or a QR Ph-enabled bank. Save the QR for same-phone payment.</Text>
-              </View>
-              <ChevronRight size={20} color={theme.textSecondary}/>
-            </TouchableOpacity>
-          )}
 
           <Text className="text-xs font-semibold uppercase tracking-[1.4px] text-muted-foreground px-1 mb-3">
             Cash Payment
@@ -789,300 +617,9 @@ export default function InvoiceScreen() {
           </View>
 
 
-          {paymentError ? (
-            <View className="bg-primary/5 border border-primary/20 rounded-2xl p-4 mb-2">
-              <View className="flex-row items-start">
-                <AlertCircle
-                  size={18}
-                  color={theme.primary}
-                />
-
-                <Text
-                  className="flex-1 text-sm ml-2 leading-5"
-                  style={{
-                    color: theme.text,
-                  }}
-                >
-                  {paymentError}
-                </Text>
-              </View>
-            </View>
-          ) : null}
-
-          {paying ? (
-            <View className="items-center py-3">
-              <ActivityIndicator
-                size="small"
-                color={
-                  theme.primary
-                }
-              />
-
-              <Text
-                className="text-sm mt-2"
-                style={{
-                  color:
-                    theme.textSecondary,
-                }}
-              >
-                Preparing your QR payment...
-              </Text>
-            </View>
-          ) : null}
-
-          {verifying ? (
-            <View className="items-center py-4">
-              <ActivityIndicator
-                size="small"
-                color={
-                  theme.primary
-                }
-              />
-
-              <Text
-                className="text-sm mt-2"
-                style={{
-                  color:
-                    theme.textSecondary,
-                }}
-              >
-                Confirming your payment...
-              </Text>
-            </View>
-          ) : null}
-
         </View>
       </ScrollView>
 
-      <Modal
-        visible={qrPaymentVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => {
-          closeQrPayment();
-        }}
-      >
-        <View className="flex-1 justify-end bg-black/40">
-          <View
-            className="bg-card rounded-t-3xl px-4 pt-4 pb-8 border-t border-border"
-            style={{
-              maxHeight: '92%',
-            }}
-          >
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center flex-1">
-                <View className="w-11 h-11 rounded-xl bg-primary/10 items-center justify-center mr-3">
-                  <ScanLine
-                    size={22}
-                    color={
-                      theme.primary
-                    }
-                  />
-                </View>
-
-                <View className="flex-1">
-                  <Text className="text-xl font-bold text-foreground">
-                    Scan to Pay
-                  </Text>
-
-                  <Text className="text-sm text-muted-foreground mt-0.5">
-                    QRPh
-                  </Text>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                onPress={() =>
-                  closeQrPayment()
-                }
-                className="w-11 h-11 rounded-full bg-background border border-border items-center justify-center"
-                activeOpacity={0.75}
-              >
-                <X
-                  size={20}
-                  color={theme.text}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <View className="bg-primary/5 rounded-2xl border border-primary/15 p-4 mb-4">
-              <Text className="text-xs uppercase tracking-[1.2px] text-primary font-semibold">
-                Amount to pay
-              </Text>
-
-              <Text className="text-2xl font-bold text-foreground mt-1">
-                ₱{formatCurrency(
-                  displayTotal,
-                )}
-              </Text>
-            </View>
-
-            <View className="items-center">
-              {qrImageUrl ? (
-                <View className="bg-white rounded-3xl border border-border p-4 items-center justify-center">
-                  <Image
-                    source={{
-                      uri: qrImageUrl,
-                    }}
-                    style={{
-                      width: 260,
-                      height: 260,
-                    }}
-                    resizeMode="contain"
-                    accessibilityLabel="QRPh payment QR code"
-                  />
-                </View>
-              ) : (
-                <View className="w-[260px] h-[260px] rounded-3xl bg-background items-center justify-center border border-border">
-                  <ActivityIndicator
-                    size="large"
-                    color={
-                      theme.primary
-                    }
-                  />
-
-                  <Text
-                    className="text-sm text-center mt-3 px-8"
-                    style={{
-                      color:
-                        theme.textSecondary,
-                    }}
-                  >
-                    Generating your payment QR code...
-                  </Text>
-                </View>
-              )}
-
-              <Text className="text-sm font-semibold text-foreground text-center mt-4">
-                Scan using your e-wallet on another phone, or save the QR image to your gallery for same-phone payment.
-              </Text>
-
-              <Text
-                className="text-xs text-center leading-5 mt-2 px-5"
-                style={{
-                  color:
-                    theme.textSecondary,
-                }}
-              >
-                {formattedExpiry}
-                {'\n'}
-                Keep this screen open while your payment is being confirmed.
-              </Text>
-            </View>
-
-            {qrImageUrl && paymentAttemptStatus !== 'EXPIRED' && paymentAttemptStatus !== 'FAILED' ? (
-              <TouchableOpacity
-                onPress={() => { void saveQrToGallery(); }}
-                className="min-h-[48px] rounded-xl border border-primary/30 bg-primary/5 mt-4 flex-row items-center justify-center"
-                activeOpacity={0.8}
-              >
-                <Download size={18} color={theme.primary}/>
-                <Text className="text-primary font-semibold ml-2">Save QR to Photos</Text>
-              </TouchableOpacity>
-            ) : null}
-
-            {(paymentAttemptStatus === 'FAILED' || paymentAttemptStatus === 'EXPIRED') ? (
-              <View className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4">
-                <View className="flex-row items-center">
-                  <AlertCircle size={20} color="#b91c1c"/>
-                  <Text className="ml-2 font-semibold text-red-800">
-                    {paymentAttemptStatus === 'FAILED' ? 'Payment Unsuccessful' : 'QR Ph Expired'}
-                  </Text>
-                </View>
-                <Text className="text-xs text-red-700 mt-2">{paymentError || 'The bill is still unpaid. You may generate a new QR code.'}</Text>
-                <TouchableOpacity onPress={() => void startPayment('qrph')}
-                  className="min-h-[46px] flex-row items-center justify-center rounded-xl bg-primary mt-3">
-                  <RefreshCw size={16} color="#fff"/>
-                  <Text className="font-semibold text-white ml-2">Generate new QR Ph</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-
-            {qrTestUrl ? (
-              <View className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                <Text className="text-sm font-semibold text-amber-900">
-                  PayMongo Test Mode
-                </Text>
-
-                <Text className="text-xs leading-5 text-amber-800 mt-1">
-                  Do not scan the test QR. Open PayMongo's test page and choose Authorize to simulate a successful QRPh payment.
-                </Text>
-
-                <TouchableOpacity
-                  onPress={() => {
-                    void Linking.openURL(qrTestUrl);
-                  }}
-                  className="min-h-[48px] rounded-xl bg-amber-600 items-center justify-center mt-3"
-                  activeOpacity={0.8}
-                >
-                  <Text className="text-sm font-semibold text-white">
-                    Open Test Authorization
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-
-            <TouchableOpacity
-              onPress={() =>
-                checkPaymentNow()
-              }
-              disabled={
-                paying ||
-                verifying
-              }
-              className="min-h-[52px] rounded-xl bg-primary items-center justify-center flex-row mt-5"
-              style={{
-                opacity:
-                  paying ||
-                  verifying
-                    ? 0.6
-                    : 1,
-              }}
-              activeOpacity={0.8}
-            >
-              <ShieldCheck
-                size={18}
-                color="#FFFFFF"
-              />
-
-              <Text className="text-base font-semibold text-white ml-2">
-                {verifying
-                  ? 'Checking...'
-                  : 'Check Payment Status'}
-              </Text>
-            </TouchableOpacity>
-
-            <Text
-              className="text-xs text-center leading-5 mt-3 px-5"
-              style={{
-                color:
-                  theme.textSecondary,
-                opacity: 0.7,
-              }}
-            >
-              AutoCare also checks the payment status automatically. You do not need to press the button repeatedly.
-            </Text>
-
-            <TouchableOpacity
-              onPress={() =>
-                closeQrPayment()
-              }
-              className="min-h-[44px] items-center justify-center mt-2"
-              activeOpacity={0.7}
-            >
-              <Text
-                className="text-sm font-medium"
-                style={{
-                  color:
-                    theme.textSecondary,
-                }}
-              >
-                Close
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }

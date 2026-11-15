@@ -59,17 +59,16 @@ export default function BillingScreen() {
    * ESTIMATES
    * ================================================================
    *
-   * Only estimates waiting for customer approval are displayed here.
+   * All active estimates stay here until approved; Final Costs remain official only.
    */
   const waitingEstimates = [
     ...estimates,
   ]
     .filter(
       estimate =>
-        normalizeStatus(
-          estimate?.status,
-        ) ===
-        'WAITING_FOR_APPROVAL',
+        ['PENDING', 'PARKED', 'WAITING_FOR_APPROVAL'].includes(
+          normalizeStatus(estimate?.status),
+        ),
     )
     .sort(
       (a, b) =>
@@ -425,7 +424,7 @@ export default function BillingScreen() {
                       theme.text,
                   }}
                 >
-                  Estimates Awaiting Approval
+                  Estimates in Preparation
                 </Text>
 
                 <Text
@@ -477,7 +476,7 @@ export default function BillingScreen() {
                       theme.text,
                   }}
                 >
-                  Nothing to approve
+                  No active estimates
                 </Text>
 
                 <Text

@@ -21,10 +21,12 @@ import { useTheme } from '../context/ThemeContext';
 import { useBillingData } from '../hooks/useBillingData';
 import EstimateCard from '../components/billing/EstimateCard';
 
-const statusTabs = ['ALL', 'WAITING_FOR_APPROVAL', 'APPROVED', 'DECLINED'];
+const statusTabs = ['ALL', 'PENDING', 'PARKED', 'WAITING_FOR_APPROVAL', 'APPROVED', 'DECLINED'];
 
 const statusLabels = {
-  ALL: 'All',
+  ALL: 'Active',
+  PENDING: 'Pending',
+  PARKED: 'Parked',
   WAITING_FOR_APPROVAL: 'Waiting Approval',
   APPROVED: 'Approved',
   DECLINED: 'Declined',
@@ -40,6 +42,7 @@ export default function AllEstimatesScreen() {
 
   const filtered = useMemo(() => {
     let data = estimates;
+    if (activeTab === 'ALL') data = data.filter(e => e.status !== 'APPROVED');
 
     if (activeTab !== 'ALL') {
       data = data.filter(e => e.status === activeTab);
@@ -148,7 +151,7 @@ export default function AllEstimatesScreen() {
             const isActive = activeTab === tab;
             const count =
               tab === 'ALL'
-                ? estimates.length
+                ? estimates.filter(e => e.status !== 'APPROVED').length
                 : estimates.filter(e => e.status === tab).length;
 
             return (

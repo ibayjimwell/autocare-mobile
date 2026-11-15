@@ -80,12 +80,16 @@ export default function EstimateCard({
   ).toUpperCase();
 
   const statusColor = {
+    PENDING: '#C1272D',
+    PARKED: '#D97706',
     WAITING_FOR_APPROVAL: '#F59E0B',
     APPROVED: '#34A853',
     DECLINED: '#D64545',
   }[normalizedStatus] || '#8E8E93';
 
   const statusLabel = {
+    PENDING: 'Pending',
+    PARKED: 'Parked',
     WAITING_FOR_APPROVAL: 'Waiting Approval',
     APPROVED: 'Approved',
     DECLINED: 'Declined',

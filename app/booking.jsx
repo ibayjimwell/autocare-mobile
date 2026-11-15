@@ -1,3 +1,4 @@
+
 import {
   View,
   ScrollView,
@@ -43,65 +44,42 @@ import DoubleBookingModal from '../components/booking/DoubleBookingModal';
 
 import appointmentsApi from '../services/appointmentsApi';
 
-function parseLocalDate(
-  dateString
-) {
+function parseLocalDate(dateString) {
   if (!dateString) {
     return null;
   }
 
-  const [
-    year,
-    month,
-    day,
-  ] = String(
-    dateString
-  )
+  const [year, month, day] = String(dateString)
     .split('-')
     .map(Number);
 
-  if (
-    !year ||
-    !month ||
-    !day
-  ) {
+  if (!year || !month || !day) {
     return null;
   }
 
-  return new Date(
-    year,
-    month - 1,
-    day
-  );
+  return new Date(year, month - 1, day);
 }
 
-function dateToLocalString(
-  date
-) {
+function dateToLocalString(date) {
   if (!date) {
     return '';
   }
 
-  const year =
-    date.getFullYear();
+  const year = date.getFullYear();
 
-  const month =
-    String(
-      date.getMonth() + 1
-    ).padStart(2, '0');
+  const month = String(
+    date.getMonth() + 1,
+  ).padStart(2, '0');
 
-  const day =
-    String(
-      date.getDate()
-    ).padStart(2, '0');
+  const day = String(
+    date.getDate(),
+  ).padStart(2, '0');
 
   return `${year}-${month}-${day}`;
 }
 
 export default function BookingScreen() {
-  const {
-    serviceId,
-  } = useLocalSearchParams();
+  const { serviceId } = useLocalSearchParams();
 
   const {
     services,
@@ -111,26 +89,33 @@ export default function BookingScreen() {
     loading,
   } = useBookingData();
 
-  const insets =
-    useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
 
-  // A booking may contain several PMS, REPAIR, and DIAGNOSTIC services.
-  // Each service is stored only once, using its database ID.
+  /*
+   * Multiple services can be selected from
+   * PMS, REPAIR, and DIAGNOSTIC.
+   */
   const [
     selectedServices,
     setSelectedServices,
   ] = useState([]);
 
   const toggleService = (service) => {
-    if (!service?.id || service.active === false) return;
+    if (!service?.id || service.active === false) {
+      return;
+    }
 
     setSelectedServices((previous) => {
       const exists = previous.some(
-        (item) => String(item.id) === String(service.id),
+        (item) =>
+          String(item.id) === String(service.id),
       );
 
       return exists
-        ? previous.filter((item) => String(item.id) !== String(service.id))
+        ? previous.filter(
+            (item) =>
+              String(item.id) !== String(service.id),
+          )
         : [...previous, service];
     });
   };
@@ -182,152 +167,147 @@ export default function BookingScreen() {
     setAvailabilityModal,
   } = useBookingForm(
     selectedDate,
-    selectedServices
+    selectedServices,
   );
 
   /*
-   * Build appointment marks.
-   * Cancelled appointments do not block a date mark.
+   * Build appointment calendar markings.
+   * Cancelled appointments are excluded.
    */
-  const markedDates =
-    appointments
-      .filter(
-        (appointment) =>
-          appointment?.status !==
-          'CANCELLED'
-      )
-      .reduce(
-        (
-          result,
-          appointment
-        ) => {
-          const date =
-            appointment?.appointmentDate;
+  const markedDates = appointments
+    .filter(
+      (appointment) =>
+        appointment?.status !== 'CANCELLED',
+    )
+    .reduce((result, appointment) => {
+      const date = appointment?.appointmentDate;
 
-          if (date) {
-            result[
-              date
-            ] = {
-              ...(result[
-                date
-              ] || {}),
-              marked: true,
-              dotColor:
-                '#C1272D',
-            };
-          }
+      if (date) {
+        result[date] = {
+          ...(result[date] || {}),
+          marked: true,
+          dotColor: '#C1272D',
+        };
+      }
 
-          return result;
-        },
-        {}
-      );
+      return result;
+    }, {});
 
   if (selectedDate) {
     const dateStr =
-      dateToLocalString(
-        selectedDate
-      );
+      dateToLocalString(selectedDate);
 
-    markedDates[
-      dateStr
-    ] = {
-      ...markedDates[
-        dateStr
-      ],
+    markedDates[dateStr] = {
+      ...markedDates[dateStr],
       selected: true,
-      selectedColor:
-        '#C1272D',
+      selectedColor: '#C1272D',
     };
   }
 
-  const handleDayPress =
-    (day) => {
-      if (
-        disabledDates.includes(
-          day.dateString
-        )
-      ) {
-        return;
-      }
+  /*
+   * Date picker selection.
+   */
+  const handleDayPress = (day) => {
+    if (
+      disabledDates.includes(day.dateString)
+    ) {
+      return;
+    }
 
-      const parsed =
-        parseLocalDate(
-          day.dateString
-        );
+    const parsed =
+      parseLocalDate(day.dateString);
 
-      if (!parsed) {
-        return;
-      }
+    if (!parsed) {
+      return;
+    }
 
-      setSelectedDate(
-        parsed
-      );
-
-      setSelectedTime(
-        null
-      );
-
-      setDatePickerVisible(
-        false
-      );
-    };
-
-  const handleCancelAppointment =
-    (appointmentId) => {
-      Alert.alert(
-        'Cancel Appointment',
-        'Are you sure you want to cancel this appointment?',
-        [
-          {
-            text: 'No',
-            style: 'cancel',
-          },
-          {
-            text: 'Yes',
-            style: 'destructive',
-            onPress:
-              async () => {
-                try {
-                  await appointmentsApi.cancel(
-                    appointmentId
-                  );
-
-                  Alert.alert(
-                    'Cancelled',
-                    'Your appointment has been cancelled.'
-                  );
-                } catch (err) {
-                  Alert.alert(
-                    'Error',
-                    err?.message ||
-                      'Failed to cancel the appointment.'
-                  );
-                }
-              },
-          },
-        ]
-      );
-    };
+    setSelectedDate(parsed);
+    setSelectedTime(null);
+    setDatePickerVisible(false);
+  };
 
   /*
-   * Pre-select a service opened from the Services catalog.
-   * Do not clear other services already chosen in this booking.
+   * Appointment cancellation.
+   */
+  const handleCancelAppointment = (appointmentId) => {
+    Alert.alert(
+      'Cancel Appointment',
+      'Are you sure you want to cancel this appointment?',
+      [
+        {
+          text: 'No',
+          style: 'cancel',
+        },
+        {
+          text: 'Yes',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await appointmentsApi.cancel(
+                appointmentId,
+              );
+
+              Alert.alert(
+                'Cancelled',
+                'Your appointment has been cancelled.',
+              );
+            } catch (err) {
+              Alert.alert(
+                'Error',
+                err?.message ||
+                  'Failed to cancel the appointment.',
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  /*
+   * Pre-select a service opened from
+   * the Services catalog.
+   *
+   * Previously selected services are preserved.
    */
   const initializedDeepLinkRef = useRef(null);
 
   useEffect(() => {
-    const requestedId = Array.isArray(serviceId) ? serviceId[0] : serviceId;
-    if (!requestedId || services.length === 0) return;
-    if (initializedDeepLinkRef.current === String(requestedId)) return;
+    const requestedId = Array.isArray(serviceId)
+      ? serviceId[0]
+      : serviceId;
+
+    if (
+      !requestedId ||
+      services.length === 0
+    ) {
+      return;
+    }
+
+    if (
+      initializedDeepLinkRef.current ===
+      String(requestedId)
+    ) {
+      return;
+    }
 
     const matched = services.find(
-      (service) => String(service.id) === String(requestedId),
+      (service) =>
+        String(service.id) === String(requestedId),
     );
 
-    if (matched && matched.active !== false) {
-      initializedDeepLinkRef.current = String(requestedId);
+    if (
+      matched &&
+      matched.active !== false
+    ) {
+      initializedDeepLinkRef.current =
+        String(requestedId);
+
       setSelectedServices((previous) =>
-        previous.some((item) => String(item.id) === String(matched.id))
+        previous.some(
+          (item) =>
+            String(item.id) === String(matched.id),
+        )
           ? previous
           : [...previous, matched],
       );
@@ -335,23 +315,34 @@ export default function BookingScreen() {
   }, [serviceId, services]);
 
   /*
-   * Keep every selected service synced with the latest catalog data.
-   * If a service was removed/deactivated, remove only that service.
-   * Return the previous array when nothing changed to avoid extra renders.
+   * Synchronize selected services
+   * with the latest catalog data.
    */
   useEffect(() => {
-    if (loading) return;
+    if (loading) {
+      return;
+    }
 
     setSelectedServices((previous) => {
       const next = previous
         .map((selected) =>
-          services.find((service) => String(service.id) === String(selected.id)),
+          services.find(
+            (service) =>
+              String(service.id) ===
+              String(selected.id),
+          ),
         )
-        .filter((service) => service && service.active !== false);
+        .filter(
+          (service) =>
+            service &&
+            service.active !== false,
+        );
 
-      const hasChanged = next.length !== previous.length ||
+      const hasChanged =
+        next.length !== previous.length ||
         next.some((service, index) => {
           const selected = previous[index];
+
           return [
             'id',
             'name',
@@ -362,7 +353,10 @@ export default function BookingScreen() {
             'subcategory',
             'isLaborInclude',
             'active',
-          ].some((key) => service[key] !== selected[key]);
+          ].some(
+            (key) =>
+              service[key] !== selected[key],
+          );
         });
 
       return hasChanged ? next : previous;
@@ -370,8 +364,8 @@ export default function BookingScreen() {
   }, [services, loading]);
 
   /*
-   * If a currently-selected date becomes disabled after
-   * configuration refresh, clear it.
+   * Clear the selected date if it
+   * becomes disabled after refresh.
    */
   useEffect(() => {
     if (!selectedDate) {
@@ -379,21 +373,13 @@ export default function BookingScreen() {
     }
 
     const dateStr =
-      dateToLocalString(
-        selectedDate
-      );
+      dateToLocalString(selectedDate);
 
     if (
-      disabledDates.includes(
-        dateStr
-      )
+      disabledDates.includes(dateStr)
     ) {
-      setSelectedDate(
-        null
-      );
-      setSelectedTime(
-        null
-      );
+      setSelectedDate(null);
+      setSelectedTime(null);
     }
   }, [
     disabledDates,
@@ -401,101 +387,110 @@ export default function BookingScreen() {
     setSelectedTime,
   ]);
 
-  const handleConfirmPress =
-    () => {
-      const validation =
-        validateBooking();
+  /*
+   * Validate before opening
+   * the booking confirmation modal.
+   */
+  const handleConfirmPress = () => {
+    const validation =
+      validateBooking();
 
-      if (
-        !validation.valid
-      ) {
-        setAvailabilityModal({
-          visible: true,
-          available: false,
-          message:
-            validation.message,
-        });
+    if (!validation.valid) {
+      setAvailabilityModal({
+        visible: true,
+        available: false,
+        message: validation.message,
+      });
 
-        return;
-      }
+      return;
+    }
 
-      setConfirmationVisible(
-        true
+    setConfirmationVisible(true);
+  };
+
+  /*
+   * Final booking confirmation.
+   */
+  const handleFinalConfirmation = async () => {
+    const result = await handleBook();
+
+    if (result?.duplicate) {
+      setConfirmationVisible(false);
+
+      setDoubleBookingConflict(
+        result.conflict || null,
       );
-    };
 
-  const handleFinalConfirmation =
-    async () => {
-      const result =
-        await handleBook();
+      return;
+    }
 
-      if (result?.duplicate) {
-        setConfirmationVisible(false);
-        setDoubleBookingConflict(result.conflict || null);
-        return;
-      }
+    if (!result?.success) {
+      return;
+    }
+
+    setConfirmationVisible(false);
+
+    if (result.appointmentId) {
+      router.replace(
+        `/tracking?appointmentId=${result.appointmentId}`,
+      );
+
+      return;
+    }
+
+    Alert.alert(
+      'Booking Successful',
+      'Your appointment was created, but the tracking number could not be opened automatically.',
+    );
+
+    router.replace('/appointments');
+  };
+
+  /*
+   * Merge services into an existing
+   * appointment when permitted.
+   */
+  const handleMergeDoubleBooking = async () => {
+    if (
+      !doubleBookingConflict
+        ?.existingAppointment?.id
+    ) {
+      return;
+    }
+
+    setMergingDoubleBooking(true);
+
+    try {
+      const result = await handleBook({
+        duplicateAction: 'MERGE_SERVICES',
+        existingAppointmentId:
+          doubleBookingConflict
+            .existingAppointment.id,
+      });
 
       if (!result?.success) {
         return;
       }
 
-      setConfirmationVisible(false);
+      setDoubleBookingConflict(null);
 
       if (result.appointmentId) {
         router.replace(
-          `/tracking?appointmentId=${result.appointmentId}`
+          `/tracking?appointmentId=${result.appointmentId}`,
         );
 
         return;
       }
 
-      Alert.alert(
-        'Booking Successful',
-        'Your appointment was created, but the tracking number could not be opened automatically.'
-      );
+      router.replace('/appointments');
+    } finally {
+      setMergingDoubleBooking(false);
+    }
+  };
 
-      router.replace(
-        '/appointments'
-      );
-    };
-
-  const handleMergeDoubleBooking =
-    async () => {
-      if (
-        !doubleBookingConflict?.existingAppointment?.id
-      ) {
-        return;
-      }
-
-      setMergingDoubleBooking(true);
-
-      try {
-        const result = await handleBook({
-          duplicateAction: 'MERGE_SERVICES',
-          existingAppointmentId:
-            doubleBookingConflict.existingAppointment.id,
-        });
-
-        if (!result?.success) {
-          return;
-        }
-
-        setDoubleBookingConflict(null);
-
-        if (result.appointmentId) {
-          router.replace(
-            `/tracking?appointmentId=${result.appointmentId}`
-          );
-
-          return;
-        }
-
-        router.replace('/appointments');
-      } finally {
-        setMergingDoubleBooking(false);
-      }
-    };
-
+  /*
+   * Loading state.
+   */
   if (loading) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-background">
@@ -510,100 +505,92 @@ export default function BookingScreen() {
   return (
     <SafeAreaView
       className="flex-1 bg-background"
-      edges={[
-        'top',
-      ]}
+      edges={['top']}
     >
+      {/* Booking header */}
       <BookingHeader />
 
+      {/*
+       * Parent booking screen scroll.
+       *
+       * nestedScrollEnabled allows the Services
+       * and Vehicle pickers to scroll independently,
+       * especially on Android.
+       *
+       * The overall screen still scrolls for
+       * appointments, notes, and scheduling.
+       */}
       <ScrollView
         className="flex-1"
-        showsVerticalScrollIndicator={
-          false
-        }
+        nestedScrollEnabled={true}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           paddingBottom:
-            insets.bottom +
-            120,
+            insets.bottom + 120,
         }}
       >
         <View className="px-4">
+          {/* Active appointments */}
           <ActiveAppointments
-            appointments={
-              appointments
-            }
-            onCancel={
-              handleCancelAppointment
-            }
+            appointments={appointments}
+            onCancel={handleCancelAppointment}
           />
 
-          {/* Service type tabs are inside ServiceSelector */}
+          {/*
+           * Independently scrollable
+           * Service Selector.
+           *
+           * Filter tabs remain above the
+           * bounded service list.
+           */}
           <ServiceSelector
-            services={
-              services
-            }
+            services={services}
             selectedServices={selectedServices}
             onSelect={toggleService}
           />
 
+          {/*
+           * Independently scrollable
+           * Vehicle Selector.
+           */}
           <VehicleSelector
-            vehicles={
-              vehicles
-            }
-            selectedVehicle={
-              selectedVehicle
-            }
-            onSelect={
-              setSelectedVehicle
-            }
+            vehicles={vehicles}
+            selectedVehicle={selectedVehicle}
+            onSelect={setSelectedVehicle}
           />
 
+          {/* Booking notes */}
           <NotesInput
             value={notes}
-            onChange={
-              setNotes
-            }
+            onChange={setNotes}
           />
 
+          {/* Booking schedule */}
           <SchedulePicker
-            selectedDate={
-              selectedDate
-            }
+            selectedDate={selectedDate}
             selectedServices={selectedServices}
-            selectedTime={
-              selectedTime
-            }
-            availableSlots={
-              availableSlots
-            }
-            slotsLoading={
-              slotsLoading
-            }
+            selectedTime={selectedTime}
+            availableSlots={availableSlots}
+            slotsLoading={slotsLoading}
             onSelectDate={() =>
-              setDatePickerVisible(
-                true
-              )
+              setDatePickerVisible(true)
             }
-            onSelectTime={
-              setSelectedTime
-            }
+            onSelectTime={setSelectedTime}
           />
         </View>
       </ScrollView>
 
-      {/* Bottom CTA */}
+      {/* Fixed bottom booking button */}
       <View
         className="absolute bottom-0 left-0 right-0 border-t border-border/40 bg-white/90 px-4 pt-3 shadow-lg"
         style={{
           paddingBottom:
-            insets.bottom +
-            12,
+            insets.bottom + 12,
         }}
       >
         <ConfirmButton
-          onPress={
-            handleConfirmPress
-          }
+          onPress={handleConfirmPress}
           disabled={
             submitting ||
             selectedServices.length === 0 ||
@@ -612,69 +599,44 @@ export default function BookingScreen() {
             !selectedTime ||
             slotsLoading
           }
-          loading={
-            submitting
-          }
+          loading={submitting}
         />
       </View>
 
-      {/* Date picker */}
+      {/* Date picker modal */}
       <CalendarModal
-        visible={
-          isDatePickerVisible
-        }
+        visible={isDatePickerVisible}
         onClose={() =>
-          setDatePickerVisible(
-            false
-          )
+          setDatePickerVisible(false)
         }
-        onDayPress={
-          handleDayPress
-        }
-        markedDates={
-          markedDates
-        }
-        disabledDates={
-          disabledDates
-        }
+        onDayPress={handleDayPress}
+        markedDates={markedDates}
+        disabledDates={disabledDates}
         primaryColor="#C1272D"
       />
 
       {/* Detailed booking confirmation */}
       <BookingSummaryModal
-        visible={
-          confirmationVisible
-        }
+        visible={confirmationVisible}
         onClose={() => {
           if (!submitting) {
-            setConfirmationVisible(
-              false
-            );
+            setConfirmationVisible(false);
           }
         }}
-        onConfirm={
-          handleFinalConfirmation
-        }
-        submitting={
-          submitting
-        }
+        onConfirm={handleFinalConfirmation}
+        submitting={submitting}
         services={selectedServices}
-        vehicle={
-          selectedVehicle
-        }
-        date={
-          selectedDate
-        }
-        time={
-          selectedTime
-        }
+        vehicle={selectedVehicle}
+        date={selectedDate}
+        time={selectedTime}
         notes={notes}
       />
 
-
-      {/* Double booking resolution */}
+      {/* Double-booking resolution */}
       <DoubleBookingModal
-        visible={Boolean(doubleBookingConflict)}
+        visible={Boolean(
+          doubleBookingConflict,
+        )}
         conflict={doubleBookingConflict}
         merging={mergingDoubleBooking}
         onClose={() => {
@@ -685,17 +647,11 @@ export default function BookingScreen() {
         onMerge={handleMergeDoubleBooking}
       />
 
-      {/* Availability errors */}
+      {/* Availability error modal */}
       <AvailabilityModal
-        visible={
-          availabilityModal.visible
-        }
-        available={
-          availabilityModal.available
-        }
-        message={
-          availabilityModal.message
-        }
+        visible={availabilityModal.visible}
+        available={availabilityModal.available}
+        message={availabilityModal.message}
         onClose={() =>
           setAvailabilityModal({
             ...availabilityModal,
@@ -706,4 +662,3 @@ export default function BookingScreen() {
     </SafeAreaView>
   );
 }
-

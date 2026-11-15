@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+
+import React, { useMemo, useRef, useState } from 'react';
 
 import {
   View,
@@ -20,6 +21,10 @@ const SERVICE_TYPE_LABELS = {
   REPAIR: 'Repair',
   DIAGNOSTIC: 'Diagnostic',
 };
+
+// Maximum heights for independent scrolling containers.
+const SERVICE_LIST_MAX_HEIGHT = 320;
+const SELECTED_SERVICES_MAX_HEIGHT = 144;
 
 function formatServiceDuration(minutes) {
   const totalMinutes = Number(minutes) || 0;
@@ -51,7 +56,7 @@ export default function ServiceSelector({
   selectedService,
   onSelect,
 }) {
-  // Accept the original single-service prop for older consumers.
+  // Maintain compatibility with single-service consumers.
   const selected = Array.isArray(selectedServices)
     ? selectedServices
     : selectedService
@@ -61,47 +66,106 @@ export default function ServiceSelector({
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [subcategoryFilter, setSubcategoryFilter] = useState('ALL');
 
-  const types = useMemo(() => [
-    'ALL',
-    ...Array.from(new Set(services.map((service) => service?.type).filter(Boolean))),
-  ], [services]);
+  // Reference used to reset the independent service list scroll.
+  const serviceListRef = useRef(null);
 
-  const repairCategories = useMemo(() => [
-    ...new Set(
-      services
-        .filter((service) => service?.type === 'REPAIR')
-        .map((service) => service.subcategory)
-        .filter(Boolean),
-    ),
-  ], [services]);
+  const types = useMemo(
+    () => [
+      'ALL',
+      ...Array.from(
+        new Set(
+          services
+            .map((service) => service?.type)
+            .filter(Boolean),
+        ),
+      ),
+    ],
+    [services],
+  );
 
-  const visibleServices = useMemo(() => services.filter((service) => {
-    if (typeFilter !== 'ALL' && service?.type !== typeFilter) return false;
-    if (
-      typeFilter === 'REPAIR' &&
-      subcategoryFilter !== 'ALL' &&
-      service?.subcategory !== subcategoryFilter
-    ) return false;
-    return true;
-  }), [services, typeFilter, subcategoryFilter]);
+  const repairCategories = useMemo(
+    () => [
+      ...new Set(
+        services
+          .filter((service) => service?.type === 'REPAIR')
+          .map((service) => service.subcategory)
+          .filter(Boolean),
+      ),
+    ],
+    [services],
+  );
+
+  const visibleServices = useMemo(
+    () =>
+      services.filter((service) => {
+        if (
+          typeFilter !== 'ALL' &&
+          service?.type !== typeFilter
+        ) {
+          return false;
+        }
+
+        if (
+          typeFilter === 'REPAIR' &&
+          subcategoryFilter !== 'ALL' &&
+          service?.subcategory !== subcategoryFilter
+        ) {
+          return false;
+        }
+
+        return true;
+      }),
+    [services, typeFilter, subcategoryFilter],
+  );
 
   const selectedIds = useMemo(
-    () => new Set(selected.map((service) => String(service?.id))),
+    () =>
+      new Set(
+        selected.map((service) => String(service?.id)),
+      ),
     [selected],
   );
 
   const selectedTotal = selected.reduce(
-    (sum, service) => sum + (Number(service?.basePrice) || 0),
+    (sum, service) =>
+      sum + (Number(service?.basePrice) || 0),
     0,
   );
 
   const selectedDuration = selected.reduce(
-    (sum, service) => sum + (Number(service?.durationMinutes ?? service?.estimatedDuration) || 0),
+    (sum, service) =>
+      sum +
+      (Number(
+        service?.durationMinutes ??
+        service?.estimatedDuration,
+      ) || 0),
     0,
   );
 
+  // Change type while keeping selected services intact.
+  const handleTypeChange = (type) => {
+    setTypeFilter(type);
+    setSubcategoryFilter('ALL');
+
+    // Show the first service when changing categories.
+    serviceListRef.current?.scrollTo({
+      y: 0,
+      animated: false,
+    });
+  };
+
+  const handleSubcategoryChange = (category) => {
+    setSubcategoryFilter(category);
+
+    serviceListRef.current?.scrollTo({
+      y: 0,
+      animated: false,
+    });
+  };
+
   return (
     <View className="mb-6">
+      {/* Section header */}
       <View className="mb-3 flex-row items-center px-1">
         <View className="mr-2 h-7 w-7 items-center justify-center rounded-full bg-primary/10">
           <Wrench size={14} color="#C1272D" />
@@ -122,98 +186,134 @@ export default function ServiceSelector({
         Choose one or more services. Tap a checked service again to remove it.
       </Text>
 
-      {/* Service type tabs. Switching tabs never clears the selection. */}
+      {/* Horizontal service type filters */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerClassName="pb-3"
+        keyboardShouldPersistTaps="handled"
       >
         {types.map((type) => {
           const isActive = type === typeFilter;
+
           return (
             <TouchableOpacity
               key={type}
               activeOpacity={0.75}
-              onPress={() => {
-                setTypeFilter(type);
-                setSubcategoryFilter('ALL');
-              }}
+              onPress={() => handleTypeChange(type)}
               className={`mr-2 min-h-[44px] items-center justify-center rounded-full border px-5 ${
-                isActive ? 'border-primary bg-primary' : 'border-border bg-card'
+                isActive
+                  ? 'border-primary bg-primary'
+                  : 'border-border bg-card'
               }`}
             >
-              <Text className={`text-sm font-semibold ${
-                isActive ? 'text-white' : 'text-foreground'
-              }`}>
-                {type === 'ALL' ? 'All Services' : SERVICE_TYPE_LABELS[type] || type}
+              <Text
+                className={`text-sm font-semibold ${
+                  isActive
+                    ? 'text-white'
+                    : 'text-foreground'
+                }`}
+              >
+                {type === 'ALL'
+                  ? 'All Services'
+                  : SERVICE_TYPE_LABELS[type] || type}
               </Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
-      {typeFilter === 'REPAIR' && repairCategories.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="mb-3"
-        >
-          {['ALL', ...repairCategories].map((category) => (
-            <TouchableOpacity
-              key={category}
-              onPress={() => setSubcategoryFilter(category)}
-              className={`mr-2 min-h-[40px] justify-center rounded-full border px-3 py-2 ${
-                subcategoryFilter === category
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border bg-card'
-              }`}
-            >
-              <Text className="text-xs font-semibold text-foreground">
-                {category === 'ALL' ? 'All Repairs' : category}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      )}
+      {/* Repair subcategory filters */}
+      {typeFilter === 'REPAIR' &&
+        repairCategories.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="mb-3"
+            keyboardShouldPersistTaps="handled"
+          >
+            {['ALL', ...repairCategories].map((category) => {
+              const isActive =
+                subcategoryFilter === category;
 
-      {/* Selected services remain visible even after switching categories. */}
+              return (
+                <TouchableOpacity
+                  key={category}
+                  activeOpacity={0.75}
+                  onPress={() =>
+                    handleSubcategoryChange(category)
+                  }
+                  className={`mr-2 min-h-[40px] justify-center rounded-full border px-3 py-2 ${
+                    isActive
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border bg-card'
+                  }`}
+                >
+                  <Text className="text-xs font-semibold text-foreground">
+                    {category === 'ALL'
+                      ? 'All Repairs'
+                      : category}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+
+      {/* Selected services summary */}
       {selected.length > 0 && (
         <View className="mb-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
           <View className="flex-row items-center justify-between">
             <View className="flex-row items-center">
               <CheckSquare2 size={16} color="#C1272D" />
+
               <Text className="ml-2 text-sm font-semibold text-foreground">
                 Your Selected Services
               </Text>
             </View>
+
             <Text className="text-sm font-bold text-primary">
               {formatPrice(selectedTotal)}
             </Text>
           </View>
 
-          {selected.map((service) => (
-            <TouchableOpacity
-              key={String(service.id)}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: true }}
-              activeOpacity={0.7}
-              onPress={() => onSelect(service)}
-              className="mt-2 flex-row items-center rounded-lg bg-card px-3 py-2"
-            >
-              <Check size={16} color="#C1272D" />
-              <Text className="ml-2 flex-1 text-sm font-medium text-foreground">
-                {service.name}
-              </Text>
-              <Text className="text-xs font-semibold text-primary">
-                Remove
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {/* Independent scrolling for selected items */}
+          <ScrollView
+            nestedScrollEnabled={true}
+            showsVerticalScrollIndicator={true}
+            keyboardShouldPersistTaps="handled"
+            style={{
+              maxHeight: SELECTED_SERVICES_MAX_HEIGHT,
+            }}
+          >
+            {selected.map((service) => (
+              <TouchableOpacity
+                key={String(service.id)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: true }}
+                activeOpacity={0.7}
+                onPress={() => onSelect(service)}
+                className="mt-2 flex-row items-center rounded-lg bg-card px-3 py-2"
+              >
+                <Check size={16} color="#C1272D" />
 
+                <Text className="ml-2 flex-1 text-sm font-medium text-foreground">
+                  {service.name}
+                </Text>
+
+                <Text className="text-xs font-semibold text-primary">
+                  Remove
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Always-visible selected duration */}
           <View className="mt-3 flex-row items-center justify-between border-t border-primary/10 pt-2">
             <Text className="text-xs text-muted-foreground">
               Estimated combined work duration
             </Text>
+
             <Text className="text-xs font-semibold text-foreground">
               {formatServiceDuration(selectedDuration)}
             </Text>
@@ -221,73 +321,118 @@ export default function ServiceSelector({
         </View>
       )}
 
-      <View className="overflow-hidden rounded-xl bg-card">
+      {/* Independent scroll container for available services */}
+      <View className="overflow-hidden rounded-xl border border-border bg-card">
         {visibleServices.length === 0 ? (
           <Text className="px-4 py-5 text-center text-sm text-muted-foreground">
             No services found in this category.
           </Text>
-        ) : visibleServices.map((service, index) => {
-          const isSelected = selectedIds.has(String(service.id));
-          const disabled = service.active === false;
-          const isLast = index === visibleServices.length - 1;
+        ) : (
+          <ScrollView
+            ref={serviceListRef}
+            nestedScrollEnabled={true}
+            showsVerticalScrollIndicator={true}
+            keyboardShouldPersistTaps="handled"
+            directionalLockEnabled={true}
+            style={{
+              maxHeight: SERVICE_LIST_MAX_HEIGHT,
+            }}
+          >
+            {visibleServices.map((service, index) => {
+              const isSelected = selectedIds.has(
+                String(service.id),
+              );
 
-          return (
-            <View key={String(service.id)}>
-              <TouchableOpacity
-                accessibilityRole="checkbox"
-                accessibilityLabel={service.name}
-                accessibilityState={{ checked: isSelected, disabled }}
-                activeOpacity={disabled ? 1 : 0.6}
-                disabled={disabled}
-                onPress={() => onSelect(service)}
-                className={`min-h-[64px] flex-row items-center px-4 py-4 ${
-                  isSelected ? 'bg-primary/5' : ''
-                } ${disabled ? 'opacity-50' : ''}`}
-              >
-                <View className="mr-3">
-                  {isSelected ? (
-                    <CheckSquare2 size={22} color="#C1272D" />
-                  ) : (
-                    <Square size={22} color="#8E8E93" />
+              const disabled = service.active === false;
+
+              const isLast =
+                index === visibleServices.length - 1;
+
+              return (
+                <View key={String(service.id)}>
+                  <TouchableOpacity
+                    accessibilityRole="checkbox"
+                    accessibilityLabel={service.name}
+                    accessibilityState={{
+                      checked: isSelected,
+                      disabled,
+                    }}
+                    activeOpacity={disabled ? 1 : 0.6}
+                    disabled={disabled}
+                    onPress={() => onSelect(service)}
+                    className={`min-h-[64px] flex-row items-center px-4 py-4 ${
+                      isSelected ? 'bg-primary/5' : ''
+                    } ${disabled ? 'opacity-50' : ''}`}
+                  >
+                    {/* Checkbox */}
+                    <View className="mr-3">
+                      {isSelected ? (
+                        <CheckSquare2
+                          size={22}
+                          color="#C1272D"
+                        />
+                      ) : (
+                        <Square
+                          size={22}
+                          color="#8E8E93"
+                        />
+                      )}
+                    </View>
+
+                    {/* Service information */}
+                    <View className="mr-3 min-w-0 flex-1">
+                      <Text className="text-base font-medium text-foreground">
+                        {service.name}
+                      </Text>
+
+                      <View className="mt-1 flex-row items-center">
+                        <Clock3 size={12} color="#8E8E93" />
+
+                        <Text className="ml-1 text-sm text-muted-foreground">
+                          {formatServiceDuration(
+                            service.durationMinutes ??
+                            service.estimatedDuration,
+                          )}
+                        </Text>
+                      </View>
+
+                      <Text className="mt-1 text-xs text-muted-foreground">
+                        {service.isLaborInclude
+                          ? 'Labor included'
+                          : 'Labor not included'}
+                      </Text>
+
+                      {!!service.type && (
+                        <Text className="mt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          {SERVICE_TYPE_LABELS[service.type] ||
+                            service.type}
+                          {service.subcategory
+                            ? ` • ${service.subcategory}`
+                            : ''}
+                        </Text>
+                      )}
+
+                      {disabled && (
+                        <Text className="mt-1 text-xs text-primary">
+                          Unavailable
+                        </Text>
+                      )}
+                    </View>
+
+                    {/* Service price */}
+                    <Text className="text-sm font-semibold text-primary">
+                      {formatPrice(service.basePrice)}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {!isLast && (
+                    <View className="ml-4 h-px bg-border" />
                   )}
                 </View>
-
-                <View className="mr-3 min-w-0 flex-1">
-                  <Text className="text-base font-medium text-foreground">
-                    {service.name}
-                  </Text>
-
-                  <View className="mt-1 flex-row items-center">
-                    <Clock3 size={12} color="#8E8E93" />
-                    <Text className="ml-1 text-sm text-muted-foreground">
-                      {formatServiceDuration(service.durationMinutes ?? service.estimatedDuration)}
-                    </Text>
-                  </View>
-
-                  <Text className="mt-1 text-xs text-muted-foreground">
-                    {service.isLaborInclude ? 'Labor included' : 'Labor not included'}
-                  </Text>
-
-                  {!!service.type && (
-                    <Text className="mt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      {SERVICE_TYPE_LABELS[service.type] || service.type}
-                      {service.subcategory ? ` • ${service.subcategory}` : ''}
-                    </Text>
-                  )}
-
-                  {disabled && (
-                    <Text className="mt-1 text-xs text-primary">Unavailable</Text>
-                  )}
-                </View>
-
-                <Text className="text-sm font-semibold text-primary">
-                  {formatPrice(service.basePrice)}
-                </Text>
-              </TouchableOpacity>
-              {!isLast && <View className="ml-4 h-px bg-border" />}
-            </View>
-          );
-        })}
+              );
+            })}
+          </ScrollView>
+        )}
       </View>
     </View>
   );

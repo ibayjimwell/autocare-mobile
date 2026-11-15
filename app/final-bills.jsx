@@ -7,9 +7,9 @@ import { useTheme } from '../context/ThemeContext';
 import { useBillingData } from '../hooks/useBillingData';
 import FinalBillCard from '../components/billing/FinalBillCard';
 
-const statusTabs = ['ALL', 'OFFICIAL', 'PENDING', 'PARKED', 'HOLD'];
-const statusLabels = { ALL: 'All unpaid', OFFICIAL: 'Official', PENDING: 'Pending', PARKED: 'Parked', HOLD: 'On Hold' };
-const priority = { OFFICIAL: 0, PENDING: 1, PARKED: 2, HOLD: 2, PAID: 3 };
+const statusTabs = ['ALL', 'OFFICIAL'];
+const statusLabels = { ALL: 'All unpaid', OFFICIAL: 'Official' };
+const priority = { OFFICIAL: 0, PAID: 1 };
 
 export default function AllFinalBillsScreen() {
   const router = useRouter();
@@ -22,6 +22,7 @@ export default function AllFinalBillsScreen() {
   const { unpaid, paid } = useMemo(() => {
     const text = search.trim().toLowerCase();
     const matches = [...finalBills].filter(bill => {
+      if (!['OFFICIAL','PAID'].includes(String(bill.status).toUpperCase())) return false;
       if (!text) return true;
       return [bill.id, bill.appointment?.trackingNumber,
         bill.appointment?.vehicle?.make, bill.appointment?.vehicle?.model,
@@ -34,7 +35,7 @@ export default function AllFinalBillsScreen() {
       return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
     });
     return {
-      unpaid: matches.filter(b => b.status !== 'PAID' && (activeTab === 'ALL' || b.status === activeTab)),
+      unpaid: matches.filter(b => b.status === 'OFFICIAL' && (activeTab === 'ALL' || b.status === activeTab)),
       paid: matches.filter(b => b.status === 'PAID'),
     };
   }, [finalBills, activeTab, search]);

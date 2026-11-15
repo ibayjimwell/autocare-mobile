@@ -146,6 +146,11 @@ export function useBillingData() {
     }, [fetchData]),
   );
 
+  // The Estimate view must also refresh when staff park, unpark or approve.
+  useRealtimeTable('estimated_costs', undefined, useCallback(() => {
+    void fetchData();
+  }, [fetchData]));
+
   /*
    * ================================================================
    * SCREEN FOCUS

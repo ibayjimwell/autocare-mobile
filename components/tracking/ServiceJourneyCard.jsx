@@ -14,17 +14,18 @@ import {
 import { useIsFocused } from '@react-navigation/native';
 import { useFocusEffect } from 'expo-router';
 import {
-  AlertTriangle,
   CheckCircle2,
-  Clock3,
   RefreshCw,
   ShieldCheck,
 } from 'lucide-react-native';
 
 import { useRealtimeTable } from '../../connections/useRealtimeTable';
 import api from '../../services/api';
+import ServiceStatusCard from './ServiceStatusCard';
 
-const POLL_INTERVAL_MS = 30_000;
+// Supabase changes provide immediate refresh when permitted by RLS.
+// Authenticated API polling is the fallback for custom-JWT customer sessions.
+const POLL_INTERVAL_MS = 10_000;
 const REALTIME_DEBOUNCE_MS = 250;
 
 function isAppActive() {
@@ -132,7 +133,6 @@ export default function ServiceJourneyCard({ appointmentId }) {
   useRealtimeTable(listen ? 'inspection_tasks' : null, relatedFilter, onRealtimeChange);
   useRealtimeTable(listen ? 'work_tasks' : null, relatedFilter, onRealtimeChange);
   useRealtimeTable(listen ? 'service_queue' : null, relatedFilter, onRealtimeChange);
-  useRealtimeTable(listen ? 'service_delays' : null, relatedFilter, onRealtimeChange);
   useRealtimeTable(listen ? 'service_warranties' : null, relatedFilter, onRealtimeChange);
 
   useFocusEffect(useCallback(() => {
@@ -167,11 +167,11 @@ export default function ServiceJourneyCard({ appointmentId }) {
   const isWork = data?.status === 'IN_PROGRESS';
   const isInspection = data?.status === 'UNDER_INSPECTION';
   const activeTasks = isWork ? data?.work : data?.inspection;
-  const expectedReady = formatPHDate(data?.delay?.expectedReadyAt, true);
   const warrantyExpiry = formatPHDate(data?.warranty?.expiresAt);
 
   return (
-    <View className="mb-5 rounded-2xl border border-border bg-card p-4">
+    <View className="mb-5">
+      <View className="rounded-2xl border border-border bg-card p-4">
       <View className="mb-3 flex-row items-center justify-between">
         <Text className="flex-1 text-lg font-bold text-foreground">
           Live Service Journey
@@ -280,34 +280,6 @@ export default function ServiceJourneyCard({ appointmentId }) {
             </View>
           ) : null}
 
-          <View className="mt-3 flex-row items-center">
-            <Clock3 size={16} color={data.delay ? '#B45309' : '#15803D'} />
-            <Text className="ml-2 flex-1 text-xs text-muted-foreground">
-              {data.delay
-                ? 'Delay reported by workshop'
-                : 'No delay reported — timing subject to inspection'}
-            </Text>
-          </View>
-
-          {data.delay ? (
-            <View className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
-              <View className="flex-row items-center">
-                <AlertTriangle size={17} color="#B45309" />
-                <Text className="ml-2 text-sm font-bold text-amber-900">
-                  Service delayed
-                </Text>
-              </View>
-              <Text className="mt-1 text-xs text-amber-900">
-                {data.delay.reason}
-              </Text>
-              {expectedReady ? (
-                <Text className="mt-1 text-xs text-amber-800">
-                  Expected ready: {expectedReady}
-                </Text>
-              ) : null}
-            </View>
-          ) : null}
-
           {data.warranty ? (
             <View className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
               <View className="flex-row items-center">
@@ -331,6 +303,17 @@ export default function ServiceJourneyCard({ appointmentId }) {
           ) : null}
         </>
       )}
+      </View>
+
+      {/* A separate customer-facing card, independent of the journey panel.
+          The authenticated API remains the source of truth and is refreshed
+          on Realtime events and every ten seconds while Tracking is open. */}
+      {data && (isWork || isInspection) ? (
+        <ServiceStatusCard
+          appointmentStatus={data.status}
+          delayIndicator={data.delayIndicator}
+        />
+      ) : null}
     </View>
   );
 }

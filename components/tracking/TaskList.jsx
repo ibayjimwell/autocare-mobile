@@ -20,6 +20,7 @@ import {
 import OverallProgressBar from './OverallProgressBar';
 import TaskProgressBar from './TaskProgressBar';
 import { formatDuration } from '../../utils/format';
+import { getCompletedTaskIndicator } from '../../utils/taskTiming';
 
 const STATUS = {
   PENDING: {
@@ -101,6 +102,9 @@ function TaskItem({ task, order, isWaitingForApproval, excludedFindingIds, onTog
     ? findings.filter((finding) => !excludedFindingIds.includes(finding.id))
     : findings;
   const duration = Number(task?.durationMinutes) || 0;
+  const extensionMinutes = Math.max(0, Number(task?.extensionMinutes) || 0);
+  const taskOutcome = getCompletedTaskIndicator(task);
+
   const productsPrice = (price) => {
     const numeric = Number(price);
     return Number.isFinite(numeric)
@@ -139,7 +143,23 @@ function TaskItem({ task, order, isWaitingForApproval, excludedFindingIds, onTog
                 <View className="flex-row items-center rounded-full bg-secondary px-2.5 py-1">
                   <Clock3 size={12} color="#71717A" />
                   <Text className="ml-1 text-[11px] font-medium text-muted-foreground">
-                    {formatDuration(duration)}
+                    {formatDuration(duration + extensionMinutes)}
+                  </Text>
+                </View>
+              )}
+              {taskOutcome && (
+                <View
+                  className="rounded-full border px-2.5 py-1"
+                  style={{
+                    borderColor: taskOutcome === 'EARLY' ? '#86EFAC' : '#FCD34D',
+                    backgroundColor: taskOutcome === 'EARLY' ? '#F0FDF4' : '#FFFBEB',
+                  }}
+                >
+                  <Text
+                    className="text-[11px] font-semibold"
+                    style={{ color: taskOutcome === 'EARLY' ? '#15803D' : '#92400E' }}
+                  >
+                    {taskOutcome === 'EARLY' ? 'Finished Early' : 'Delayed'}
                   </Text>
                 </View>
               )}

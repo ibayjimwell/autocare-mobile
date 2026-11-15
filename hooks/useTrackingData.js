@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import appointmentsApi from '../services/appointmentsApi';
@@ -307,6 +308,26 @@ export function useTrackingData(appointmentId) {
       setLoading(true);
       refreshAll().finally(() => setLoading(false));
     }, [refreshAll]),
+  );
+
+  // Customer JWT sessions may not receive Supabase postgres_changes events.
+  // While this tracking screen is focused, refresh the EXISTING task list
+  // independently every 10 seconds, including extensionMinutes/completedAt.
+  useFocusEffect(
+    useCallback(() => {
+      const status = appointment?.status;
+      if (!['UNDER_INSPECTION', 'IN_PROGRESS'].includes(status)) return undefined;
+      const timer = setInterval(() => {
+        if (AppState.currentState === 'active') void fetchTasks(status);
+      }, 10_000);
+      const appStateSubscription = AppState.addEventListener('change', (state) => {
+        if (state === 'active') void fetchTasks(status);
+      });
+      return () => {
+        clearInterval(timer);
+        appStateSubscription.remove();
+      };
+    }, [appointment?.status, fetchTasks]),
   );
 
   /* ==============================================================

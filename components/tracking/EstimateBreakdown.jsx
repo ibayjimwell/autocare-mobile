@@ -1,3 +1,4 @@
+import WarrantyDetails from '../billing/WarrantyDetails';
 import CustomerDiagnosticChecklist from '../billing/CustomerDiagnosticChecklist';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import {
@@ -407,6 +408,8 @@ export default function EstimateBreakdown({
           </View>
         </View>
       )}
+
+      <WarrantyDetails warranties={estimate?.warranties} />
 
       <CustomerDiagnosticChecklist appointmentId={estimate?.appointmentId || estimate?.appointment?.id} />
 

@@ -1,3 +1,4 @@
+import WarrantyDetails from './WarrantyDetails';
 import CustomerDiagnosticChecklist from './CustomerDiagnosticChecklist';
 import { View, Text } from 'react-native';
 
@@ -505,6 +506,8 @@ export default function FinalBillBreakdown({ finalBill }) {
           </View>
         </View>
       )}
+
+      <WarrantyDetails warranties={finalBill?.warranties} />
 
       <CustomerDiagnosticChecklist appointmentId={finalBill?.appointmentId || finalBill?.appointment?.id} />
 

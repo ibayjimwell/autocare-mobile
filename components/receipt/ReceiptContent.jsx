@@ -1,3 +1,4 @@
+import WarrantyDetails from '../billing/WarrantyDetails';
 // components/receipt/ReceiptContent.jsx
 import React from 'react';
 import { View, Text, ScrollView } from 'react-native';
@@ -225,6 +226,9 @@ export default function ReceiptContent({ receipt }) {
             </View>
           </View>
         )}
+
+        {/* Immutable warranty terms attached when the receipt was created */}
+        <WarrantyDetails warranties={details?.warranties} compact />
 
         {/* Total */}
         <View style={{ borderTopWidth: 1, borderStyle: 'dashed', borderColor: theme.border, paddingTop: 16, marginTop: 8 }}>
